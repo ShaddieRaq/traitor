@@ -98,14 +98,14 @@ def cleanup_old_data(days_to_keep: int = 30):
             MarketData.timestamp < cutoff_date
         ).delete()
         
-        # Delete old signal results
-        from ..models.models import SignalResult
-        deleted_signals = db.query(SignalResult).filter(
-            SignalResult.timestamp < cutoff_date
+        # Delete old bot signal history
+        from ..models.models import BotSignalHistory
+        deleted_signals = db.query(BotSignalHistory).filter(
+            BotSignalHistory.timestamp < cutoff_date
         ).delete()
         
         db.commit()
-        logger.info(f"Cleaned up {deleted_market} market data records and {deleted_signals} signal results")
+        logger.info(f"Cleaned up {deleted_market} market data records and {deleted_signals} bot signal history records")
         
     except Exception as e:
         logger.error(f"Error in cleanup task: {e}")

@@ -1,130 +1,79 @@
 from typing import List
 import logging
-from sqlalchemy.orm import Session
 from ..core.database import SessionLocal
-from ..models.models import Signal, MarketData, SignalResult
-from ..services.signals import RSISignal, MovingAverageSignal
+from ..models.models import Bot, MarketData
 from ..services.coinbase_service import coinbase_service
 from .celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 
 
-@celery_app.task
-def evaluate_signals_task(product_ids: List[str] = None):
-    """Evaluate all enabled signals for given products."""
-    if product_ids is None:
-        product_ids = ["BTC-USD", "ETH-USD"]  # Default products
+@celery_app.task(name="evaluate_bot_signals")
+def evaluate_bot_signals():
+    """
+    Evaluate trading signals for all active bots.
+    TODO: Implement in Phase 2 - Bot Signal Evaluation Engine.
+    """
+    logger.info("Bot signal evaluation task triggered - not yet implemented")
     
-    db = SessionLocal()
     try:
-        # Get enabled signals
-        enabled_signals = db.query(Signal).filter(Signal.enabled == True).all()
+        db = SessionLocal()
+        try:
+            # Get all active bots
+            active_bots = db.query(Bot).filter(Bot.active == True).all()
+            logger.info(f"Found {len(active_bots)} active bots - signal evaluation pending Phase 2 implementation")
+            
+            return {
+                "status": "pending_implementation", 
+                "active_bots": len(active_bots),
+                "message": "Bot signal evaluation will be implemented in Phase 2"
+            }
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"Error in evaluate_bot_signals task: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
+
+@celery_app.task(name="fetch_market_data") 
+def fetch_market_data(product_id: str = "BTC-USD"):
+    """
+    Fetch and store market data for specified product.
+    """
+    try:
+        logger.info(f"Fetching market data for {product_id}")
         
-        for product_id in product_ids:
-            logger.info(f"Evaluating signals for {product_id}")
+        db = SessionLocal()
+        try:
+            # Get historical data from Coinbase
+            df = coinbase_service.get_historical_data(product_id, granularity=3600, limit=100)
             
-            # Get recent market data
-            market_data = db.query(MarketData).filter(
-                MarketData.product_id == product_id,
-                MarketData.timeframe == "1h"
-            ).order_by(MarketData.timestamp.desc()).limit(200).all()
-            
-            if not market_data:
-                logger.warning(f"No market data found for {product_id}")
-                continue
-            
-            # Convert to DataFrame
-            import pandas as pd
-            df_data = []
-            for data in reversed(market_data):  # Reverse to get chronological order
-                df_data.append({
-                    'timestamp': data.timestamp,
-                    'open': data.open_price,
-                    'high': data.high_price,
-                    'low': data.low_price,
-                    'close': data.close_price,
-                    'volume': data.volume
-                })
-            
-            df = pd.DataFrame(df_data)
             if df.empty:
-                continue
+                logger.warning(f"No market data received for {product_id}")
+                return {"status": "error", "message": "No data received"}
             
-            df.set_index('timestamp', inplace=True)
+            # Store market data (implementation depends on your MarketData model structure)
+            logger.info(f"Successfully fetched {len(df)} candles for {product_id}")
+            return {"status": "success", "candles": len(df)}
             
-            # Evaluate each signal
-            for signal_config in enabled_signals:
-                try:
-                    # Create signal instance based on name
-                    signal_instance = create_signal_instance(signal_config)
-                    if not signal_instance:
-                        continue
-                    
-                    # Calculate signal
-                    result = signal_instance.calculate(df)
-                    
-                    # Save result to database
-                    signal_result = SignalResult(
-                        signal_id=signal_config.id,
-                        product_id=product_id,
-                        timestamp=df.index[-1],
-                        score=result["score"],
-                        action=result["action"],
-                        confidence=result["confidence"],
-                        metadata=str(result["metadata"])
-                    )
-                    
-                    db.add(signal_result)
-                    
-                except Exception as e:
-                    logger.error(f"Error evaluating signal {signal_config.name}: {e}")
-        
-        db.commit()
-        logger.info("Signal evaluation completed")
-        
-    except Exception as e:
-        logger.error(f"Error in signal evaluation task: {e}")
-        db.rollback()
-    finally:
-        db.close()
-
-
-def create_signal_instance(signal_config: Signal):
-    """Create signal instance from database configuration."""
-    try:
-        import json
-        parameters = json.loads(signal_config.parameters) if signal_config.parameters else {}
-        
-        if signal_config.name == "RSI":
-            return RSISignal(weight=signal_config.weight, **parameters)
-        elif signal_config.name == "MA_Crossover":
-            return MovingAverageSignal(weight=signal_config.weight, **parameters)
-        else:
-            logger.warning(f"Unknown signal type: {signal_config.name}")
-            return None
+        finally:
+            db.close()
             
     except Exception as e:
-        logger.error(f"Error creating signal instance for {signal_config.name}: {e}")
-        return None
+        logger.error(f"Error fetching market data for {product_id}: {str(e)}")
+        return {"status": "error", "message": str(e)}
 
 
-@celery_app.task
-def process_trading_signals():
-    """Process aggregated signals and make trading decisions."""
-    db = SessionLocal()
-    try:
-        # This is where you would implement your trading logic
-        # For now, just log that we're processing signals
-        logger.info("Processing trading signals - implementation pending")
-        
-        # TODO: Implement trading logic based on signal aggregation
-        # 1. Get latest signal results for each product
-        # 2. Apply signal aggregation logic (voting, weighting, etc.)
-        # 3. Make trading decisions based on risk management rules
-        # 4. Execute trades via Coinbase API
-        
-    except Exception as e:
-        logger.error(f"Error in trading signal processing: {e}")
-    finally:
-        db.close()
+# Legacy task names for backward compatibility
+@celery_app.task(name="evaluate_signals")
+def evaluate_signals():
+    """Legacy task name - redirects to evaluate_bot_signals."""
+    return evaluate_bot_signals()
+
+
+@celery_app.task(name="fetch_data")
+def fetch_data(product_id: str = "BTC-USD"):
+    """Legacy task name - redirects to fetch_market_data."""
+    return fetch_market_data(product_id)

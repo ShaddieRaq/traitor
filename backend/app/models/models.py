@@ -4,18 +4,51 @@ from sqlalchemy.sql import func
 from ..core.database import Base
 
 
-class Signal(Base):
-    """Signal configuration and metadata."""
-    __tablename__ = "signals"
+class Bot(Base):
+    """Trading bot configuration and state."""
+    __tablename__ = "bots"
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), unique=True, index=True)
     description = Column(Text)
-    enabled = Column(Boolean, default=True)
-    weight = Column(Float, default=1.0)  # Signal importance weight
-    parameters = Column(Text)  # JSON string of signal parameters
+    pair = Column(String(20), index=True)  # e.g., "BTC-USD"
+    status = Column(String(20), default="STOPPED")  # RUNNING, STOPPED, ERROR
+    
+    # Position sizing
+    position_size_usd = Column(Float, default=100.0)  # Fixed dollar amount per trade
+    max_positions = Column(Integer, default=1)  # Maximum concurrent positions
+    
+    # Risk management
+    stop_loss_pct = Column(Float, default=5.0)  # Stop loss percentage
+    take_profit_pct = Column(Float, default=10.0)  # Take profit percentage
+    confirmation_minutes = Column(Integer, default=5)  # Signal confirmation time
+    
+    # Signal configuration (JSON string)
+    signal_config = Column(Text)  # JSON: {"RSI": {"weight": 0.4, "period": 14, "oversold": 30, "overbought": 70}, ...}
+    
+    # Current state
+    current_position_size = Column(Float, default=0.0)
+    current_position_entry_price = Column(Float)
+    current_combined_score = Column(Float, default=0.0)
+    signal_confirmation_start = Column(DateTime(timezone=True))  # When current signal confirmation started
+    
+    # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class BotSignalHistory(Base):
+    """Historical signal scores for confirmation tracking."""
+    __tablename__ = "bot_signal_history"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    bot_id = Column(Integer, ForeignKey("bots.id"))
+    timestamp = Column(DateTime(timezone=True), index=True)
+    combined_score = Column(Float)  # Weighted combined score of all signals
+    signal_scores = Column(Text)  # JSON string of individual signal scores
+    price = Column(Float)  # Market price at evaluation time
+    
+    bot = relationship("Bot", back_populates="signal_history")
 
 
 class MarketData(Base):
@@ -38,6 +71,7 @@ class Trade(Base):
     __tablename__ = "trades"
     
     id = Column(Integer, primary_key=True, index=True)
+    bot_id = Column(Integer, ForeignKey("bots.id"))  # Which bot made this trade
     product_id = Column(String(20), index=True)
     side = Column(String(10))  # "buy" or "sell"
     size = Column(Float)
@@ -45,26 +79,14 @@ class Trade(Base):
     fee = Column(Float)
     order_id = Column(String(100), unique=True)  # Coinbase order ID
     status = Column(String(20))  # "pending", "filled", "cancelled"
-    signal_scores = Column(Text)  # JSON string of signal scores at trade time
+    combined_signal_score = Column(Float)  # Combined signal score that triggered this trade
+    signal_scores = Column(Text)  # JSON string of individual signal scores at trade time
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     filled_at = Column(DateTime(timezone=True))
-
-
-class SignalResult(Base):
-    """Signal calculation results."""
-    __tablename__ = "signal_results"
     
-    id = Column(Integer, primary_key=True, index=True)
-    signal_id = Column(Integer, ForeignKey("signals.id"))
-    product_id = Column(String(20), index=True)
-    timestamp = Column(DateTime(timezone=True), index=True)
-    score = Column(Float)  # Signal strength (-1 to 1, or 0 to 1)
-    action = Column(String(10))  # "buy", "sell", "hold"
-    confidence = Column(Float)  # 0.0 to 1.0
-    signal_metadata = Column(Text)  # JSON string with additional signal data
-    
-    signal = relationship("Signal", back_populates="results")
+    bot = relationship("Bot", back_populates="trades")
 
 
-# Add back reference
-Signal.results = relationship("SignalResult", back_populates="signal")
+# Add back references
+Bot.signal_history = relationship("BotSignalHistory", back_populates="bot")
+Bot.trades = relationship("Trade", back_populates="bot")

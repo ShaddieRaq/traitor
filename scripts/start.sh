@@ -155,10 +155,10 @@ else
     echo -e "   Health Check: ${RED}❌ Failed${NC}"
 fi
 
-if curl -s -f "http://localhost:8000/api/v1/signals/" > /dev/null; then
-    echo -e "   Signals API: ${GREEN}✅ OK${NC}"
+if curl -s -f "http://localhost:8000/api/v1/bots/" > /dev/null; then
+    echo -e "   Bots API: ${GREEN}✅ OK${NC}"
 else
-    echo -e "   Signals API: ${RED}❌ Failed${NC}"
+    echo -e "   Bots API: ${RED}❌ Failed${NC}"
 fi
 
 echo -e "\n${GREEN}🎉 Trading Bot Application Started Successfully!${NC}"

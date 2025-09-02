@@ -97,12 +97,12 @@ else
     echo -e "   Health Endpoint: ${RED}❌ Failed${NC}"
 fi
 
-if curl -s -f "http://localhost:8000/api/v1/signals/" >/dev/null 2>&1; then
-    signals_count=$(curl -s "http://localhost:8000/api/v1/signals/" | jq length 2>/dev/null || echo "unknown")
-    echo -e "   Signals API: ${GREEN}✅ OK${NC}"
-    echo -e "   └─ Signals count: ${signals_count}"
+if curl -s -f "http://localhost:8000/api/v1/bots/" >/dev/null 2>&1; then
+    bots_count=$(curl -s "http://localhost:8000/api/v1/bots/" | jq length 2>/dev/null || echo "unknown")
+    echo -e "   Bots API: ${GREEN}✅ OK${NC}"
+    echo -e "   └─ Bots count: ${bots_count}"
 else
-    echo -e "   Signals API: ${RED}❌ Failed${NC}"
+    echo -e "   Bots API: ${RED}❌ Failed${NC}"
 fi
 
 if curl -s -f "http://localhost:8000/api/v1/market/products" >/dev/null 2>&1; then

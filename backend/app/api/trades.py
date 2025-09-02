@@ -46,10 +46,10 @@ def get_trade_stats(db: Session = Depends(get_db)):
 
 @router.post("/trigger-evaluation")
 def trigger_signal_evaluation():
-    """Manually trigger signal evaluation."""
-    from ..tasks.trading_tasks import evaluate_signals_task
+    """Manually trigger bot signal evaluation."""
+    from ..tasks.trading_tasks import evaluate_bot_signals
     
-    # Trigger async signal evaluation
-    task = evaluate_signals_task.delay()
+    # Trigger async bot signal evaluation
+    task = evaluate_bot_signals.delay()
     
-    return {"message": "Signal evaluation initiated", "task_id": task.id}
+    return {"message": "Bot signal evaluation initiated", "task_id": task.id}

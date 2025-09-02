@@ -1,10 +1,12 @@
 import PortfolioOverview from '../components/Portfolio/PortfolioOverview';
 import MarketTicker from '../components/Market/MarketTicker';
-import { useSignals } from '../hooks/useSignals';
+import { useBotsStatus } from '../hooks/useBots';
 
 const Dashboard: React.FC = () => {
-  const { data: signals } = useSignals();
-  const activeSignals = signals?.filter(signal => signal.enabled) || [];
+  const { data: botsStatus } = useBotsStatus();
+  const runningBots = botsStatus?.filter(bot => bot.status === 'RUNNING') || [];
+  const hotBots = botsStatus?.filter(bot => bot.temperature === 'HOT') || [];
+  const totalBots = botsStatus?.length || 0;
   
   return (
     <div className="space-y-6">
@@ -35,10 +37,10 @@ const Dashboard: React.FC = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">
-                    Bot Status
+                    Running Bots
                   </dt>
                   <dd className="text-lg font-medium text-gray-900">
-                    Active
+                    {runningBots.length}
                   </dd>
                 </dl>
               </div>
@@ -51,16 +53,16 @@ const Dashboard: React.FC = () => {
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">{activeSignals.length}</span>
+                  <span className="text-white text-sm font-medium">{totalBots}</span>
                 </div>
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">
-                    Active Signals
+                    Total Bots
                   </dt>
                   <dd className="text-lg font-medium text-gray-900">
-                    {activeSignals.length}
+                    {totalBots}
                   </dd>
                 </dl>
               </div>
@@ -73,16 +75,16 @@ const Dashboard: React.FC = () => {
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">0</span>
+                  <span className="text-white text-sm font-medium">🔥</span>
                 </div>
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">
-                    Open Positions
+                    Hot Bots
                   </dt>
                   <dd className="text-lg font-medium text-gray-900">
-                    0
+                    {hotBots.length}
                   </dd>
                 </dl>
               </div>
@@ -139,25 +141,30 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Signal Status */}
+          {/* Bot Status */}
           <div className="bg-white shadow rounded-lg">
             <div className="px-4 py-5 sm:p-6">
               <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                Signal Status
+                Bot Status
               </h3>
               <div className="space-y-3">
-                {signals?.slice(0, 3).map(signal => (
-                  <div key={signal.id} className="flex items-center justify-between">
+                {botsStatus?.slice(0, 3).map((bot) => (
+                  <div key={bot.id} className="flex items-center justify-between">
                     <div className="flex items-center">
-                      <div className={`w-3 h-3 rounded-full ${signal.enabled ? 'bg-green-500' : 'bg-gray-300'} mr-3`}></div>
-                      <span className="text-sm font-medium text-gray-900">{signal.name}</span>
+                      <div className={`w-3 h-3 rounded-full ${bot.status === 'RUNNING' ? 'bg-green-500' : 'bg-gray-300'} mr-3`}></div>
+                      <span className="text-sm font-medium text-gray-900">{bot.name}</span>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded-full ${signal.enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
-                      {signal.enabled ? 'Active' : 'Inactive'}
-                    </span>
+                    <div className="flex items-center space-x-2">
+                      <span className={`text-xs px-2 py-1 rounded-full ${bot.status === 'RUNNING' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                        {bot.status}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {bot.temperature === 'HOT' ? '🔥' : bot.temperature === 'WARM' ? '🌡️' : bot.temperature === 'COLD' ? '❄️' : '🧊'}
+                      </span>
+                    </div>
                   </div>
                 )) || (
-                  <div className="text-sm text-gray-500">Loading signals...</div>
+                  <div className="text-sm text-gray-500">Loading bots...</div>
                 )}
               </div>
             </div>
