@@ -1,23 +1,41 @@
-# Signal-Based Coinbase Trading Bot
+# Bot-Centric Coinbase Trading System
 
-A modern, signal-based cryptocurrency trading bot with a web dashboard, built with Python (FastAPI) backend and React frontend.
+A modern, bot-centric cryptocurrency trading system with a web dashboard, built with Python (FastAPI) backend and React frontend.
 
 ## Features
 
-- 🎯 **Signal-Based Trading**: Configurable trading signals with individual enable/disable controls
-- 📊 **Web Dashboard**: Modern React interface for monitoring and management
-- 🔄 **Real-Time Data**: Live market data and signal processing
+- 🤖 **Bot-Centric Trading**: One bot per trading pair with combined signal scoring
+- 📊 **Web Dashboard**: Modern React interface for bot monitoring and management  
+- 🔄 **Real-Time Data**: Live market data and bot evaluation
 - 🏦 **Coinbase Integration**: Direct integration with Coinbase Advanced Trade API
 - ⚡ **Background Processing**: Celery-based async task processing
-- 📈 **Technical Analysis**: Built-in RSI, Moving Average, and extensible signal framework
+- 📈 **Technical Analysis**: Built-in RSI, Moving Average, MACD with weighted scoring
+- 🎯 **Position Management**: Configurable position sizing and risk controls
 
 ## Tech Stack
 
-- **Backend**: FastAPI, SQLAlchemy, Celery
-- **Frontend**: React, TypeScript, TailwindCSS
-- **Database**: SQLite (upgradeable to PostgreSQL)
-- **Queue**: Redis
-- **API**: Coinbase Advanced Trade API
+- **Backend**: FastAPI, SQLAlchemy, Celery, Redis
+- **Frontend**: React 18, TypeScript, Vite, TailwindCSS
+- **Database**: SQLite (single-user, production-ready)
+- **Queue**: Redis for background task processing
+- **API**: Coinbase Advanced Trade API with JWT authentication
+- **Real-time**: WebSocket connections for live market data
+
+## Bot-Centric Architecture
+
+This system uses a **bot-centric approach** where:
+- **One bot per trading pair** (e.g., "BTC Scalper" for BTC-USD)
+- **Combined signal scoring** using weighted RSI, Moving Average, and MACD signals
+- **Signal confirmation** requiring agreement over time before trading
+- **Position management** with configurable sizing, stop-loss, and take-profit
+- **Trade controls** including step percentages and cooldown periods
+
+### Current Status (Phase 1.3 Complete)
+- ✅ **4 Test Bots** configured with various signal combinations
+- ✅ **Complete parameter set** including trade controls and position sizing  
+- ✅ **Weight validation** ensuring signal weights don't exceed 1.0
+- ✅ **53/53 tests passing** with comprehensive validation
+- ✅ **All services operational** and ready for Phase 2 development
 
 ## Quick Start
 
@@ -120,12 +138,18 @@ COINBASE_API_KEY="organizations/{org_id}/apiKeys/{key_id}"
 COINBASE_API_SECRET="-----BEGIN EC PRIVATE KEY-----\nYOUR_PRIVATE_KEY\n-----END EC PRIVATE KEY-----\n"
 ```
 
-### Default Signals
+### Default Bot Configuration
 
-The bot comes with two pre-configured signals:
+The system comes with 4 pre-configured test bots:
 
-- **RSI**: Relative Strength Index (14 period, 30/70 levels)
-- **MA Crossover**: Moving Average crossover (10/20 period)
+- **BTC Scalper**: RSI-focused bot for BTC-USD with tight parameters
+- **ETH Momentum Bot**: Multi-signal bot for ETH-USD with balanced weights
+- **Test Parameter Bots**: Various bots for testing edge cases and validation
+
+Each bot can combine multiple signals:
+- **RSI**: Relative Strength Index (configurable period and thresholds)
+- **Moving Average**: Simple moving average crossover (configurable periods)  
+- **MACD**: Moving Average Convergence Divergence (configurable periods)
 
 ## Documentation
 
@@ -175,9 +199,20 @@ trader/
 
 ## API Endpoints
 
-- `GET /api/v1/signals` - List all signals
-- `POST /api/v1/signals/{id}/toggle` - Enable/disable signal
+### Bot Management
+- `GET /api/v1/bots/` - List all bots
+- `POST /api/v1/bots/` - Create new bot
+- `GET /api/v1/bots/{id}` - Get specific bot
+- `PUT /api/v1/bots/{id}` - Update bot configuration
+- `POST /api/v1/bots/{id}/start` - Start bot
+- `POST /api/v1/bots/{id}/stop` - Stop bot
+
+### Market Data
+- `GET /api/v1/market/products` - List trading pairs
 - `GET /api/v1/market/ticker/{product_id}` - Get price ticker
+- `GET /api/v1/market/accounts` - Get account balances
+
+### Trading
 - `GET /api/v1/trades` - Get trade history
 
 ## Development
@@ -218,10 +253,38 @@ For detailed troubleshooting, see [scripts/README.md](scripts/README.md).
 
 ### Adding New Signals
 
+Signals are now configured within bots rather than as standalone entities:
+
 1. Create signal class in `backend/app/services/signals/`
-2. Inherit from `BaseSignal`
-3. Implement `calculate()` method
-4. Register in signal factory
+2. Inherit from `BaseSignal` 
+3. Implement `calculate()` method returning score (-1 to 1)
+4. Register in signal factory (`signals/base.py`)
+5. Add to bot's `signal_config` JSON with weight ≤ 1.0
+
+### Bot Configuration Example
+
+```json
+{
+  "name": "BTC Strategy Bot",
+  "pair": "BTC-USD", 
+  "position_size_usd": 250,
+  "signal_config": {
+    "rsi": {
+      "enabled": true,
+      "weight": 0.4,
+      "period": 14,
+      "buy_threshold": 30,
+      "sell_threshold": 70
+    },
+    "moving_average": {
+      "enabled": true,
+      "weight": 0.6,
+      "fast_period": 10,
+      "slow_period": 20
+    }
+  }
+}
+```
 
 ### Running Tests
 

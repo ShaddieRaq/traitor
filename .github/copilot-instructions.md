@@ -20,10 +20,27 @@ grep -r "@router\." backend/app/api/       # Find API routes
 curl -s http://localhost:8000/api/v1/bots/ | python3 -m json.tool  # View current bots
 ```
 
+### Technology Stack Overview:
+- **Backend**: FastAPI + SQLAlchemy + Celery + Redis (Python 3.10+)
+- **Frontend**: React 18 + TypeScript + Vite + TailwindCSS + TanStack Query
+- **Database**: SQLite (single-user, production-ready)
+- **Trading API**: Coinbase Advanced Trade API with JWT authentication
+- **Real-time**: WebSocket connections for live market data
+- **Testing**: pytest (backend) + Jest (frontend), 53 tests passing
+
+### Key Architectural Patterns:
+- **Bot-Centric Design**: One bot per trading pair with combined signal scoring
+- **Service Layer Pattern**: Business logic in `backend/app/services/` (CoinbaseService, signals)
+- **Signal Factory**: Dynamic signal creation via `create_signal_instance()` in `signals/base.py`
+- **JSON Configuration**: Signal parameters stored as JSON in `Bot.signal_config` field
+- **Portfolio Breakdown API**: USD fiat access requires `get_portfolio_breakdown()`, NOT `get_accounts()`
+- **Modern React**: No React imports needed (JSX transform), TanStack Query for server state
+- **Management Scripts**: Always use `./scripts/*.sh` instead of manual service commands
+
 ### Current System State (2025-09-02):
 - ✅ **Bot-Centric Architecture Operational**: Complete migration from signal-based to bot system
-- ✅ **Phase 1.2 COMPLETE**: Structured signal configuration with weight validation
-- ✅ **4 Test Bots Active**: Various signal configurations for testing
+- ✅ **Phase 1.3 COMPLETE**: Enhanced bot parameters with trade controls and position sizing
+- ✅ **4 Test Bots Active**: Various signal configurations for testing (BTC, ETH, LTC bots)
 - ✅ All services running and healthy (Redis, Backend, Frontend, Celery Workers)
 - ✅ Coinbase API integration functional with USD fiat account access
 - ✅ API endpoints: http://localhost:8000/api/docs
@@ -31,6 +48,15 @@ curl -s http://localhost:8000/api/v1/bots/ | python3 -m json.tool  # View curren
 - ✅ **Modern React Setup**: TypeScript + Vite + TailwindCSS + TanStack Query
 - ✅ **Real-time Components**: MarketTicker with live data updates
 - ✅ **Clean Codebase**: All deprecated signal imports and references removed
+- ✅ **Test Suite**: 53/53 tests passing with comprehensive validation
+
+### ⚠️ CRITICAL: Common AI Agent Mistakes to Avoid:
+- **Never reference `/api/v1/signals/`** - Use `/api/v1/bots/` (signals API was removed)
+- **Never use `get_accounts()` for USD** - Use `get_portfolio_breakdown()` for fiat access
+- **Never run manual service commands** - Use `./scripts/*.sh` management scripts
+- **Never assume class names** - Run discovery commands first or check `docs/current_class_diagram.md`
+- **Never skip virtual environment** - Always `cd backend && source venv/bin/activate` before Python commands
+- **Never use React imports in TSX** - Modern JSX transform enabled, only import hooks/utilities
 
 ## 🤖 BOT IMPLEMENTATION STATUS (CURRENT INITIATIVE)
 
