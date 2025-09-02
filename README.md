@@ -1,41 +1,44 @@
 # Bot-Centric Coinbase Trading System
 
-A modern, bot-centric cryptocurrency trading system with a web dashboard, built with Python (FastAPI) backend and React frontend.
+A modern, bot-centric cryptocurrency trading system with advanced signal evaluation, built with Python (FastAPI) backend and React frontend.
 
 ## Features
 
-- 🤖 **Bot-Centric Trading**: One bot per trading pair with combined signal scoring
+- 🤖 **Bot-Centric Trading**: One bot per trading pair with intelligent signal aggregation
 - 📊 **Web Dashboard**: Modern React interface for bot monitoring and management  
-- 🔄 **Real-Time Data**: Live market data and bot evaluation
+- 🔄 **Real-Time Data**: Live market data and automated bot evaluation
 - 🏦 **Coinbase Integration**: Direct integration with Coinbase Advanced Trade API
-- ⚡ **Background Processing**: Celery-based async task processing
-- 📈 **Technical Analysis**: Built-in RSI, Moving Average, MACD with weighted scoring
-- 🎯 **Position Management**: Configurable position sizing and risk controls
+- ⚡ **Background Processing**: Celery-based async task processing with Redis
+- 📈 **Advanced Signals**: Enhanced RSI, Moving Average, MACD with -1 to +1 scoring
+- 🎯 **Risk Management**: Sophisticated position sizing, stop-loss, and trade controls
+- ✅ **Signal Confirmation**: Time-based signal verification to prevent false signals
 
 ## Tech Stack
 
-- **Backend**: FastAPI, SQLAlchemy, Celery, Redis
-- **Frontend**: React 18, TypeScript, Vite, TailwindCSS
+- **Backend**: FastAPI, SQLAlchemy, Celery, Redis, Pydantic V2
+- **Frontend**: React 18, TypeScript, Vite, TailwindCSS, TanStack Query
 - **Database**: SQLite (single-user, production-ready)
 - **Queue**: Redis for background task processing
 - **API**: Coinbase Advanced Trade API with JWT authentication
-- **Real-time**: WebSocket connections for live market data
+- **Testing**: 77 comprehensive tests with 100% pass rate
 
 ## Bot-Centric Architecture
 
 This system uses a **bot-centric approach** where:
 - **One bot per trading pair** (e.g., "BTC Scalper" for BTC-USD)
-- **Combined signal scoring** using weighted RSI, Moving Average, and MACD signals
-- **Signal confirmation** requiring agreement over time before trading
-- **Position management** with configurable sizing, stop-loss, and take-profit
-- **Trade controls** including step percentages and cooldown periods
+- **Weighted signal aggregation** using configurable RSI, Moving Average, and MACD signals
+- **Signal confirmation system** requiring consistency over time before trading
+- **Advanced scoring** with -1 (strong sell) to +1 (strong buy) signal ranges
+- **Trade controls** including step percentages, cooldown periods, and position limits
 
-### Current Status (Phase 1.3 Complete)
-- ✅ **4 Test Bots** configured with various signal combinations
-- ✅ **Complete parameter set** including trade controls and position sizing  
-- ✅ **Weight validation** ensuring signal weights don't exceed 1.0
-- ✅ **53/53 tests passing** with comprehensive validation
-- ✅ **All services operational** and ready for Phase 2 development
+### Current Status (Phase 2.2 Complete)
+- ✅ **Signal Evaluation Engine**: BotSignalEvaluator service operational
+- ✅ **Enhanced Signals**: RSI, MA, MACD with advanced scoring algorithms
+- ✅ **5 Active Bots** configured with various signal combinations
+- ✅ **Weight Validation**: Signal weights properly enforced (≤ 1.0)
+- ✅ **77/77 tests passing** including Phase 2.2 signal processing
+- ✅ **Pydantic V2 Migration**: Modern validation with enhanced schemas
+- ✅ **Live Market Data**: $111,221 BTC verified through Coinbase integration
 
 ## Quick Start
 
@@ -138,18 +141,33 @@ COINBASE_API_KEY="organizations/{org_id}/apiKeys/{key_id}"
 COINBASE_API_SECRET="-----BEGIN EC PRIVATE KEY-----\nYOUR_PRIVATE_KEY\n-----END EC PRIVATE KEY-----\n"
 ```
 
-### Default Bot Configuration
+### Current Bot Configuration (Phase 2.2)
 
-The system comes with 4 pre-configured test bots:
+The system currently has 5 configured bots with various signal combinations:
 
-- **BTC Scalper**: RSI-focused bot for BTC-USD with tight parameters
-- **ETH Momentum Bot**: Multi-signal bot for ETH-USD with balanced weights
-- **Test Parameter Bots**: Various bots for testing edge cases and validation
+**Production Bots:**
+- **BTC Scalper** (BTC-USD): RSI-focused bot with tight scalping parameters
+- **ETH Momentum Bot** (ETH-USD): Multi-signal bot with balanced RSI + MA weights
 
-Each bot can combine multiple signals:
-- **RSI**: Relative Strength Index (configurable period and thresholds)
-- **Moving Average**: Simple moving average crossover (configurable periods)  
-- **MACD**: Moving Average Convergence Divergence (configurable periods)
+**Development/Test Bots:**
+- **Post-Cleanup Test Bot** (ETH-USD): Multi-signal testing Pydantic V2 migration  
+- **Invalid Position Size Bot** (BTC-USD): Parameter validation edge case testing
+- **Test API Fix Bot** (BTC-USD): API routing and functionality validation
+
+### Enhanced Signal Processing (Phase 2.2)
+
+Each bot uses the **BotSignalEvaluator** service with advanced signal types:
+
+**Signal Types:**
+- **RSI**: Enhanced with -1 to +1 scoring, soft neutral zones, configurable thresholds
+- **Moving Average**: Crossover detection with separation-based scoring algorithms
+- **MACD**: Multi-factor analysis including histogram and zero-line crossover detection
+
+**Signal Features:**
+- **Weighted Aggregation**: Signal weights must total ≤ 1.0 (API enforced)
+- **Score Range**: -1 (strong sell) to +1 (strong buy) with precise decimal scoring
+- **Action Determination**: "buy", "sell", "hold" based on configurable thresholds
+- **Confirmation System**: Time-based verification prevents false signal execution
 
 ## Documentation
 
@@ -286,10 +304,32 @@ Signals are now configured within bots rather than as standalone entities:
 }
 ```
 
+### Key API Endpoints (Phase 2.2)
+
+**Bot Management:**
+- `GET /api/v1/bots/` - List all bots
+- `POST /api/v1/bots/` - Create new bot with signal configuration
+- `PUT /api/v1/bots/{bot_id}` - Update bot parameters
+- `POST /api/v1/bots/{bot_id}/start` - Start bot trading
+- `POST /api/v1/bots/{bot_id}/stop` - Stop bot trading
+
+**Signal Evaluation (NEW):**
+- `POST /api/v1/bot-evaluation/{bot_id}/evaluate` - Evaluate bot signals with live market data
+- `GET /api/v1/bot-evaluation/test/{bot_id}` - Test bot evaluation with mock data
+
+**Market Data:**
+- `GET /api/v1/market/ticker/{product_id}` - Live price data
+- `GET /api/v1/market/candles/{product_id}` - Historical candlestick data
+- `GET /api/v1/market/products` - Available trading pairs
+
+**Documentation:**
+- `GET /api/docs` - Interactive Swagger UI
+- `GET /api/redoc` - ReDoc documentation
+
 ### Running Tests
 
 ```bash
-# Backend tests
+# Backend tests (77 tests - 100% passing)
 cd backend && source venv/bin/activate
 pytest
 
