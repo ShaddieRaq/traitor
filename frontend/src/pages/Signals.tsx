@@ -191,7 +191,7 @@ const Signals: React.FC = () => {
                       </p>
                       <div className="text-xs text-gray-400 mt-1">
                         Signals: {Object.entries(bot.signal_config || {}).map(([key, config]: [string, any]) => 
-                          config.enabled ? `${key.toUpperCase()}(${config.weight})` : null
+                          config && config.enabled ? `${key.toUpperCase()}(${config.weight})` : null
                         ).filter(Boolean).join(', ') || 'None'}
                       </div>
                     </div>
