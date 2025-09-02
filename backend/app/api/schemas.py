@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
@@ -11,9 +11,11 @@ class RSISignalConfig(BaseModel):
     buy_threshold: float = Field(default=30, ge=0, le=100, description="Buy when RSI below this")
     sell_threshold: float = Field(default=70, ge=0, le=100, description="Sell when RSI above this")
 
-    @validator('sell_threshold')
-    def sell_must_be_greater_than_buy(cls, v, values):
-        if 'buy_threshold' in values and v <= values['buy_threshold']:
+    @field_validator('sell_threshold')
+    @classmethod
+    def sell_must_be_greater_than_buy(cls, v, info):
+        buy_threshold = info.data.get('buy_threshold')
+        if buy_threshold is not None and v <= buy_threshold:
             raise ValueError('sell_threshold must be greater than buy_threshold')
         return v
 
@@ -24,9 +26,11 @@ class MovingAverageSignalConfig(BaseModel):
     fast_period: int = Field(default=10, ge=2, le=200, description="Fast MA period")
     slow_period: int = Field(default=20, ge=2, le=200, description="Slow MA period")
     
-    @validator('slow_period')
-    def slow_must_be_greater_than_fast(cls, v, values):
-        if 'fast_period' in values and v <= values['fast_period']:
+    @field_validator('slow_period')
+    @classmethod
+    def slow_must_be_greater_than_fast(cls, v, info):
+        fast_period = info.data.get('fast_period')
+        if fast_period is not None and v <= fast_period:
             raise ValueError('slow_period must be greater than fast_period')
         return v
 
@@ -38,39 +42,41 @@ class MACDSignalConfig(BaseModel):
     slow_period: int = Field(default=26, ge=2, le=100, description="MACD slow period")
     signal_period: int = Field(default=9, ge=2, le=50, description="MACD signal period")
     
-    @validator('slow_period')
-    def slow_must_be_greater_than_fast(cls, v, values):
-        if 'fast_period' in values and v <= values['fast_period']:
+    @field_validator('slow_period')
+    @classmethod
+    def slow_must_be_greater_than_fast(cls, v, info):
+        fast_period = info.data.get('fast_period')
+        if fast_period is not None and v <= fast_period:
             raise ValueError('slow_period must be greater than fast_period')
         return v
 
 
 class SignalConfigurationSchema(BaseModel):
-    rsi: RSISignalConfig = RSISignalConfig()
-    moving_average: MovingAverageSignalConfig = MovingAverageSignalConfig()
-    macd: MACDSignalConfig = MACDSignalConfig()
+    rsi: Optional[RSISignalConfig] = None
+    moving_average: Optional[MovingAverageSignalConfig] = None
+    macd: Optional[MACDSignalConfig] = None
     
-    @validator('macd')
-    def validate_total_weight(cls, v, values):
+    @model_validator(mode='after')
+    def validate_total_weight(self):
         """Ensure total weights don't exceed 1.0"""
         total_weight = 0.0
         
         # Add RSI weight if enabled
-        if 'rsi' in values and values['rsi'].enabled:
-            total_weight += values['rsi'].weight
+        if self.rsi and self.rsi.enabled:
+            total_weight += self.rsi.weight
             
         # Add MA weight if enabled  
-        if 'moving_average' in values and values['moving_average'].enabled:
-            total_weight += values['moving_average'].weight
+        if self.moving_average and self.moving_average.enabled:
+            total_weight += self.moving_average.weight
             
         # Add MACD weight if enabled
-        if v.enabled:
-            total_weight += v.weight
+        if self.macd and self.macd.enabled:
+            total_weight += self.macd.weight
             
         if total_weight > 1.0:
             raise ValueError(f'Total enabled signal weights ({total_weight:.2f}) cannot exceed 1.0')
         
-        return v
+        return self
 
 
 class BotCreate(BaseModel):
@@ -84,12 +90,20 @@ class BotCreate(BaseModel):
     confirmation_minutes: int = 5
     trade_step_pct: float = 2.0
     cooldown_minutes: int = 15
-    signal_config: Optional[SignalConfigurationSchema] = SignalConfigurationSchema()
+    signal_config: Optional[SignalConfigurationSchema] = None
 
-    @validator('signal_config', pre=True)
+    @field_validator('signal_config', mode='before')
+    @classmethod
     def validate_signal_config(cls, v):
         """Convert dict to SignalConfigurationSchema if needed"""
-        if isinstance(v, dict):
+        if v is None:
+            # Provide default balanced configuration
+            return SignalConfigurationSchema(
+                rsi=RSISignalConfig(enabled=True, weight=0.33),
+                moving_average=MovingAverageSignalConfig(enabled=True, weight=0.33),
+                macd=MACDSignalConfig(enabled=True, weight=0.34)
+            )
+        elif isinstance(v, dict):
             return SignalConfigurationSchema(**v)
         return v
 
@@ -107,7 +121,8 @@ class BotUpdate(BaseModel):
     cooldown_minutes: Optional[int] = None
     signal_config: Optional[SignalConfigurationSchema] = None
 
-    @validator('signal_config', pre=True)
+    @field_validator('signal_config', mode='before')
+    @classmethod
     def validate_signal_config(cls, v):
         """Convert dict to SignalConfigurationSchema if needed"""
         if isinstance(v, dict):
@@ -136,8 +151,7 @@ class BotResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime]
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BotStatusResponse(BaseModel):
@@ -151,8 +165,7 @@ class BotStatusResponse(BaseModel):
     temperature: str  # HOT, WARM, COLD, FROZEN
     distance_to_signal: float  # How close to buy/sell threshold
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MarketDataResponse(BaseModel):
@@ -165,8 +178,7 @@ class MarketDataResponse(BaseModel):
     close_price: float
     volume: float
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TradeResponse(BaseModel):
@@ -183,8 +195,7 @@ class TradeResponse(BaseModel):
     created_at: datetime
     filled_at: Optional[datetime]
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BotSignalHistoryResponse(BaseModel):
@@ -195,8 +206,7 @@ class BotSignalHistoryResponse(BaseModel):
     signal_scores: Dict[str, Any]
     price: float
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProductTickerResponse(BaseModel):

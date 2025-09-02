@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 def evaluate_bot_signals():
     """
     Evaluate trading signals for all active bots.
-    TODO: Implement in Phase 2 - Bot Signal Evaluation Engine.
+    TODO: Phase 2.3 - Integrate BotSignalEvaluator with this task to run signal evaluation
+          and update bot signal history for confirmation tracking.
     """
     logger.info("Bot signal evaluation task triggered - not yet implemented")
     

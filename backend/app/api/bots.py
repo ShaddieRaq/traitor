@@ -36,7 +36,7 @@ def create_bot(bot: BotCreate, db: Session = Depends(get_db)):
     signal_config_json = {}
     if bot.signal_config:
         if hasattr(bot.signal_config, 'dict'):
-            signal_config_json = bot.signal_config.dict()
+            signal_config_json = bot.signal_config.model_dump()
         else:
             signal_config_json = bot.signal_config
     
@@ -89,7 +89,7 @@ def update_bot(bot_id: int, bot_update: BotUpdate, db: Session = Depends(get_db)
         raise HTTPException(status_code=404, detail="Bot not found")
     
     # Update fields
-    update_data = bot_update.dict(exclude_unset=True)
+    update_data = bot_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         if field == "signal_config" and value is not None:
             setattr(bot, field, json.dumps(value))

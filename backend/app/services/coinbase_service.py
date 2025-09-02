@@ -88,11 +88,30 @@ class CoinbaseService:
             return pd.DataFrame()
         
         try:
-            # Note: This is a placeholder - actual implementation depends on Coinbase API
-            # You may need to use get_product_candles or similar method
-            response = self.client.get_product_candles(
+            import time
+            
+            # Calculate start and end times as Unix timestamps
+            end_timestamp = int(time.time())
+            start_timestamp = end_timestamp - (granularity * limit)
+            
+            # Convert granularity to string format expected by API
+            granularity_map = {
+                60: "ONE_MINUTE",
+                300: "FIVE_MINUTE", 
+                900: "FIFTEEN_MINUTE",
+                3600: "ONE_HOUR",
+                21600: "SIX_HOUR",
+                86400: "ONE_DAY"
+            }
+            
+            granularity_str = granularity_map.get(granularity, "ONE_HOUR")
+            
+            # Use the correct Coinbase API method for getting candlestick data
+            response = self.client.get_public_candles(
                 product_id=product_id,
-                granularity=granularity,
+                start=str(start_timestamp),
+                end=str(end_timestamp),
+                granularity=granularity_str,
                 limit=limit
             )
             

@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from .api import bots, market, trades
+from .api import bots, market, trades, bot_evaluation
 from .core.config import settings
 from .core.database import engine, Base
 import logging
@@ -31,9 +31,11 @@ app.add_middleware(
 )
 
 # Include API routers
-app.include_router(bots.router, prefix=f"{settings.api_v1_prefix}/bots", tags=["bots"])
-app.include_router(market.router, prefix=f"{settings.api_v1_prefix}/market", tags=["market"])
-app.include_router(trades.router, prefix=f"{settings.api_v1_prefix}/trades", tags=["trades"])
+# API Routes
+app.include_router(bots.router, prefix="/api/v1/bots", tags=["bots"])
+app.include_router(market.router, prefix="/api/v1/market", tags=["market"])
+app.include_router(trades.router, prefix="/api/v1/trades", tags=["trades"])
+app.include_router(bot_evaluation.router, prefix="/api/v1/bot-evaluation", tags=["bot-evaluation"])
 
 
 @app.get("/")

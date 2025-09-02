@@ -31,7 +31,9 @@ def get_trade_stats(db: Session = Depends(get_db)):
     total_trades = db.query(Trade).count()
     filled_trades = db.query(Trade).filter(Trade.status == "filled").count()
     
-    # TODO: Add more sophisticated statistics
+    # TODO: Phase 2.4 - Add more sophisticated statistics
+    # Future features: Sharpe ratio, win/loss ratio, average trade duration, 
+    # monthly/weekly breakdowns, signal performance attribution
     # - P&L calculation
     # - Win/loss ratio
     # - Average trade size

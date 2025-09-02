@@ -4,6 +4,15 @@
 
 ```mermaid
 classDiagram
+    class BotSignalEvaluator {
+        -__init__(db)
+        +evaluate_bot(bot, market_data)
+        -_create_signal_instance(signal_name, config)
+        -_determine_action(overall_score, bot)
+        -_error_result(error_message)
+        ... (1 more methods)
+    }
+    BotSignalEvaluator : backend/app/services/bot_evaluator.py
     class CoinbaseService {
         -__init__()
         -_initialize_client()
@@ -25,6 +34,12 @@ classDiagram
         +get_required_periods()
     }
     MovingAverageSignal : backend/app/services/signals/technical.py
+    class MACDSignal {
+        -__init__(fast_period, slow_period, signal_period)
+        +calculate(data)
+        +get_required_periods()
+    }
+    MACDSignal : backend/app/services/signals/technical.py
     class BaseSignal {
         -__init__(name, description, weight)
         +calculate(data)*
@@ -46,19 +61,19 @@ classDiagram
     }
     Trade : backend/app/models/models.py
     class RSISignalConfig {
-        +sell_must_be_greater_than_buy(cls, v, values)
+        +sell_must_be_greater_than_buy(cls, v, info)
     }
     RSISignalConfig : backend/app/api/schemas.py
     class MovingAverageSignalConfig {
-        +slow_must_be_greater_than_fast(cls, v, values)
+        +slow_must_be_greater_than_fast(cls, v, info)
     }
     MovingAverageSignalConfig : backend/app/api/schemas.py
     class MACDSignalConfig {
-        +slow_must_be_greater_than_fast(cls, v, values)
+        +slow_must_be_greater_than_fast(cls, v, info)
     }
     MACDSignalConfig : backend/app/api/schemas.py
     class SignalConfigurationSchema {
-        +validate_total_weight(cls, v, values)
+        +validate_total_weight()
     }
     SignalConfigurationSchema : backend/app/api/schemas.py
     class BotCreate {
@@ -72,9 +87,6 @@ classDiagram
     class BotResponse {
     }
     BotResponse : backend/app/api/schemas.py
-    class Config {
-    }
-    Config : backend/app/core/config.py
     class BotStatusResponse {
     }
     BotStatusResponse : backend/app/api/schemas.py
@@ -96,6 +108,10 @@ classDiagram
     class Settings {
     }
     Settings : backend/app/core/config.py
+    class Config {
+    }
+    Config : backend/app/core/config.py
     BaseSignal <|-- RSISignal
     BaseSignal <|-- MovingAverageSignal
+    BaseSignal <|-- MACDSignal
 ```

@@ -15,11 +15,12 @@ def create_signal_instance(signal_type: str, parameters: Dict[str, Any]) -> Opti
     Returns:
         Signal instance or None if type not found
     """
-    from .technical import RSISignal, MovingAverageSignal
+    from .technical import RSISignal, MovingAverageSignal, MACDSignal
     
     signal_map = {
         'RSI': RSISignal,
         'MA_Crossover': MovingAverageSignal,
+        'MACD': MACDSignal,
     }
     
     signal_class = signal_map.get(signal_type)
