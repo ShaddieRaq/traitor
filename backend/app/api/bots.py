@@ -50,6 +50,8 @@ def create_bot(bot: BotCreate, db: Session = Depends(get_db)):
         stop_loss_pct=bot.stop_loss_pct,
         take_profit_pct=bot.take_profit_pct,
         confirmation_minutes=bot.confirmation_minutes,
+        trade_step_pct=bot.trade_step_pct,
+        cooldown_minutes=bot.cooldown_minutes,
         signal_config=json.dumps(signal_config_json)
     )
     

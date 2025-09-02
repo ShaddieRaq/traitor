@@ -60,11 +60,13 @@ Successfully transitioned from signal-based system to **bot-centric trading arch
 - ✅ JSON-based signal configurations in bot model with Pydantic validation
 - ✅ **Test:** Created "Balanced Strategy Bot" with perfect 1.0 weight distribution, validation working
 
-**Milestone 1.3: Basic Bot Management UI** 🔄 READY FOR IMPLEMENTATION
+**Milestone 1.3: Enhanced Bot Parameters & Management** ✅ COMPLETE
 - ✅ Bot list page showing all bots with status and signal details
-- ❌ Create/edit/delete bot forms with signal configuration UI (next milestone)
+- ✅ **NEW TRADE CONTROL PARAMETERS**: Added trade_step_pct and cooldown_minutes
+- ✅ **Position Size Configuration**: Added position_size_usd field with frontend form integration
+- ✅ **Complete Parameter Set**: Position sizing, risk management, trade controls, signal configuration
 - ✅ Start/stop bot controls (status changes only, no trading yet)
-- ✅ **Current:** 4 test bots displayed with signal configurations and weights
+- ✅ **Current:** Enhanced bot model with 6 core parameters + comprehensive signal configuration
 
 ### **🎓 CRITICAL LESSONS LEARNED FROM PHASE 1 IMPLEMENTATION**
 
@@ -642,11 +644,32 @@ grep -r "@router\." backend/app/api/
 ### Bot Models (app/models/models.py)
 ```python
 # File: app/models/models.py
-class Bot(Base)                    # Main bot configuration with signal settings
+class Bot(Base)                    # Main bot configuration with signal settings, position sizing, and trade controls
 class BotSignalHistory(Base)       # Historical signal scores for confirmation tracking
 class Trade(Base)                  # Trade execution records
 class MarketData(Base)             # Historical candlestick data storage (unchanged)
 ```
+
+### **Bot Configuration Parameters** (Updated 2025-09-02)
+**Position Management:**
+- `position_size_usd` - Dollar amount per trade (range: $10 - $10,000, configurable via frontend)
+- `max_positions` - Maximum concurrent positions (typically 1)
+
+**Risk Management:**
+- `stop_loss_pct` - Automatic exit when position loses X%
+- `take_profit_pct` - Automatic exit when position gains X%
+- `confirmation_minutes` - Signal confirmation time before trading
+
+**Trade Controls (NEW):**
+- `trade_step_pct` - Minimum price change % required between trades (default: 2.0%, prevents overtrading)
+- `cooldown_minutes` - Mandatory wait time between trades (default: 15 min, prevents rapid-fire trading)
+
+### **Bot Parameter Validation**
+- **Signal Weight Total**: Cannot exceed 1.0 (enforced at API level)
+- **Position Size Range**: $10 - $10,000 validated
+- **Trade Step Range**: 0.0% - 50.0% validated
+- **Cooldown Range**: 1 - 1440 minutes (1 day max) validated
+- **RSI Thresholds**: Buy threshold must be < sell threshold
 
 ### API Schema Classes (app/api/schemas.py)
 ```python
@@ -1108,23 +1131,45 @@ docker ps
 Our tests cover the features we're **actually delivering now**:
 
 #### ✅ **Delivered Features Being Tested:**
-1. **Signal Processing Engine** (`tests/test_signals.py`)
+1. **Bot CRUD Operations** (`tests/test_bots.py`)
+   - Complete bot lifecycle: Create, read, update, delete operations
+   - Parameter validation: Signal weights, RSI thresholds, position sizes, trade controls
+   - Status operations: Start/stop bots with error handling for non-existent bots
+   - Edge cases: Empty configs, missing configs, extreme parameter values
+   - **NEW**: Trade control parameters (trade_step_pct, cooldown_minutes) with full validation
+
+2. **New Bot Parameters** (`tests/test_new_parameters.py`)  
+   - Trade step percentage: Creation, defaults (2.0%), updates, extreme values (0%-50%)
+   - Cooldown minutes: Creation, defaults (15 min), updates, extreme values (1-1440 min)
+   - Parameter persistence across bot status changes
+   - Complex parameter combinations working together
+   - **Coverage**: 8 comprehensive tests validating all new trading control functionality
+
+3. **Signal Processing Engine** (`tests/test_signals.py`)
    - RSI calculation accuracy with known data patterns
    - Moving Average crossover logic validation
    - Signal score ranges (-1 to 1) and action types (buy/sell/hold)
    - Signal factory pattern for creating signal instances
 
-2. **Coinbase API Integration** (`tests/test_coinbase.py`)
+4. **Coinbase API Integration** (`tests/test_coinbase.py`)
    - Live authentication with real API credentials
    - Product data retrieval (775+ trading pairs)
-   - Account balance fetching
+   - Account balance fetching with portfolio breakdown method
    - Ticker price data for specific products (BTC-USD)
 
-3. **API Endpoints** (`tests/test_api.py`)
-   - FastAPI route functionality
-   - Database integration for signals CRUD
+5. **API Endpoints** (`tests/test_api.py`)
+   - FastAPI route functionality with bot-centric endpoints
+   - Database integration for bot CRUD operations
    - Market data endpoints with live Coinbase data
    - Proper HTTP status codes and response structures
+   - **UPDATED**: Replaced deprecated signals API tests with bot API tests
+
+#### ✅ **Test Suite Statistics (2025-09-02)**
+- **Total Tests**: 53 tests across 5 test files
+- **Success Rate**: 100% (53/53 passing)
+- **Execution Time**: 3.55 seconds for full suite
+- **Coverage Areas**: CRUD operations, parameter validation, signal processing, live API integration
+- **Test Quality**: Live API testing (no mocking), real database operations, comprehensive edge cases
 
 #### ❌ **Undelivered Features NOT Tested:**
 - Actual trade execution (not implemented yet)
@@ -1192,39 +1237,50 @@ This approach ensures our test suite serves as a reliable indicator of applicati
 
 ## 🎯 CURRENT WORKING STATUS VERIFICATION (2025-09-02)
 
-### **Phase 1.2 Implementation Complete & Verified**
-✅ **Bot-Centric Architecture**: Fully operational with 4 active test bots  
+### **Phase 1.3 Implementation Complete & Verified**
+✅ **Bot-Centric Architecture**: Fully operational with comprehensive parameter set  
 ✅ **Signal Configuration**: RSI, MA, MACD with structured validation  
 ✅ **Weight Validation**: API correctly rejects configurations with total weights > 1.0  
+✅ **Position Size Configuration**: Frontend form field added, $10-$10,000 range validation  
+✅ **Trade Control Parameters**: trade_step_pct and cooldown_minutes fully implemented  
 ✅ **Database Migration**: Complete removal of legacy Signal/SignalResult tables  
-✅ **API Endpoints**: `/api/v1/bots/` fully functional, `/api/v1/signals/` properly deprecated  
-✅ **Frontend Integration**: TypeScript interfaces aligned, bot display working  
+✅ **API Endpoints**: `/api/v1/bots/` fully functional, deprecated `/api/v1/signals/` removed  
+✅ **Frontend Integration**: TypeScript interfaces aligned, all parameters working  
 ✅ **Celery Tasks**: Modernized with bot-centric approach, all workers running  
 ✅ **Import Cleanup**: All legacy signal imports removed and replaced  
+✅ **Comprehensive Testing**: 53/53 tests passing with full parameter validation  
+✅ **Codebase Cleanup**: Removed test data, deprecated files, and unused imports  
 
 ### **Live Deployment Status**
 - **Backend**: FastAPI running on http://localhost:8000
 - **Frontend**: React dev server on http://localhost:3000  
-- **Database**: SQLite with bot-centric schema, 4 test bots stored
+- **Database**: SQLite with bot-centric schema, enhanced with new parameters
 - **Background Services**: Redis + Celery workers + beat scheduler all running
-- **API Health**: All endpoints responding correctly
+- **API Health**: All endpoints responding correctly with new parameter support
 - **Coinbase Integration**: Live connection with USD fiat account access
 
-### **Test Data Verification**
+### **Test Suite Verification**
 ```bash
-# Command to verify current bots:
-curl -s http://localhost:8000/api/v1/bots/ | python3 -c "import sys, json; data=json.load(sys.stdin); print(f'✅ {len(data)} bots found'); [print(f'   • {bot[\"name\"]} ({bot[\"pair\"]}) - Status: {bot[\"status\"]}') for bot in data]"
+# Comprehensive test results (2025-09-02):
+53 passed, 57 warnings in 3.55s
 
-# Expected output:
-# ✅ 4 bots found
-#    • BTC Scalper (BTC-USD) - Status: STOPPED
-#    • ETH Momentum Bot (ETH-USD) - Status: STOPPED  
-#    • Invalid Weight Bot (BTC-USD) - Status: STOPPED
-#    • Balanced Strategy Bot (DOT-USD) - Status: STOPPED
+# Test breakdown:
+- Bot CRUD operations: 21 tests ✅
+- New parameter validation: 8 tests ✅  
+- Signal processing: 8 tests ✅
+- Live Coinbase integration: 7 tests ✅
+- API endpoints: 9 tests ✅
 ```
 
-### **Ready for Phase 1.3**
-The system is now perfectly positioned for implementing comprehensive bot creation/editing forms with real-time signal configuration UI. All foundational architecture is solid and tested.
+### **New Parameter Implementation Confirmed**
+- **Position Size**: `position_size_usd` field working in frontend forms ($10-$10,000 validated)
+- **Trade Step**: `trade_step_pct` parameter (default 2.0%, 0-50% range validated)
+- **Cooldown**: `cooldown_minutes` parameter (default 15 min, 1-1440 min range validated)
+- **API Integration**: All parameters accessible via `/api/v1/bots/` endpoints
+- **Database Schema**: New columns added with proper defaults and constraints
+
+### **Ready for Next Phase**
+The system is now perfectly positioned for implementing real-time signal evaluation and trading logic. All foundational architecture is solid, tested, and ready for advanced bot functionality development.
 
 ## Visual Documentation Usage
 

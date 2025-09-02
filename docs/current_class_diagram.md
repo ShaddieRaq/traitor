@@ -33,39 +33,60 @@ classDiagram
         +to_dict()
     }
     BaseSignal : backend/app/services/signals/base.py
-    class Signal {
+    class Bot {
     }
-    Signal : backend/app/models/models.py
+    Bot : backend/app/models/models.py
+    class BotSignalHistory {
+    }
+    BotSignalHistory : backend/app/models/models.py
     class MarketData {
     }
     MarketData : backend/app/models/models.py
     class Trade {
     }
     Trade : backend/app/models/models.py
-    class SignalResult {
+    class RSISignalConfig {
+        +sell_must_be_greater_than_buy(cls, v, values)
     }
-    SignalResult : backend/app/models/models.py
-    class SignalCreate {
+    RSISignalConfig : backend/app/api/schemas.py
+    class MovingAverageSignalConfig {
+        +slow_must_be_greater_than_fast(cls, v, values)
     }
-    SignalCreate : backend/app/api/schemas.py
-    class SignalUpdate {
+    MovingAverageSignalConfig : backend/app/api/schemas.py
+    class MACDSignalConfig {
+        +slow_must_be_greater_than_fast(cls, v, values)
     }
-    SignalUpdate : backend/app/api/schemas.py
-    class SignalResponse {
+    MACDSignalConfig : backend/app/api/schemas.py
+    class SignalConfigurationSchema {
+        +validate_total_weight(cls, v, values)
     }
-    SignalResponse : backend/app/api/schemas.py
+    SignalConfigurationSchema : backend/app/api/schemas.py
+    class BotCreate {
+        +validate_signal_config(cls, v)
+    }
+    BotCreate : backend/app/api/schemas.py
+    class BotUpdate {
+        +validate_signal_config(cls, v)
+    }
+    BotUpdate : backend/app/api/schemas.py
+    class BotResponse {
+    }
+    BotResponse : backend/app/api/schemas.py
     class Config {
     }
     Config : backend/app/core/config.py
+    class BotStatusResponse {
+    }
+    BotStatusResponse : backend/app/api/schemas.py
     class MarketDataResponse {
     }
     MarketDataResponse : backend/app/api/schemas.py
     class TradeResponse {
     }
     TradeResponse : backend/app/api/schemas.py
-    class SignalResultResponse {
+    class BotSignalHistoryResponse {
     }
-    SignalResultResponse : backend/app/api/schemas.py
+    BotSignalHistoryResponse : backend/app/api/schemas.py
     class ProductTickerResponse {
     }
     ProductTickerResponse : backend/app/api/schemas.py

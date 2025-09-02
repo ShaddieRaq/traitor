@@ -22,6 +22,8 @@ class Bot(Base):
     stop_loss_pct = Column(Float, default=5.0)  # Stop loss percentage
     take_profit_pct = Column(Float, default=10.0)  # Take profit percentage
     confirmation_minutes = Column(Integer, default=5)  # Signal confirmation time
+    trade_step_pct = Column(Float, default=2.0)  # Minimum price change % between trades
+    cooldown_minutes = Column(Integer, default=15)  # Time to wait between trades
     
     # Signal configuration (JSON string)
     signal_config = Column(Text)  # JSON: {"RSI": {"weight": 0.4, "period": 14, "oversold": 30, "overbought": 70}, ...}

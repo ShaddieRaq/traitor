@@ -39,6 +39,8 @@ export interface Bot {
   stop_loss_pct: number;
   take_profit_pct: number;
   confirmation_minutes: number;
+  trade_step_pct: number;
+  cooldown_minutes: number;
   signal_config: SignalConfiguration;
   current_position_size: number;
   current_position_entry_price?: number;
@@ -60,6 +62,8 @@ export interface BotCreate {
   stop_loss_pct?: number;
   take_profit_pct?: number;
   confirmation_minutes?: number;
+  trade_step_pct?: number;
+  cooldown_minutes?: number;
   signal_config?: SignalConfiguration;
 }
 
@@ -72,6 +76,8 @@ export interface BotUpdate {
   stop_loss_pct?: number;
   take_profit_pct?: number;
   confirmation_minutes?: number;
+  trade_step_pct?: number;
+  cooldown_minutes?: number;
   signal_config?: SignalConfiguration;
 }
 

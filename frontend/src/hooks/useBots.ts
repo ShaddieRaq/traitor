@@ -70,8 +70,31 @@ export const useDeleteBot = () => {
       const response = await api.delete(`/bots/${id}`);
       return response.data;
     },
+    onMutate: async (id: number) => {
+      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      await queryClient.cancelQueries({ queryKey: ['bots'] });
+
+      // Snapshot the previous value
+      const previousBots = queryClient.getQueryData(['bots']);
+
+      // Optimistically update to remove the bot
+      queryClient.setQueryData(['bots'], (old: Bot[] | undefined) => {
+        return old ? old.filter(bot => bot.id !== id) : [];
+      });
+
+      // Return a context object with the snapshotted value
+      return { previousBots };
+    },
+    onError: (_err, _id, context) => {
+      // If the mutation fails, use the context to roll back
+      if (context?.previousBots) {
+        queryClient.setQueryData(['bots'], context.previousBots);
+      }
+    },
     onSuccess: () => {
+      // Invalidate and refetch to ensure consistency
       queryClient.invalidateQueries({ queryKey: ['bots'] });
+      queryClient.invalidateQueries({ queryKey: ['bots', 'status'] });
     },
   });
 };

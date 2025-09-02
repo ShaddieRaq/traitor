@@ -82,6 +82,8 @@ class BotCreate(BaseModel):
     stop_loss_pct: float = 5.0
     take_profit_pct: float = 10.0
     confirmation_minutes: int = 5
+    trade_step_pct: float = 2.0
+    cooldown_minutes: int = 15
     signal_config: Optional[SignalConfigurationSchema] = SignalConfigurationSchema()
 
     @validator('signal_config', pre=True)
@@ -101,6 +103,8 @@ class BotUpdate(BaseModel):
     stop_loss_pct: Optional[float] = None
     take_profit_pct: Optional[float] = None
     confirmation_minutes: Optional[int] = None
+    trade_step_pct: Optional[float] = None
+    cooldown_minutes: Optional[int] = None
     signal_config: Optional[SignalConfigurationSchema] = None
 
     @validator('signal_config', pre=True)
@@ -122,6 +126,8 @@ class BotResponse(BaseModel):
     stop_loss_pct: float
     take_profit_pct: float
     confirmation_minutes: int
+    trade_step_pct: float
+    cooldown_minutes: int
     signal_config: Dict[str, Any]
     current_position_size: float
     current_position_entry_price: Optional[float]

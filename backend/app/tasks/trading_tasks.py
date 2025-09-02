@@ -19,13 +19,13 @@ def evaluate_bot_signals():
     try:
         db = SessionLocal()
         try:
-            # Get all active bots
-            active_bots = db.query(Bot).filter(Bot.active == True).all()
-            logger.info(f"Found {len(active_bots)} active bots - signal evaluation pending Phase 2 implementation")
+            # Get all running bots
+            active_bots = db.query(Bot).filter(Bot.status == "RUNNING").all()
+            logger.info(f"Found {len(active_bots)} running bots - signal evaluation pending Phase 2 implementation")
             
             return {
                 "status": "pending_implementation", 
-                "active_bots": len(active_bots),
+                "running_bots": len(active_bots),
                 "message": "Bot signal evaluation will be implemented in Phase 2"
             }
             
