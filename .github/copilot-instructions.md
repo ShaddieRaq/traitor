@@ -22,10 +22,152 @@ grep -r "@router\." backend/app/api/       # Find API routes
 ### Current System State (2025-09-02):
 - ✅ All services running and healthy
 - ✅ Coinbase API integration functional  
-- ✅ 2 default signals: RSI and Moving Average
+- ✅ Portfolio dashboard with USD fiat account access
 - ✅ API endpoints: http://localhost:8000/api/docs
 - ✅ Frontend dashboard: http://localhost:3000
-- ✅ **USD Fiat Account Access**: Portfolio breakdown method implemented for complete account access
+- ✅ **Modern React Setup**: TypeScript + Vite + TailwindCSS + TanStack Query
+- ✅ **Real-time Components**: MarketTicker with live data updates
+- 🔄 **TRANSITIONING**: From signal-based to bot-centric architecture (see Bot Implementation Plan below)
+
+## 🤖 BOT IMPLEMENTATION PLAN (CURRENT INITIATIVE)
+
+### **IMPORTANT**: Architecture Transition in Progress
+We are transitioning from a signal-based system to a **bot-centric trading architecture**. The current signal tables and evaluation system will be **completely replaced** with the bot system described below.
+
+### **Bot Concept Overview**
+- **One bot per trading pair** (e.g., "BTC Scalper" for BTC-USD)
+- **Combined signal scoring**: Bots aggregate multiple signals (RSI, MA, MACD, Volume, Bollinger Bands) using weighted scoring (-1 to 1 scale)
+- **Signal confirmation**: Signals must agree for X time before bot trades (prevents false signals)
+- **Real-time evaluation**: Bots evaluate on every Coinbase ticker update (1-2 times/second)
+- **Bot temperature indicators**: Hot 🔥 (ready to trade) → Warm 🌡️ → Cold ❄️ → Frozen 🧊
+
+### **Phased Implementation Plan**
+
+#### **Phase 1: Core Bot Foundation** (2-3 days)
+**Milestone 1.1: Bot Data Model** ✅
+- Replace Signal/SignalResult tables with Bot tables
+- Bot model: name, pair, status (RUNNING/STOPPED/ERROR), position sizing, risk settings
+- Basic CRUD API endpoints: `/api/v1/bots/`
+- **Test:** Create bot via API, verify data structure
+
+**Milestone 1.2: Signal Configuration** ✅  
+- Signal configuration within bot (RSI, MA, MACD with full parameter control)
+- Signal weight settings per bot (percentage allocation)
+- Store signal configurations as JSON in bot model
+- **Test:** Create bot with 3 signals, different weights, verify storage
+
+**Milestone 1.3: Basic Bot Management UI** ✅
+- Bot list page showing all bots with status
+- Create/edit/delete bot forms with signal configuration
+- Start/stop bot controls (status changes only, no trading yet)
+- **Test:** Full CRUD operations through UI, verify status changes
+
+#### **Phase 2: Signal Evaluation Engine** (3-4 days)
+**Milestone 2.1: Individual Signal Calculators** ✅
+- Rebuild signal classes to return scores (-1 to 1) instead of buy/sell/hold
+- Signals: RSI, Moving Average, MACD, Volume, Bollinger Bands
+- Signal calculator service processes market data per bot configuration
+- **Test:** Feed historical data, verify signal scores are reasonable
+
+**Milestone 2.2: Signal Aggregation Logic** ✅
+- Weighted average calculation: `(RSI_score × RSI_weight) + (MA_score × MA_weight) + ...`
+- Combined score calculation and threshold checking for buy/sell decisions
+- Bot evaluation service processes all bot signals on market data updates
+- **Test:** Bot with known signal scores produces expected combined score
+
+**Milestone 2.3: Signal Confirmation System** ✅
+- Track signal history over time windows for confirmation period
+- Confirmation logic: all signals must agree for X consecutive time before action
+- Reset confirmation timer when signals disagree during confirmation period
+- **Test:** Bot only triggers after signals agree for full confirmation period
+
+#### **Phase 3: Real-time Data & Bot Status** (2-3 days)
+**Milestone 3.1: Live Market Data Integration** ✅
+- WebSocket connection to Coinbase ticker (realistic: 1-2 updates/second)
+- Bot evaluation triggered by every ticker update for responsive trading
+- Market data processing and storage for signal calculations
+- **Test:** Bot status updates in real-time as prices change
+
+**Milestone 3.2: Bot Status & Temperature** ✅
+- Bot temperature calculation based on combined signal score proximity to thresholds
+- Distance to signal thresholds: show how close bot is to trading action
+- Confirmation progress tracking: show confirmation timer progress
+- **Test:** Bot status changes color/temperature as market moves toward/away from signals
+
+**Milestone 3.3: Real-time Dashboard Updates** ✅
+- WebSocket updates to frontend for live bot status
+- Real-time signal scores, distances, and confirmation progress
+- No page refresh required for any bot status changes
+- **Test:** Watch bot statuses change live as market moves
+
+#### **Phase 4: Position Management** (3-4 days)
+**Milestone 4.1: Paper Trading** ✅
+- Paper trading mode for all bots (simulate without real money)
+- Simulated position tracking with market prices
+- Trade history and P&L calculation for testing
+- **Test:** Bot "trades" and tracks P&L without real orders
+
+**Milestone 4.2: Position Tracking** ✅
+- Current position per bot (size, entry price, current P&L)
+- Trade history per bot with entry/exit details
+- Performance metrics: win/loss ratio, total P&L
+- **Test:** Bot shows current position, complete trade history, running P&L
+
+**Milestone 4.3: Risk Management** ✅
+- Stop loss: automatic exit when position loses X%
+- Take profit: automatic exit when position gains X%
+- Maximum 1 position per bot (close before opening new)
+- **Test:** Bot automatically closes positions at stop/profit levels
+
+#### **Phase 5: Live Trading** (2-3 days)
+**Milestone 5.1: Live Order Execution** ✅
+- Integration with Coinbase market order placement
+- Real order tracking: pending → filled → completed status
+- Order execution error handling and retry logic
+- **Test:** Bot places real small orders, tracks execution status
+
+**Milestone 5.2: Portfolio Integration** ✅
+- Account balance checking before placing orders
+- Portfolio allocation limits across all bots
+- Position sizing: fixed dollar amount (configurable per bot)
+- **Test:** Bots respect available funds and don't exceed portfolio limits
+
+**Milestone 5.3: Activity Logging** ✅
+- Recent activity feed showing all bot actions across all bots
+- Trade notifications and real-time alerts
+- Comprehensive audit trail of all bot decisions and executions
+- **Test:** All bot actions (signals, confirmations, trades) visible in activity feed
+
+#### **Phase 6: Advanced Features** (2-3 days)
+**Milestone 6.1: Bot Templates** ✅
+- Predefined bot configurations: Scalping Bot, Swing Bot, Conservative Bot
+- Template customization and clone existing bot functionality
+- Quick bot creation from proven configurations
+- **Test:** Create bots from templates, verify all configurations are correct
+
+**Milestone 6.2: Advanced Analytics** ✅
+- Individual bot performance charts and metrics
+- Signal effectiveness analysis per bot
+- Comparative bot performance dashboard
+- **Test:** Historical performance data shows meaningful trends and insights
+
+**Milestone 6.3: Enhanced UI/UX** ✅
+- Individual bot detail pages with complete configuration and performance
+- Mobile-responsive design for all bot management
+- Advanced signal parameter configuration interface
+- **Test:** Full user journey feels intuitive and professional
+
+### **Key Implementation Notes**
+- **Signal Scoring**: Combined weighted approach (-1 to 1 scale) rather than individual thresholds
+- **Confirmation System**: All signals must agree for specified time period, timer resets on disagreement
+- **Real-time Updates**: WebSocket-driven updates, no page refresh required
+- **Position Management**: One position per bot, immediate order execution (market orders)
+- **Bot Status**: Visual temperature indicators based on signal proximity and confirmation status
+
+### **Migration Strategy**
+- **Clean slate approach**: Remove existing Signal/SignalResult tables completely
+- **Preserve market data**: Keep existing OHLCV candle data, change consumption pattern
+- **API reorganization**: Replace `/api/v1/signals/` with `/api/v1/bots/` endpoints
 
 ## 🔄 CRITICAL UPDATE: USD Fiat Account Access (2025-09-02)
 
@@ -138,6 +280,24 @@ grep -r "from.*import" backend/app/
 ## Architecture Overview
 This is a signal-based trading bot with a web dashboard that uses Python backend (FastAPI) and React frontend. The system follows a modular architecture with separate components for signal management, market data processing, trading execution, and portfolio tracking. The bot operates on spot trading using configurable signals that can be enabled/disabled individually.
 
+### Frontend Architecture (React + TypeScript)
+- **Framework**: React 18 with TypeScript, Vite build system
+- **Styling**: TailwindCSS for utility-first styling
+- **State Management**: TanStack Query for server state, local state for UI
+- **Routing**: React Router v6 with route-based code splitting
+- **Icons**: Lucide React for consistent iconography
+- **Notifications**: React Hot Toast for user feedback
+- **Components**: Organized by feature (`Market/`, `Portfolio/`) with shared components
+- **No React Imports**: Modern JSX transform enabled (React 18+ pattern)
+
+### Backend Architecture (FastAPI + SQLAlchemy)
+- **API Framework**: FastAPI with automatic OpenAPI documentation
+- **Database**: SQLAlchemy ORM with SQLite (production-ready for single user)
+- **Background Tasks**: Celery with Redis for signal processing and data fetching
+- **Real-time**: WebSocket connections for live market data
+- **Services**: Service layer pattern isolating business logic from API routes
+- **Configuration**: Pydantic Settings for type-safe environment variable handling
+
 ### Management Scripts - ALWAYS USE THESE
 ⚠️ **CRITICAL**: Use these scripts instead of manual commands to avoid deployment issues:
 
@@ -161,12 +321,82 @@ This is a signal-based trading bot with a web dashboard that uses Python backend
 - `DEVELOPMENT_WORKFLOWS.md` - Development processes, testing, deployment, and monitoring flows  
 - `QUICK_REFERENCE.md` - Day-to-day development reference with commands and templates
 
+### Verified Working Deployment (Current Status)
+The project has been successfully deployed and tested with all services running:
+
+**Service Status** (as of 2025-09-02):
+- ✅ Redis: Running in Docker container
+- ✅ FastAPI Backend: http://localhost:8000 
+- ✅ React Frontend: http://localhost:3000
+- ✅ Celery Worker: Background task processing active
+- ✅ Celery Beat: Periodic task scheduling active
+- ✅ Database: SQLite auto-created with default signals
+- ✅ Coinbase Integration: Live API connection verified and functional
+
+**API Endpoints**:
+- API Documentation: http://localhost:8000/api/docs
+- ReDoc Documentation: http://localhost:8000/api/redoc  
+- Root API: http://localhost:8000/
+- Health Check: http://localhost:8000/health
+- Signals API: http://localhost:8000/api/v1/signals
+- Market Data API: http://localhost:8000/api/v1/market
+- Trades API: http://localhost:8000/api/v1/trades
+
+**Coinbase API Endpoints** (verified working):
+- Products: http://localhost:8000/api/v1/market/products
+- Accounts: http://localhost:8000/api/v1/market/accounts
+- Ticker: http://localhost:8000/api/v1/market/ticker/{product_id}
+
 ## Project Structure
 - **Backend**: FastAPI + SQLAlchemy + Celery for background tasks
 - **Frontend**: React + TypeScript + TailwindCSS for dashboard
 - **Database**: SQLite (local development, single user)
 - **Real-time**: Socket.IO for live updates
 - **Trading**: Coinbase Advanced Trade API integration
+
+### Key Directories and Patterns
+```
+backend/app/
+├── main.py              # FastAPI app entry point with CORS and API docs
+├── core/
+│   ├── config.py        # Pydantic Settings with environment variables
+│   └── database.py      # SQLAlchemy setup and session management
+├── models/models.py     # All SQLAlchemy database models
+├── api/                 # FastAPI routers organized by domain
+│   ├── signals.py       # Signal CRUD and evaluation endpoints
+│   ├── market.py        # Market data and Coinbase API proxies
+│   └── trades.py        # Trade execution and history
+├── services/
+│   ├── coinbase_service.py  # Coinbase API wrapper with portfolio breakdown
+│   └── signals/             # Signal implementation directory
+│       ├── base.py          # Abstract BaseSignal class
+│       └── technical.py     # RSI and MovingAverage signal implementations
+└── tasks/               # Celery background tasks
+    ├── trading_tasks.py # Signal evaluation and trade execution
+    └── data_tasks.py    # Market data fetching and caching
+
+frontend/src/
+├── App.tsx              # Main app with routing and TanStack Query provider
+├── lib/api.ts           # Axios client with base URL and interceptors
+├── hooks/               # Custom React hooks for API calls
+│   ├── useSignals.ts    # Signal management hooks using TanStack Query
+│   └── useMarket.ts     # Market data hooks with real-time updates
+├── components/          # Organized by feature domain
+│   ├── Market/          # Market-related components (MarketTicker, etc.)
+│   └── Portfolio/       # Portfolio display components
+└── pages/               # Top-level route components
+    ├── Dashboard.tsx    # Main dashboard with status overview
+    ├── Signals.tsx      # Signal configuration and management
+    └── Market.tsx       # Market data visualization
+```
+
+### Development Patterns
+- **Service Layer**: Business logic isolated in service classes (CoinbaseService)
+- **Signal Factory**: Dynamic signal creation via `create_signal_instance()`
+- **Auto-Discovery**: Use `python scripts/generate_class_diagram.py` for current structure
+- **Modern React**: No React imports needed for JSX (React 18+ transform)
+- **Type Safety**: Full TypeScript coverage with interfaces matching backend schemas
+- **Real-time**: TanStack Query for server state, WebSocket for live market data
 
 ## Coinbase API Key Information
 - **API Type**: Coinbase Developer Platform (CDP) API Keys
@@ -340,7 +570,7 @@ grep -r "class.*(" backend/app/models/models.py
 grep -r "@router\." backend/app/api/
 ```
 
-### Known Classes (As of 2025-09-02)
+### Current Classes (As of 2025-09-02)
 **⚠️ This list may be incomplete - use discovery commands above for current state**
 
 ### Signal Classes (app/services/signals/)
@@ -371,49 +601,94 @@ coinbase_service = CoinbaseService()
 ### Database Models (app/models/models.py)
 ```python
 # File: app/models/models.py
-class Signal(Base)
-class MarketData(Base)  
-class Trade(Base)
-class SignalResult(Base)
+class Signal(Base)        # SQLAlchemy model for signal configurations
+class MarketData(Base)    # Historical candlestick data storage
+class Trade(Base)         # Trade execution records
+class SignalResult(Base)  # Signal calculation results cache
 ```
 
-### API Router Files (app/api/)
+### API Schema Classes (app/api/schemas.py)
 ```python
-# File: app/api/signals.py
-router = APIRouter()
-
-# File: app/api/market.py  
-router = APIRouter()
-
-# File: app/api/trades.py
-router = APIRouter()
+# Pydantic models for API request/response validation
+class SignalCreate(BaseModel)
+class SignalUpdate(BaseModel) 
+class SignalResponse(BaseModel)
+class SignalResultResponse(BaseModel)
+class MarketDataResponse(BaseModel)
+class TradeResponse(BaseModel)
+class ProductTickerResponse(BaseModel)
+class AccountResponse(BaseModel)
 ```
 
-### Configuration (app/core/)
+### Configuration Classes (app/core/)
 ```python
 # File: app/core/config.py
-class Settings(BaseSettings)
+class Settings(BaseSettings)  # Pydantic settings with environment variables
 settings = Settings()
 
 # File: app/core/database.py
-def get_db()
+def get_db()  # SQLAlchemy session dependency
+```
+
+### Frontend Component Structure
+```typescript
+// File: frontend/src/App.tsx
+function App()  // Main app with routing and providers
+
+// File: frontend/src/components/Market/MarketTicker.tsx
+const MarketTicker: React.FC<MarketTickerProps>  // Real-time market ticker
+// Key patterns: 
+// - Uses useProducts() hook for market data
+// - Filters major trading pairs (USD quote currency)
+// - Implements loading states with skeleton animations
+// - Error handling with fallback UI
+// - TailwindCSS responsive design
+
+// File: frontend/src/hooks/useMarket.ts
+export const useProducts = ()  // TanStack Query hook for products
+export const useTicker = (productId: string)  // Hook for real-time ticker data
+
+// File: frontend/src/hooks/useSignals.ts
+export const useSignals = ()  // Hook for signal management
+export const useSignalResults = ()  // Hook for signal calculation results
 ```
 
 ### Common Import Patterns
 ```python
-# Signals
+# Backend - Signals
 from app.services.signals.technical import RSISignal, MovingAverageSignal
 from app.services.signals.base import BaseSignal, create_signal_instance
 
-# Services  
+# Backend - Services  
 from app.services.coinbase_service import coinbase_service, CoinbaseService
 
-# Models
+# Backend - Models
 from app.models.models import Signal, MarketData, Trade, SignalResult
 
-# Config
+# Backend - API Schemas
+from app.api.schemas import SignalCreate, SignalResponse, MarketDataResponse
+
+# Backend - Config
 from app.core.config import settings
 from app.core.database import get_db
+```
+
+```typescript
+// Frontend - Modern React (No React imports needed)
+import { useState, useEffect } from 'react';  // Hooks only
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+
+// Frontend - API and State Management
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { useSignals, useSignalResults } from '../hooks/useSignals';
+import { useProducts, useTicker } from '../hooks/useMarket';
+
+// Frontend - Components and Icons
+import { Activity, TrendingUp, Zap } from 'lucide-react';
+import toast from 'react-hot-toast';
+
+// Frontend - API Client
+import { api } from '../lib/api';  // Axios instance with interceptors
 ```
 
 ### Route Usage Notes
@@ -677,6 +952,11 @@ docker ps
 - **API Documentation**: Available at `/api/docs` not `/docs` (configured with api_v1_prefix)
 - **USD Account Missing**: Use portfolio breakdown method, NOT `get_accounts()` - see Portfolio Breakdown section above
 - **Slow Coinbase Tests**: Avoid `'property' in coinbase_object` - use `hasattr()` instead (70+ second difference)
+- **Exit Code 127**: Command not found - check directory and virtual environment activation
+- **Connection Refused on API calls**: Backend service not running - start uvicorn first
+- **Module Import Errors**: Virtual environment not activated - run `source venv/bin/activate`
+- **Wrong Working Directory**: Use `cd` to navigate before running commands
+- **Service Conflicts**: Check for existing processes with `lsof -i :PORT` before starting services
 - **Exit Code 127**: Command not found - check directory and virtual environment activation
 - **Connection Refused on API calls**: Backend service not running - start uvicorn first
 - **Module Import Errors**: Virtual environment not activated - run `source venv/bin/activate`
