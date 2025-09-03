@@ -12,6 +12,7 @@ from sqlalchemy import desc
 from ..models.models import Bot, BotSignalHistory
 from ..services.signals.base import create_signal_instance
 from ..core.database import get_db
+from ..utils.temperature import calculate_bot_temperature, get_temperature_emoji
 
 
 class BotSignalEvaluator:
@@ -308,8 +309,14 @@ class BotSignalEvaluator:
             return int(obj)
         elif isinstance(obj, (np.floating, np.float64)):
             return float(obj)
+        elif isinstance(obj, np.bool_):
+            return bool(obj)
         elif isinstance(obj, np.ndarray):
             return obj.tolist()
+        elif hasattr(obj, 'tolist'):  # pandas/numpy objects with tolist method
+            return obj.tolist()
+        elif hasattr(obj, 'item'):  # numpy scalars
+            return obj.item()
         else:
             return obj
 
@@ -414,10 +421,10 @@ class BotSignalEvaluator:
         Calculate bot temperature based on signal proximity to trading thresholds.
         
         Temperature levels:
-        - Hot 🔥: Very close to trading (score > 0.7 or < -0.7)
-        - Warm 🌡️: Moderately close (score > 0.4 or < -0.4)  
-        - Cool ❄️: Some interest (score > 0.2 or < -0.2)
-        - Frozen 🧊: No trading interest (score between -0.2 and 0.2)
+        - Hot 🔥: Very close to trading (score > 0.3 or < -0.3)
+        - Warm 🌡️: Moderately close (score > 0.15 or < -0.15)  
+        - Cool ❄️: Some interest (score > 0.05 or < -0.05)
+        - Frozen 🧊: No trading interest (score between -0.05 and 0.05)
         
         Args:
             bot: Bot instance
@@ -439,19 +446,8 @@ class BotSignalEvaluator:
         
         # Calculate temperature based on absolute score
         abs_score = abs(score)
-        
-        if abs_score >= 0.7:
-            temperature = "hot"
-            temperature_emoji = "🔥"
-        elif abs_score >= 0.4:
-            temperature = "warm" 
-            temperature_emoji = "🌡️"
-        elif abs_score >= 0.2:
-            temperature = "cool"
-            temperature_emoji = "❄️"
-        else:
-            temperature = "frozen"
-            temperature_emoji = "🧊"
+        temperature = calculate_bot_temperature(score)
+        temperature_emoji = get_temperature_emoji(temperature)
         
         # Calculate distance to action thresholds
         buy_threshold = -0.3  # Default buy threshold
@@ -466,7 +462,7 @@ class BotSignalEvaluator:
             distance_to_action = max(0, distance_to_buy)
             next_action = "buy" if distance_to_action <= 0 else "approaching_buy"
         
-        return {
+        result = {
             'temperature': temperature,
             'temperature_emoji': temperature_emoji,
             'score': score,
@@ -484,6 +480,9 @@ class BotSignalEvaluator:
             'confirmation_status': evaluation['confirmation_status'],
             'signal_breakdown': evaluation['signal_results']
         }
+        
+        # Ensure all values are JSON serializable
+        return self._convert_to_json_serializable(result)
     
     def get_all_bot_temperatures(self, market_data_cache: Dict[str, pd.DataFrame] = None) -> List[Dict[str, Any]]:
         """
@@ -514,6 +513,15 @@ class BotSignalEvaluator:
                     })
                 
                 temp_data = self.calculate_bot_temperature(bot, market_data)
+                
+                # Update the bot's current_combined_score in the database
+                try:
+                    bot.current_combined_score = temp_data.get('score', 0.0)
+                    self.db.commit()
+                except Exception as e:
+                    self.db.rollback()
+                    print(f"Warning: Failed to update bot score in database: {e}")
+                
                 temp_data.update({
                     'bot_id': bot.id,
                     'bot_name': bot.name,

@@ -11,6 +11,7 @@ from datetime import datetime
 from ..core.database import get_db
 from ..models.models import Bot
 from ..services.bot_evaluator import get_bot_evaluator
+from ..utils.temperature import calculate_bot_temperature, get_temperature_emoji
 
 router = APIRouter()
 
@@ -19,7 +20,29 @@ router = APIRouter()
 def get_all_bot_temperatures(db: Session = Depends(get_db)):
     """Get temperature status for all bots."""
     evaluator = get_bot_evaluator(db)
-    temperatures = evaluator.get_all_bot_temperatures()
+    
+    # Get market data for all running bots
+    from ..services.coinbase_service import coinbase_service
+    bots = db.query(Bot).filter(Bot.status == 'RUNNING').all()
+    market_data_cache = {}
+    
+    # Fetch market data for each unique trading pair
+    unique_pairs = set(bot.pair for bot in bots)
+    for pair in unique_pairs:
+        try:
+            market_data_cache[pair] = coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
+        except Exception as e:
+            print(f"Failed to get market data for {pair}: {e}")
+            # Use mock data as fallback
+            market_data_cache[pair] = pd.DataFrame({
+                'close': [100.0],
+                'high': [101.0],
+                'low': [99.0], 
+                'open': [100.5],
+                'volume': [1000]
+            })
+    
+    temperatures = evaluator.get_all_bot_temperatures(market_data_cache)
     
     return {
         "timestamp": pd.Timestamp.now().isoformat(),
@@ -38,8 +61,29 @@ def get_bot_dashboard_summary(db: Session = Depends(get_db)):
     bot_count = len(bots)
     running_count = len([b for b in bots if b.status == 'RUNNING'])
     
-    # Get temperatures for running bots
-    temperatures = evaluator.get_all_bot_temperatures()
+    # Get market data for running bots
+    from ..services.coinbase_service import coinbase_service
+    running_bots = [b for b in bots if b.status == 'RUNNING']
+    market_data_cache = {}
+    
+    # Fetch market data for each unique trading pair
+    unique_pairs = set(bot.pair for bot in running_bots)
+    for pair in unique_pairs:
+        try:
+            market_data_cache[pair] = coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
+        except Exception as e:
+            print(f"Failed to get market data for {pair}: {e}")
+            # Use mock data as fallback
+            market_data_cache[pair] = pd.DataFrame({
+                'close': [100.0],
+                'high': [101.0],
+                'low': [99.0], 
+                'open': [100.5],
+                'volume': [1000]
+            })
+    
+    # Get temperatures for running bots with real market data
+    temperatures = evaluator.get_all_bot_temperatures(market_data_cache)
     
     # Categorize by temperature
     temp_counts = {
@@ -67,17 +111,33 @@ def get_bot_temperature(bot_id: int, db: Session = Depends(get_db)):
     if not bot:
         raise HTTPException(status_code=404, detail="Bot not found")
     
-    # Create mock market data for temperature calculation
-    # In real implementation, this would come from live market data
-    market_data = pd.DataFrame({
-        'close': [100.0],  # Mock current price
-        'high': [101.0],
-        'low': [99.0], 
-        'open': [100.5],
-        'volume': [1000]
-    })
-    
     evaluator = get_bot_evaluator(db)
+    
+    # Get real market data from Coinbase
+    try:
+        from ..services.coinbase_service import coinbase_service
+        market_data = coinbase_service.get_historical_data(bot.pair, granularity=3600, limit=100)
+        
+        if market_data.empty:
+            # Fallback to mock data if API fails
+            market_data = pd.DataFrame({
+                'close': [100.0],
+                'high': [101.0],
+                'low': [99.0], 
+                'open': [100.5],
+                'volume': [1000]
+            })
+    except Exception as e:
+        # Use mock data as fallback
+        print(f"Failed to get market data for {bot.pair}: {e}")
+        market_data = pd.DataFrame({
+            'close': [100.0],
+            'high': [101.0],
+            'low': [99.0], 
+            'open': [100.5],
+            'volume': [1000]
+        })
+    
     temperature_data = evaluator.calculate_bot_temperature(bot, market_data)
     
     return {

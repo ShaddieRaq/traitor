@@ -2,11 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 import json
-import pandas as pd
 from datetime import datetime
 from ..core.database import get_db
 from ..models.models import Bot, BotSignalHistory
 from ..api.schemas import BotCreate, BotUpdate, BotResponse, BotStatusResponse
+from ..utils.temperature import calculate_bot_temperature
 
 router = APIRouter()
 
@@ -242,19 +242,6 @@ def reset_bot_confirmation(bot_id: int, db: Session = Depends(get_db)):
         "message": "Confirmation timer reset successfully"
     }
 
-
-def calculate_bot_temperature(combined_score: float) -> str:
-    """Calculate bot temperature based on combined signal score."""
-    abs_score = abs(combined_score)
-    
-    if abs_score >= 0.8:
-        return "HOT"
-    elif abs_score >= 0.5:
-        return "WARM"
-    elif abs_score >= 0.2:
-        return "COOL"
-    else:
-        return "FROZEN"
 
 
 def calculate_distance_to_signal(combined_score: float) -> float:

@@ -1,11 +1,26 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import toast from 'react-hot-toast';
-import { useBots, useDeleteBot, useStartBot, useStopBot, useCreateBot, useUpdateBot } from '../hooks/useBots';
+import { useBots, useBotsStatus, useDeleteBot, useStartBot, useStopBot, useCreateBot, useUpdateBot } from '../hooks/useBots';
 import { Bot, BotCreate, BotUpdate } from '../types';
 import BotForm from '../components/BotForm';
 
 const Signals: React.FC = () => {
   const { data: bots, isLoading, error } = useBots();
+  const { data: botsStatus } = useBotsStatus();
+  
+  // Merge bot data with status data to include temperature
+  const mergedBots = useMemo(() => {
+    if (!bots || !botsStatus) return bots || [];
+    
+    return bots.map(bot => {
+      const status = botsStatus.find(s => s.id === bot.id);
+      return {
+        ...bot,
+        temperature: status?.temperature,
+        distance_to_signal: status?.distance_to_signal
+      };
+    });
+  }, [bots, botsStatus]);
   const deleteBot = useDeleteBot();
   const startBot = useStartBot();
   const stopBot = useStopBot();
@@ -151,8 +166,8 @@ const Signals: React.FC = () => {
       {/* Bots List */}
       <div className="bg-white shadow overflow-hidden sm:rounded-md">
         <ul className="divide-y divide-gray-200">
-          {bots && bots.length > 0 ? (
-            bots.map((bot) => (
+          {mergedBots && mergedBots.length > 0 ? (
+            mergedBots.map((bot) => (
               <li key={bot.id}>
                 <div className="px-4 py-4 flex items-center justify-between">
                   <div className="flex items-center">
@@ -180,7 +195,7 @@ const Signals: React.FC = () => {
                           {bot.status}
                         </span>
                         <span className="ml-2 text-xs">
-                          {bot.temperature === 'HOT' ? '🔥' : bot.temperature === 'WARM' ? '🌡️' : bot.temperature === 'COLD' ? '❄️' : bot.temperature === 'FROZEN' ? '🧊' : '⚪'}
+                          {bot.temperature === 'HOT' ? '🔥' : bot.temperature === 'WARM' ? '🌡️' : bot.temperature === 'COOL' ? '❄️' : bot.temperature === 'FROZEN' ? '🧊' : '⚪'}
                         </span>
                       </div>
                       <p className="text-sm text-gray-500">

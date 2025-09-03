@@ -16,7 +16,126 @@ curl -s http://localhost:8000/api/v1/bots/ | python3 -m json.tool  # View curren
 - ✅ **Phase 2.3 Complete**: Signal confirmation system operational
 - ✅ **Phase 3.1 Complete**: Live WebSocket market data integration operational
 - ✅ **Phase 3.2 Complete**: Bot temperature indicators operational (Hot 🔥/Warm 🌡️/Cool ❄️/Frozen 🧊)
+- ✅ **Phase 3.3 Complete**: Real-time dashboard with WebSocket updates operational
 - ✅ **Codebase Cleanup**: All development artifacts and test bots removed
+- ✅ **Temperature System**: Unified calculation with realistic thresholds for real trading
+
+## 🎯 CRITICAL LESSONS LEARNED (Updated Sept 3, 2025)
+
+### **Temperature System Architecture - ESSENTIAL KNOWLEDGE**
+
+#### **Unified Temperature Calculation**
+**CRITICAL**: There's now a single source of truth for temperature calculation in `app/utils/temperature.py`:
+
+```python
+# Realistic thresholds for actual trading signals
+def calculate_bot_temperature(combined_score: float) -> str:
+    abs_score = abs(combined_score)
+    if abs_score >= 0.3:    return "HOT"     # Strong signal
+    elif abs_score >= 0.15: return "WARM"    # Moderate signal  
+    elif abs_score >= 0.05: return "COOL"    # Weak signal
+    else:                   return "FROZEN"  # No signal
+```
+
+**Why These Thresholds?**
+- **Real trading signals are small**: Typical range 0.05-0.3 for normal markets
+- **Previous thresholds (0.2, 0.5, 0.8)** were too high for real market conditions
+- **Score of -0.16 should be WARM**, not FROZEN (83% toward 0.2 threshold!)
+
+#### **Bot Score Interpretation - ESSENTIAL UNDERSTANDING**
+```python
+# Bot scores represent combined weighted signal strength (-1.0 to +1.0)
+Bot Score = (RSI_score × RSI_weight) + (MA_score × MA_weight) + (MACD_score × MACD_weight)
+
+# Example: ETH Bot with score -0.166
+# - RSI: -0.2 × 0.4 = -0.08
+# - MA:  -0.1 × 0.35 = -0.035  
+# - MACD: -0.3 × 0.25 = -0.075
+# Combined: -0.19 (WARM temperature)
+```
+
+**Score Meaning:**
+- **Negative scores**: Bearish signals (sell pressure detected)
+- **Positive scores**: Bullish signals (buy pressure detected)
+- **Magnitude matters more than sign**: -0.7 and +0.7 are equally strong
+- **Extreme scores (>0.5)**: Indicate unusual conditions or hypersensitive settings
+
+#### **Common Temperature System Mistakes to Avoid**
+1. **Multiple temperature functions**: Always use `app/utils/temperature.py`
+2. **Frontend case mismatch**: Use "COOL" not "COLD", "HOT" not "hot"
+3. **Unrealistic thresholds**: Don't set thresholds above 0.5 for normal trading
+4. **Ignoring signal weights**: Ensure total weights ≤ 1.0
+5. **Not testing with real data**: Use actual market conditions, not synthetic data
+
+### **Frontend-Backend Integration Patterns**
+
+#### **Data Merging Pattern for Bot Status**
+```typescript
+// CRITICAL: Merge full bot data with status data for complete information
+const mergedBots = useMemo(() => {
+  if (!bots || !botsStatus) return bots || [];
+  
+  return bots.map(bot => {
+    const status = botsStatus.find(s => s.id === bot.id);
+    return {
+      ...bot,
+      temperature: status?.temperature,
+      distance_to_signal: status?.distance_to_signal
+    };
+  });
+}, [bots, botsStatus]);
+```
+
+**Why This Pattern?**
+- **Main bot API** (`/api/v1/bots/`): Full bot data but no temperature
+- **Status API** (`/api/v1/bots/status/summary`): Temperature data but limited fields
+- **Frontend needs both**: Complete bot info for editing + temperature for display
+
+#### **WebSocket Update Strategy**
+```typescript
+// Use TanStack Query with 5-second polling + WebSocket for instant updates
+export const useBotsStatus = () => {
+  return useQuery({
+    queryKey: ['bots', 'status'],
+    queryFn: async () => {
+      const response = await api.get('/bots/status/summary');
+      return response.data as BotStatus[];
+    },
+    refetchInterval: 5000, // Backup polling
+  });
+};
+```
+
+### **Development and Cleanup Best Practices**
+
+#### **File Cleanup Checklist**
+When ending development phases, always remove:
+- **Phase testing files**: `test_phase_*.sh`, `test_*.py`
+- **Debug components**: `*Debug*.tsx`, `*debug*.*`
+- **Demo/temp files**: `demo_*.py`, `*_temp.*`
+- **Cache files**: `__pycache__/`, `*.pyc`
+- **Outdated docs**: Phase-specific documentation files
+
+#### **Code Quality Patterns**
+```python
+# ✅ GOOD: Centralized utilities
+from app.utils.temperature import calculate_bot_temperature
+
+# ❌ BAD: Duplicate temperature calculation functions
+def calculate_bot_temperature():  # Don't create duplicates!
+
+# ✅ GOOD: Realistic signal settings
+"rsi": {"period": 14, "buy_threshold": 30, "sell_threshold": 70}
+
+# ❌ BAD: Extreme settings for production
+"rsi": {"period": 2, "buy_threshold": 80, "sell_threshold": 90}  # Too sensitive!
+```
+
+#### **Testing Strategy Insights**
+- **Use real market data**: No mocking for integration tests
+- **Test temperature transitions**: Verify scores cross thresholds correctly
+- **Validate weight constraints**: Ensure signal weights ≤ 1.0
+- **Check frontend-backend alignment**: Temperature values must match exactly
 
 ### Project Status Files (Check These First)
 ```bash
@@ -1058,15 +1177,16 @@ import { api } from '../lib/api';  // Axios instance with interceptors
 - All POST/PUT requests require proper Content-Type: application/json
 - Query parameters are optional unless specified
 
-### **Current System Statistics** (Live as of 2025-09-02)
-- **Active Bots**: 5 bots configured (all currently STOPPED)
-- **Bot Examples**:
-  - BTC Scalper (BTC-USD) - Scalping configuration
-  - ETH Momentum Bot (ETH-USD) - Momentum-based signals
-  - Post-Cleanup Test Bot (ETH-USD) - Multi-signal configuration
-- **Test Coverage**: 77 tests passing (100% success rate)
-- **Signal Types**: RSI, Moving Average, MACD all operational
-- **Live Market Data**: BTC at $111,221 (Coinbase integration verified)
+### **Current System Statistics** (Live as of 2025-09-03)
+- **Active Bots**: 2 production bots configured (clean state post-cleanup)
+- **Bot Examples with Real Scores**:
+  - **BTC Scalper** (BTC-USD) - HOT 🔥 (score: -0.756) - Ultra-sensitive RSI (period=2)
+  - **ETH Momentum Bot** (ETH-USD) - WARM 🌡️ (score: -0.166) - Multi-signal (RSI+MA+MACD)
+- **Test Coverage**: 89 tests passing (100% success rate)
+- **Signal Types**: RSI, Moving Average, MACD all operational with realistic thresholds
+- **Temperature System**: Unified calculation with production-ready thresholds (0.05/0.15/0.3)
+- **Live Market Data**: Real-time updates with WebSocket integration
+- **Codebase**: Clean, no test artifacts or duplicate functions
 
 ### **CRITICAL VALIDATION PATTERNS** (Phase 2.2)
 
@@ -1635,10 +1755,14 @@ The system is now perfectly positioned for implementing real-time signal evaluat
 
 ### **✅ Current Bot Inventory (Clean Production State)**
 ```
-1. BTC Scalper (BTC-USD) - STOPPED - Scalping configuration with RSI signal (weight: 0.66)
-2. ETH Momentum Bot (ETH-USD) - STOPPED - Multi-signal configuration (RSI + MA + MACD)
-   - Balanced weights: RSI 0.4 + MA 0.35 + MACD 0.25 = 1.0
-   - Optimized for momentum trading with longer confirmation (10 min)
+1. BTC Scalper (BTC-USD) - RUNNING - HOT 🔥 (score: -0.756)
+   - Ultra-sensitive RSI configuration (period=2, thresholds 80/90)
+   - Demonstrates extreme signal sensitivity for testing temperature changes
+   
+2. ETH Momentum Bot (ETH-USD) - RUNNING - WARM 🌡️ (score: -0.166)
+   - Multi-signal configuration: RSI (0.4) + MA (0.35) + MACD (0.25) = 1.0
+   - Realistic trading configuration for production use
+   - Confirmation period: 10 minutes
 ```
 **Note**: All test/development bots removed during cleanup - only production-ready configurations remain.
 

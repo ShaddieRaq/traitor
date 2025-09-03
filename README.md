@@ -21,7 +21,7 @@ A modern, bot-centric cryptocurrency trading system with advanced signal evaluat
 - **Database**: SQLite (single-user, production-ready)
 - **Queue**: Redis for background task processing
 - **API**: Coinbase Advanced Trade API with JWT authentication + WebSocket
-- **Testing**: 89 comprehensive tests with 100% pass rate
+- **Testing**: 104 comprehensive tests with 100% pass rate
 
 ## Bot-Centric Architecture
 
@@ -33,18 +33,21 @@ This system uses a **bot-centric approach** where:
 - **Trade controls** including step percentages, cooldown periods, and position limits
 - **Real-time evaluation** triggered by live WebSocket market data updates
 
-### Current Status (Phase 3.2 Complete)
+### Current Status (Phase 3.3 Complete)
+- ✅ **Unified Temperature System**: Single source of truth with realistic thresholds (0.05/0.15/0.3)
+- ✅ **Real-time Dashboard**: WebSocket-driven live updates without page refresh
 - ✅ **Bot Temperature System**: Hot 🔥/Warm 🌡️/Cool ❄️/Frozen 🧊 classification operational
 - ✅ **Temperature API**: Dedicated endpoints for individual and dashboard temperature data
 - ✅ **Live WebSocket Integration**: Real-time Coinbase ticker data streaming
 - ✅ **Signal Evaluation Engine**: BotSignalEvaluator service operational
 - ✅ **Enhanced Signals**: RSI, MA, MACD with advanced scoring algorithms
 - ✅ **Signal Confirmation System**: Time-based validation prevents false signals
-- ✅ **2 Production Bots** configured (clean state after test bot removal)
+- ✅ **2 Production Bots** configured (clean state after comprehensive cleanup)
 - ✅ **Weight Validation**: Signal weights properly enforced (≤ 1.0)
-- ✅ **89/89 tests passing** including signal confirmation + WebSocket + temperature system
+- ✅ **104/104 tests passing** including signal confirmation + WebSocket + temperature system
 - ✅ **Pydantic V2 Migration**: Modern validation with enhanced schemas
-- ✅ **Codebase Cleanup**: Pristine state with no duplicate code or temporary files
+- ✅ **Pristine Codebase**: No duplicate code, development artifacts, or temporary files
+- ✅ **Enhanced Documentation**: Comprehensive lessons learned for future agents
 
 ## Quick Start
 
@@ -147,22 +150,22 @@ COINBASE_API_KEY="organizations/{org_id}/apiKeys/{key_id}"
 COINBASE_API_SECRET="-----BEGIN EC PRIVATE KEY-----\nYOUR_PRIVATE_KEY\n-----END EC PRIVATE KEY-----\n"
 ```
 
-### Current Bot Configuration (Phase 2.2)
+### Current Bot Configuration (Phase 3.3)
 
-The system currently has 5 configured bots with various signal combinations:
+The system currently has 2 production bots with live temperature monitoring:
 
-**Production Bots:**
-- **BTC Scalper** (BTC-USD): RSI-focused bot with tight scalping parameters
-- **ETH Momentum Bot** (ETH-USD): Multi-signal bot with balanced RSI + MA weights
+**Production Bots (Live Status):**
+- **BTC Scalper** (BTC-USD): RSI-focused bot with HOT 🔥 temperature (score: -0.756)
+- **ETH Momentum Bot** (ETH-USD): Multi-signal bot with WARM 🌡️ temperature (score: -0.166)
 
-**Development/Test Bots:**
-- **Post-Cleanup Test Bot** (ETH-USD): Multi-signal testing Pydantic V2 migration  
-- **Invalid Position Size Bot** (BTC-USD): Parameter validation edge case testing
-- **Test API Fix Bot** (BTC-USD): API routing and functionality validation
+**Temperature System:**
+- **Unified Calculation**: Single source of truth in `app/utils/temperature.py`
+- **Realistic Thresholds**: FROZEN (<0.05), COOL (≥0.05), WARM (≥0.15), HOT (≥0.3)
+- **Real-time Updates**: Live temperature changes via WebSocket dashboard integration
 
-### Enhanced Signal Processing (Phase 2.2)
+### Enhanced Signal Processing (Phase 3.3)
 
-Each bot uses the **BotSignalEvaluator** service with advanced signal types:
+Each bot uses the **BotSignalEvaluator** service with advanced signal types and unified temperature calculation:
 
 **Signal Types:**
 - **RSI**: Enhanced with -1 to +1 scoring, soft neutral zones, configurable thresholds
@@ -174,6 +177,7 @@ Each bot uses the **BotSignalEvaluator** service with advanced signal types:
 - **Score Range**: -1 (strong sell) to +1 (strong buy) with precise decimal scoring
 - **Action Determination**: "buy", "sell", "hold" based on configurable thresholds
 - **Confirmation System**: Time-based verification prevents false signal execution
+- **Temperature Calculation**: Unified system with realistic thresholds for production trading
 
 ## Documentation
 
@@ -233,13 +237,13 @@ trader/
 - `POST /api/v1/bots/{id}/stop` - Stop bot
 - `GET /api/v1/bots/{id}/confirmation-status` - Get signal confirmation status
 
-### WebSocket API (Phase 3.1)
+### WebSocket API (Phase 3.3)
 - `POST /api/v1/ws/websocket/start` - Start live market data stream
 - `POST /api/v1/ws/websocket/stop` - Stop market data stream
 - `GET /api/v1/ws/websocket/status` - Check WebSocket connection health
 
-### Bot Temperature API (Phase 3.2)
-- `GET /api/v1/bot-temperatures/` - Get all running bot temperatures
+### Bot Temperature API (Phase 3.3)
+- `GET /api/v1/bot-temperatures/` - Get all running bot temperatures (unified system)
 - `GET /api/v1/bot-temperatures/dashboard` - Get temperature summary dashboard
 - `GET /api/v1/bot-temperatures/{id}` - Get individual bot temperature status
 
@@ -322,10 +326,10 @@ Signals are now configured within bots rather than as standalone entities:
 }
 ```
 
-### Key API Endpoints (Phase 2.2)
+### Key API Endpoints (Phase 3.3)
 
 **Bot Management:**
-- `GET /api/v1/bots/` - List all bots
+- `GET /api/v1/bots/` - List all bots with live status
 - `POST /api/v1/bots/` - Create new bot with signal configuration
 - `PUT /api/v1/bots/{bot_id}` - Update bot parameters
 - `POST /api/v1/bots/{bot_id}/start` - Start bot trading
@@ -336,7 +340,12 @@ Signals are now configured within bots rather than as standalone entities:
 - `POST /api/v1/bot-evaluation/{bot_id}/evaluate` - Evaluate bot signals with live market data
 - `GET /api/v1/bot-evaluation/test/{bot_id}` - Test bot evaluation with mock data
 
-**WebSocket Market Data (Phase 3.1):**
+**Bot Temperature (Unified System):**
+- `GET /api/v1/bot-temperatures/` - Get all running bot temperatures
+- `GET /api/v1/bot-temperatures/dashboard` - Temperature dashboard summary
+- `GET /api/v1/bot-temperatures/{bot_id}` - Individual bot temperature details
+
+**WebSocket Market Data:**
 - `POST /api/v1/ws/websocket/start` - Start live market data stream
 - `POST /api/v1/ws/websocket/stop` - Stop market data stream
 - `GET /api/v1/ws/websocket/status` - Check WebSocket connection health
@@ -353,7 +362,7 @@ Signals are now configured within bots rather than as standalone entities:
 ### Running Tests
 
 ```bash
-# Backend tests (89 tests - 100% passing)
+# Backend tests (104 tests - 100% passing)
 cd backend && source venv/bin/activate
 pytest
 
@@ -361,6 +370,14 @@ pytest
 cd frontend
 npm test
 ```
+
+## Phase 4 Ready: Position Management
+
+With Phase 3.3 complete, the system is ready for:
+- **Paper Trading**: Simulate trades using existing signal evaluation
+- **Position Tracking**: Monitor current positions with P&L calculation
+- **Risk Management**: Automated stop-loss using the unified temperature system
+- **Real-time Trading Dashboard**: Enhanced WebSocket integration for live position updates
 
 ## Safety Features
 
