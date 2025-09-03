@@ -184,6 +184,63 @@ def get_bots_status_summary(db: Session = Depends(get_db)):
     return status_list
 
 
+@router.get("/{bot_id}/confirmation-status")
+def get_bot_confirmation_status(bot_id: int, db: Session = Depends(get_db)):
+    """Get the current signal confirmation status for a bot."""
+    from ..services.bot_evaluator import get_bot_evaluator
+    
+    bot = db.query(Bot).filter(Bot.id == bot_id).first()
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    
+    evaluator = get_bot_evaluator(db)
+    confirmation_status = evaluator.get_confirmation_status(bot)
+    
+    return {
+        "bot_id": bot.id,
+        "bot_name": bot.name,
+        "confirmation_status": confirmation_status
+    }
+
+
+@router.get("/{bot_id}/signal-history")
+def get_bot_signal_history(bot_id: int, limit: int = 100, db: Session = Depends(get_db)):
+    """Get recent signal evaluation history for a bot."""
+    from ..services.bot_evaluator import get_bot_evaluator
+    
+    bot = db.query(Bot).filter(Bot.id == bot_id).first()
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    
+    evaluator = get_bot_evaluator(db)
+    history = evaluator.get_signal_history(bot, limit)
+    
+    return {
+        "bot_id": bot.id,
+        "bot_name": bot.name,
+        "signal_history": history,
+        "total_entries": len(history)
+    }
+
+
+@router.post("/{bot_id}/reset-confirmation")
+def reset_bot_confirmation(bot_id: int, db: Session = Depends(get_db)):
+    """Reset the signal confirmation timer for a bot."""
+    bot = db.query(Bot).filter(Bot.id == bot_id).first()
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    
+    # Reset confirmation start time
+    bot.signal_confirmation_start = None
+    db.commit()
+    
+    return {
+        "bot_id": bot.id,
+        "bot_name": bot.name,
+        "message": "Confirmation timer reset successfully"
+    }
+
+
 def calculate_bot_temperature(combined_score: float) -> str:
     """Calculate bot temperature based on combined signal score."""
     abs_score = abs(combined_score)

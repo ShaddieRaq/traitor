@@ -1,11 +1,13 @@
 """
-Bot signal evaluation service for aggregating multiple signals.
+Bot signal evaluation service for aggregating multiple signals with Phase 2.3 confirmation system.
 """
 
 from typing import Dict, List, Any, Optional
 import json
 import pandas as pd
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
+from sqlalchemy import desc
 
 from ..models.models import Bot, BotSignalHistory
 from ..services.signals.base import create_signal_instance
@@ -13,14 +15,15 @@ from ..core.database import get_db
 
 
 class BotSignalEvaluator:
-    """Service for evaluating bot signals and making trading decisions."""
+    """Service for evaluating bot signals and making trading decisions with confirmation tracking."""
     
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, enable_confirmation: bool = True):
         self.db = db
+        self.enable_confirmation = enable_confirmation
     
     def evaluate_bot(self, bot: Bot, market_data: pd.DataFrame) -> Dict[str, Any]:
         """
-        Evaluate all enabled signals for a bot and return aggregated decision.
+        Evaluate all enabled signals for a bot and return aggregated decision with confirmation.
         
         Args:
             bot: Bot instance with signal configuration
@@ -32,8 +35,12 @@ class BotSignalEvaluator:
             - action: buy/sell/hold decision
             - confidence: Overall confidence (0 to 1)
             - signal_results: Individual signal results
+            - confirmation_status: Confirmation tracking info
             - metadata: Evaluation metadata
         """
+        # Get current price from market data
+        current_price = market_data['close'].iloc[-1] if len(market_data) > 0 else 0
+        
         # Parse signal configuration
         try:
             signal_config = json.loads(bot.signal_config) if isinstance(bot.signal_config, str) else bot.signal_config
@@ -50,7 +57,7 @@ class BotSignalEvaluator:
         confidence_values = []
         
         for signal_name, config in signal_config.items():
-            if not config.get('enabled', False):
+            if not config or not config.get('enabled', False):
                 continue
                 
             # Create signal instance
@@ -83,7 +90,8 @@ class BotSignalEvaluator:
         # Determine action based on overall score and bot thresholds
         action = self._determine_action(overall_score, bot)
         
-        return {
+        # Prepare evaluation result
+        evaluation_result = {
             'overall_score': overall_score,
             'action': action,
             'confidence': overall_confidence,
@@ -97,6 +105,29 @@ class BotSignalEvaluator:
                 'evaluation_timestamp': pd.Timestamp.now().isoformat()
             }
         }
+        
+        # Check signal confirmation status (only if enabled)
+        if self.enable_confirmation:
+            confirmation_status = self._check_signal_confirmation(bot, action, overall_score)
+        else:
+            # Return minimal confirmation status for tests
+            confirmation_status = {
+                'is_confirmed': True,  # Always confirmed in test mode
+                'needs_confirmation': False,
+                'status': 'test_mode_always_confirmed',
+                'action_being_confirmed': None,
+                'confirmation_start': None,
+                'confirmation_progress': 1.0,
+                'time_remaining_minutes': 0
+            }
+        
+        evaluation_result['confirmation_status'] = confirmation_status
+        
+        # Save signal history for confirmation tracking
+        if self.enable_confirmation:
+            self.save_signal_history(bot, evaluation_result, current_price)
+        
+        return evaluation_result
     
     def _create_signal_instance(self, signal_name: str, config: Dict[str, Any]):
         """Create signal instance from configuration."""
@@ -135,6 +166,97 @@ class BotSignalEvaluator:
         
         return create_signal_instance(signal_type, parameters)
     
+    def _check_signal_confirmation(self, bot: Bot, current_action: str, current_score: float) -> Dict[str, Any]:
+        """Check and update signal confirmation status for Phase 2.3."""
+        now = datetime.utcnow()
+        confirmation_minutes = bot.confirmation_minutes if bot.confirmation_minutes else 5
+        
+        # If action is hold, no confirmation needed
+        if current_action == 'hold':
+            # Reset any active confirmation
+            if bot.signal_confirmation_start:
+                bot.signal_confirmation_start = None
+                self.db.commit()
+            
+            return {
+                'is_confirmed': False,
+                'needs_confirmation': False,
+                'status': 'hold_no_confirmation_needed',
+                'action_being_confirmed': None,
+                'confirmation_start': None,
+                'confirmation_progress': 0.0,
+                'time_remaining_minutes': 0
+            }
+        
+        # Check recent signal history for consistency
+        recent_history = (
+            self.db.query(BotSignalHistory)
+            .filter(BotSignalHistory.bot_id == bot.id)
+            .filter(BotSignalHistory.timestamp >= now - timedelta(minutes=confirmation_minutes + 5))
+            .order_by(desc(BotSignalHistory.timestamp))
+            .all()
+        )
+        
+        # Check if we need to start or reset confirmation
+        if not bot.signal_confirmation_start:
+            # No active confirmation - start new one
+            bot.signal_confirmation_start = now
+            self.db.commit()
+            
+            return {
+                'is_confirmed': False,
+                'needs_confirmation': True,
+                'status': 'confirmation_started',
+                'action_being_confirmed': current_action,
+                'confirmation_start': now.isoformat(),
+                'confirmation_progress': 0.0,
+                'time_remaining_minutes': confirmation_minutes
+            }
+        
+        # Check if action has changed since confirmation started
+        if recent_history:
+            latest_action = recent_history[0].action
+            if latest_action != current_action:
+                # Action changed - reset confirmation
+                bot.signal_confirmation_start = now
+                self.db.commit()
+                
+                return {
+                    'is_confirmed': False,
+                    'needs_confirmation': True,
+                    'status': 'confirmation_reset_action_changed',
+                    'action_being_confirmed': current_action,
+                    'confirmation_start': now.isoformat(),
+                    'confirmation_progress': 0.0,
+                    'time_remaining_minutes': confirmation_minutes
+                }
+        
+        # Calculate confirmation progress
+        elapsed_minutes = (now - bot.signal_confirmation_start).total_seconds() / 60
+        progress = min(elapsed_minutes / confirmation_minutes, 1.0)
+        time_remaining = max(confirmation_minutes - elapsed_minutes, 0)
+        
+        if progress >= 1.0:
+            return {
+                'is_confirmed': True,
+                'needs_confirmation': True,
+                'status': 'confirmed',
+                'action_being_confirmed': current_action,
+                'confirmation_start': bot.signal_confirmation_start.isoformat(),
+                'confirmation_progress': 1.0,
+                'time_remaining_minutes': 0
+            }
+        else:
+            return {
+                'is_confirmed': False,
+                'needs_confirmation': True,
+                'status': 'confirming',
+                'action_being_confirmed': current_action,
+                'confirmation_start': bot.signal_confirmation_start.isoformat(),
+                'confirmation_progress': progress,
+                'time_remaining_minutes': time_remaining
+            }
+    
     def _determine_action(self, overall_score: float, bot: Bot) -> str:
         """
         Determine trading action based on overall score and bot configuration.
@@ -142,10 +264,6 @@ class BotSignalEvaluator:
         Uses configurable thresholds for buy/sell decisions.
         Default thresholds: buy <= -0.3, sell >= 0.3, hold otherwise
         """
-        # TODO: Phase 2.3 - Add configurable action thresholds to bot model
-        # Currently using fixed thresholds: buy when score <= -0.5, sell when score >= 0.5
-        # Future: Add buy_threshold and sell_threshold fields to Bot model for per-bot customization
-        # For now, use reasonable defaults
         buy_threshold = -0.3
         sell_threshold = 0.3
         
@@ -163,25 +281,133 @@ class BotSignalEvaluator:
             'action': 'hold',
             'confidence': 0,
             'signal_results': {},
+            'confirmation_status': {
+                'is_confirmed': False,
+                'needs_confirmation': False,
+                'status': 'error',
+                'action_being_confirmed': None,
+                'confirmation_start': None,
+                'confirmation_progress': 0.0,
+                'time_remaining_minutes': 0
+            },
             'metadata': {
                 'error': error_message,
                 'evaluation_timestamp': pd.Timestamp.now().isoformat()
             }
         }
     
-    def save_signal_history(self, bot: Bot, evaluation_result: Dict[str, Any]) -> None:
-        """Save signal evaluation result to history."""
+    def _convert_to_json_serializable(self, obj):
+        """Convert numpy/pandas types to JSON serializable Python types."""
+        import numpy as np
+        
+        if isinstance(obj, dict):
+            return {k: self._convert_to_json_serializable(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self._convert_to_json_serializable(item) for item in obj]
+        elif isinstance(obj, (np.integer, np.int64)):
+            return int(obj)
+        elif isinstance(obj, (np.floating, np.float64)):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        else:
+            return obj
+
+    def save_signal_history(self, bot: Bot, evaluation_result: Dict[str, Any], price: float):
+        """Save signal evaluation result to history for confirmation tracking."""
         history_entry = BotSignalHistory(
             bot_id=bot.id,
-            overall_score=evaluation_result['overall_score'],
+            timestamp=datetime.utcnow(),
+            combined_score=evaluation_result['overall_score'],
             action=evaluation_result['action'],
             confidence=evaluation_result['confidence'],
-            signal_results=json.dumps(evaluation_result['signal_results']),
-            metadata=json.dumps(evaluation_result['metadata'])
+            signal_scores=json.dumps(self._convert_to_json_serializable(evaluation_result['signal_results'])),
+            evaluation_metadata=json.dumps(self._convert_to_json_serializable(evaluation_result['metadata'])),
+            price=price
         )
         
         self.db.add(history_entry)
         self.db.commit()
+    
+    def get_confirmation_status(self, bot: Bot) -> Dict[str, Any]:
+        """Get current confirmation status for a bot without running evaluation."""
+        if not self.enable_confirmation:
+            return {
+                'is_confirmed': True,
+                'needs_confirmation': False,
+                'status': 'test_mode_always_confirmed',
+                'action_being_confirmed': None,
+                'confirmation_start': None,
+                'confirmation_progress': 1.0,
+                'time_remaining_minutes': 0
+            }
+        
+        if not bot.signal_confirmation_start:
+            return {
+                'is_confirmed': False,
+                'needs_confirmation': False,
+                'status': 'no_active_confirmation',
+                'action_being_confirmed': None,
+                'confirmation_start': None,
+                'confirmation_progress': 0.0,
+                'time_remaining_minutes': 0
+            }
+        
+        now = datetime.utcnow()
+        confirmation_minutes = bot.confirmation_minutes if bot.confirmation_minutes else 5
+        elapsed_minutes = (now - bot.signal_confirmation_start).total_seconds() / 60
+        progress = min(elapsed_minutes / confirmation_minutes, 1.0)
+        time_remaining = max(confirmation_minutes - elapsed_minutes, 0)
+        
+        # Get the most recent signal action to know what's being confirmed
+        recent_signal = (
+            self.db.query(BotSignalHistory)
+            .filter(BotSignalHistory.bot_id == bot.id)
+            .order_by(desc(BotSignalHistory.timestamp))
+            .first()
+        )
+        
+        action_being_confirmed = recent_signal.action if recent_signal else None
+        
+        if progress >= 1.0:
+            status = 'confirmed'
+            is_confirmed = True
+        else:
+            status = 'confirming'
+            is_confirmed = False
+        
+        return {
+            'is_confirmed': is_confirmed,
+            'needs_confirmation': True,
+            'status': status,
+            'action_being_confirmed': action_being_confirmed,
+            'confirmation_start': bot.signal_confirmation_start.isoformat(),
+            'confirmation_progress': progress,
+            'time_remaining_minutes': time_remaining
+        }
+    
+    def get_signal_history(self, bot: Bot, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get recent signal evaluation history for a bot."""
+        history_entries = (
+            self.db.query(BotSignalHistory)
+            .filter(BotSignalHistory.bot_id == bot.id)
+            .order_by(desc(BotSignalHistory.timestamp))
+            .limit(limit)
+            .all()
+        )
+        
+        return [
+            {
+                'timestamp': entry.timestamp.isoformat(),
+                'combined_score': entry.combined_score,
+                'action': entry.action,
+                'confidence': entry.confidence,
+                'signal_scores': json.loads(entry.signal_scores) if entry.signal_scores else {},
+                'metadata': json.loads(entry.evaluation_metadata) if entry.evaluation_metadata else {},
+                'price': entry.price
+            }
+            for entry in history_entries
+        ]
 
 
 def get_bot_evaluator(db: Session = None) -> BotSignalEvaluator:

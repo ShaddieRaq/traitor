@@ -5,12 +5,12 @@
 ```mermaid
 classDiagram
     class BotSignalEvaluator {
-        -__init__(db)
+        -__init__(db, enable_confirmation)
         +evaluate_bot(bot, market_data)
         -_create_signal_instance(signal_name, config)
+        -_check_signal_confirmation(bot, current_action, current_score)
         -_determine_action(overall_score, bot)
-        -_error_result(error_message)
-        ... (1 more methods)
+        ... (5 more methods)
     }
     BotSignalEvaluator : backend/app/services/bot_evaluator.py
     class CoinbaseService {

@@ -59,3 +59,35 @@ def test_settings():
         redis_url="redis://localhost:6379/1",
         environment="test"
     )
+
+
+@pytest.fixture
+def client():
+    """Create test client."""
+    from app.main import app
+    from fastapi.testclient import TestClient
+    return TestClient(app)
+
+
+@pytest.fixture
+def db_session():
+    """Create database session for testing."""
+    from app.core.database import get_db
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from app.models.models import Base
+    
+    # Create test database
+    engine = create_engine("sqlite:///./test_signal_confirmation.db")
+    Base.metadata.create_all(bind=engine)
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    
+    session = TestingSessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
+        # Clean up test database
+        import os
+        if os.path.exists("./test_signal_confirmation.db"):
+            os.remove("./test_signal_confirmation.db")

@@ -27,7 +27,6 @@ class TestCoinbaseService:
             product = products[0]
             # For SDK objects, just check if it has the attribute
             assert hasattr(product, 'product_id') or (isinstance(product, dict) and 'product_id' in product)
-            print(f"✅ Got {len(products)} products successfully")
     
     def test_get_accounts(self):
         """Test getting accounts from live Coinbase API."""
@@ -72,12 +71,9 @@ class TestCoinbaseConnection:
             if len(products) > 0:
                 # Check that we got real data
                 assert len(products) > 10  # Should have many trading pairs
-                
-            print(f"✅ Real connection test: {len(products)} products in {elapsed:.2f}s")
             
         except Exception as e:
             elapsed = time.time() - start_time
-            print(f"❌ Real connection failed after {elapsed:.2f}s: {e}")
             pytest.fail(f"Failed to connect to Coinbase API: {e}")
     
     def test_real_accounts(self):

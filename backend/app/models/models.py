@@ -47,7 +47,10 @@ class BotSignalHistory(Base):
     bot_id = Column(Integer, ForeignKey("bots.id"))
     timestamp = Column(DateTime(timezone=True), index=True)
     combined_score = Column(Float)  # Weighted combined score of all signals
+    action = Column(String(10))  # buy, sell, hold
+    confidence = Column(Float)  # Overall confidence (0-1)
     signal_scores = Column(Text)  # JSON string of individual signal scores
+    evaluation_metadata = Column(Text)  # JSON string of evaluation metadata
     price = Column(Float)  # Market price at evaluation time
     
     bot = relationship("Bot", back_populates="signal_history")

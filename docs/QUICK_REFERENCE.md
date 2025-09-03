@@ -13,7 +13,7 @@ trader/
 ├── 🐍 backend/                       # Python FastAPI backend
 │   ├── app/
 │   │   ├── 🔌 api/                   # REST API endpoints
-│   │   │   ├── signals.py            # Signal management API
+│   │   │   ├── bots.py               # Bot management API (PRIMARY)
 │   │   │   ├── trades.py             # Trading operations API
 │   │   │   ├── market.py             # Market data API
 │   │   │   └── schemas.py            # Pydantic models
@@ -24,9 +24,10 @@ trader/
 │   │   │   └── models.py             # SQLAlchemy models
 │   │   ├── 🔧 services/              # Business logic
 │   │   │   ├── coinbase_service.py   # Coinbase API client
+│   │   │   ├── bot_evaluator.py      # Signal evaluation service
 │   │   │   └── signals/              # Signal implementations
 │   │   │       ├── base.py           # Abstract base signal
-│   │   │       └── technical.py      # RSI & MA signals
+│   │   │       └── technical.py      # RSI, MA, MACD signals
 │   │   ├── ⚡ tasks/                 # Background tasks
 │   │   │   ├── celery_app.py         # Celery configuration
 │   │   │   ├── data_tasks.py         # Data collection tasks
@@ -37,11 +38,12 @@ trader/
 │   ├── src/
 │   │   ├── 📱 pages/                 # Main page components
 │   │   │   ├── Dashboard.tsx         # Main overview page
-│   │   │   ├── Signals.tsx           # Signal management page
+│   │   │   ├── Signals.tsx           # Bot management page (renamed from Signals)
 │   │   │   ├── Trades.tsx            # Trade history page
 │   │   │   └── Market.tsx            # Market data page
 │   │   ├── 🪝 hooks/                 # Custom React hooks
-│   │   │   ├── useSignals.ts         # Signal API hooks
+│   │   │   ├── useBots.ts            # Bot API hooks (PRIMARY)
+│   │   │   ├── useSignals.ts         # Legacy signal hooks (deprecated)
 │   │   │   └── useMarket.ts          # Market data hooks
 │   │   ├── 🎯 types/                 # TypeScript definitions
 │   │   │   └── index.ts              # API response types
@@ -160,43 +162,110 @@ class MySignal(BaseSignal):
 ### Key Endpoints
 ```mermaid
 graph LR
-    subgraph "Signal Management"
-        GET_SIG[GET /api/v1/signals<br/>List all signals]
-        PUT_SIG[PUT /api/v1/signals/{id}<br/>Update signal config]
-        GET_RESULTS[GET /api/v1/signals/results<br/>Latest signal scores]
+    subgraph "Bot Management"
+        GET_BOTS[GET /api/v1/bots<br/>List all bots]
+        POST_BOT[POST /api/v1/bots<br/>Create new bot]
+        PUT_BOT[PUT /api/v1/bots/{id}<br/>Update bot config]
+        GET_STATUS[GET /api/v1/bots/status/summary<br/>Bot status overview]
+    end
+    
+    subgraph "Signal Confirmation (Phase 2.3)"
+        GET_CONFIRM[GET /api/v1/bots/{id}/confirmation-status<br/>Confirmation status]
+        GET_HISTORY[GET /api/v1/bots/{id}/signal-history<br/>Signal history]
+        POST_RESET[POST /api/v1/bots/{id}/reset-confirmation<br/>Reset confirmation]
     end
     
     subgraph "Trading Operations"
         GET_TRADES[GET /api/v1/trades<br/>Trade history]
-        POST_TRADE[POST /api/v1/trades<br/>Manual trade execution]
-        GET_STATUS[GET /api/v1/trades/status<br/>Current positions]
+        GET_STATS[GET /api/v1/trades/stats<br/>Trading statistics]
     end
     
     subgraph "Market Data"
-        GET_PRICE[GET /api/v1/market/price<br/>Current prices]
-        GET_CANDLES[GET /api/v1/market/candles<br/>Historical OHLCV]
-        WS_FEED[WebSocket /ws<br/>Real-time updates]
+        GET_TICKER[GET /api/v1/market/ticker/{pair}<br/>Current prices]
+        GET_CANDLES[GET /api/v1/market/candles/{pair}<br/>Historical OHLCV]
+        GET_ACCOUNTS[GET /api/v1/market/accounts<br/>Account balances]
     end
     
-    style GET_SIG fill:#e3f2fd
+    style GET_BOTS fill:#e3f2fd
+    style GET_CONFIRM fill:#c8e6c9
     style GET_TRADES fill:#fff3e0
-    style GET_PRICE fill:#f3e5f5
-    style WS_FEED fill:#e8f5e8
+    style GET_TICKER fill:#f3e5f5
 ```
 
 ### Request/Response Examples
-```typescript
-// Signal Configuration Update
-PUT /api/v1/signals/1
+
+#### Bot Creation (Phase 2.3)
+```bash
+# Create bot with signal confirmation
+POST /api/v1/bots/
 {
-  "enabled": true,
-  "weight": 1.5,
-  "parameters": {
-    "period": 14,
-    "oversold": 25,
-    "overbought": 75
+  "name": "BTC Scalper Pro",
+  "description": "High-frequency BTC trading with confirmation",
+  "pair": "BTC-USD",
+  "position_size_usd": 500,
+  "confirmation_minutes": 3,
+  "trade_step_pct": 1.5,
+  "cooldown_minutes": 20,
+  "signal_config": {
+    "rsi": {
+      "enabled": true,
+      "weight": 0.4,
+      "period": 14,
+      "buy_threshold": 30,
+      "sell_threshold": 70
+    },
+    "moving_average": {
+      "enabled": true,
+      "weight": 0.6,
+      "fast_period": 10,
+      "slow_period": 20
+    }
   }
 }
+```
+
+#### Signal Confirmation Status (Phase 2.3)
+```bash
+# Check confirmation status
+GET /api/v1/bots/1/confirmation-status
+{
+  "bot_id": 1,
+  "bot_name": "BTC Scalper Pro",
+  "confirmation_status": {
+    "is_confirmed": false,
+    "needs_confirmation": true,
+    "status": "confirming",
+    "action_being_confirmed": "buy",
+    "confirmation_start": "2025-09-02T15:30:00Z",
+    "confirmation_progress": 0.67,
+    "time_remaining_minutes": 1.0
+  }
+}
+```
+
+#### Signal History (Phase 2.3)
+```bash
+# Get recent signal evaluations
+GET /api/v1/bots/1/signal-history?limit=5
+{
+  "bot_id": 1,
+  "bot_name": "BTC Scalper Pro",
+  "signal_history": [
+    {
+      "timestamp": "2025-09-02T15:32:00Z",
+      "combined_score": -0.65,
+      "action": "buy",
+      "confidence": 0.82,
+      "signal_scores": {
+        "rsi": {"score": -0.8, "confidence": 0.9},
+        "moving_average": {"score": -0.5, "confidence": 0.75}
+      },
+      "price": 67250.50
+    }
+  ],
+  "total_entries": 1
+}
+```
 
 // Signal Results Response
 GET /api/v1/signals/results
@@ -322,27 +391,54 @@ erDiagram
 
 ### Common Database Operations
 ```python
-# Get all enabled signals
-enabled_signals = db.query(Signal).filter(Signal.enabled == True).all()
+# Get all active bots
+active_bots = db.query(Bot).filter(Bot.status == "RUNNING").all()
 
-# Get latest signal results
-latest_results = db.query(SignalResult)\
-    .filter(SignalResult.product_id == "BTC-USD")\
-    .order_by(SignalResult.timestamp.desc())\
+# Get bot with signal configuration
+bot = db.query(Bot).filter(Bot.id == 1).first()
+signal_config = json.loads(bot.signal_config)
+
+# Get bot signal history for confirmation tracking
+history = db.query(BotSignalHistory)\
+    .filter(BotSignalHistory.bot_id == 1)\
+    .order_by(BotSignalHistory.timestamp.desc())\
     .limit(10).all()
 
-# Get recent trades
+# Get recent trades by bot
 recent_trades = db.query(Trade)\
+    .filter(Trade.bot_id == 1)\
     .filter(Trade.status == "filled")\
     .order_by(Trade.filled_at.desc())\
     .limit(20).all()
 
-# Get market data for calculation
+# Get market data for signal calculation
 market_data = db.query(MarketData)\
     .filter(MarketData.product_id == "BTC-USD")\
     .filter(MarketData.timeframe == "1h")\
     .order_by(MarketData.timestamp.desc())\
     .limit(100).all()
+```
+
+### Phase 2.3 Signal Confirmation Operations
+```python
+# Check bot confirmation status
+from app.services.bot_evaluator import get_bot_evaluator
+
+evaluator = get_bot_evaluator(db)
+confirmation_status = evaluator.get_confirmation_status(bot)
+
+# Get confirmation progress
+progress = confirmation_status['confirmation_progress']  # 0.0 to 1.0
+time_remaining = confirmation_status['time_remaining_minutes']
+
+# Reset confirmation timer
+bot.signal_confirmation_start = None
+db.commit()
+
+# Get signal history for analysis
+history = evaluator.get_signal_history(bot, limit=50)
+for entry in history:
+    print(f"{entry['timestamp']}: {entry['action']} (score: {entry['combined_score']})")
 ```
 
 ## Troubleshooting Quick Guide

@@ -44,7 +44,7 @@ class TestBotSignalEvaluator:
     @pytest.fixture
     def evaluator(self, mock_db):
         """Create bot evaluator instance."""
-        return BotSignalEvaluator(mock_db)
+        return BotSignalEvaluator(mock_db, enable_confirmation=False)
     
     def test_single_signal_evaluation(self, evaluator):
         """Test evaluation with a single RSI signal."""
@@ -185,9 +185,9 @@ class TestBotSignalEvaluator:
         assert 'rsi' in result['signal_results']
         assert 'moving_average' not in result['signal_results']
         
-        # Overall score should match RSI score
+        # Overall score should match RSI score (with floating point tolerance)
         rsi_score = result['signal_results']['rsi']['score']
-        assert result['overall_score'] == rsi_score
+        assert abs(result['overall_score'] - rsi_score) < 1e-10
     
     def test_action_determination(self, evaluator):
         """Test that action determination follows score thresholds."""
