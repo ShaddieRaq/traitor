@@ -1,12 +1,13 @@
 import React from 'react';
 import { useProducts } from '../../hooks/useMarket';
+import { DataFreshnessIndicator } from '../DataFreshnessIndicators';
 
 interface MarketTickerProps {
   limit?: number;
 }
 
 const MarketTicker: React.FC<MarketTickerProps> = ({ limit = 6 }) => {
-  const { data: products, isLoading, error } = useProducts();
+  const { data: products, isLoading, error, dataUpdatedAt, isFetching } = useProducts();
 
   if (isLoading) {
     return (
@@ -51,12 +52,18 @@ const MarketTicker: React.FC<MarketTickerProps> = ({ limit = 6 }) => {
       <div className="px-4 py-3">
         <div className="flex items-center justify-between mb-2">
           <h4 className="text-sm font-medium text-gray-900">Market Overview</h4>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-3">
+            <DataFreshnessIndicator 
+              lastUpdated={new Date(dataUpdatedAt)} 
+              showTimestamp={false}
+              size="sm"
+              freshThresholdSeconds={30}
+              staleThresholdSeconds={60}
+            />
             <div className="flex items-center text-xs text-gray-500">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></div>
-              Live
+              <div className={`w-2 h-2 rounded-full mr-1 ${isFetching ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`}></div>
+              {isFetching ? 'Updating...' : 'Live'}
             </div>
-            <span className="text-xs text-gray-500">Updates every 5s</span>
           </div>
         </div>
         

@@ -4,7 +4,6 @@ Bot temperature API endpoints for Phase 3.2.
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List, Dict, Any
 import pandas as pd
 from datetime import datetime
 

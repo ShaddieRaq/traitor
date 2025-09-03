@@ -4,8 +4,6 @@ Bot evaluation API endpoints for testing signal aggregation.
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import Optional
-import pandas as pd
 
 from ..core.database import get_db
 from ..models.models import Bot
