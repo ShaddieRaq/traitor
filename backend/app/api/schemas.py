@@ -219,3 +219,59 @@ class AccountResponse(BaseModel):
     currency: str
     available_balance: float
     hold: float
+
+
+# Phase 4.1.1: Trading Safety Schemas
+
+class TradeValidationRequest(BaseModel):
+    bot_id: int = Field(description="Bot ID requesting trade")
+    side: str = Field(description="Trade side: 'buy' or 'sell'")
+    size_usd: float = Field(gt=0, description="Trade size in USD")
+    
+    @field_validator('side')
+    @classmethod
+    def validate_side(cls, v):
+        if v not in ['buy', 'sell']:
+            raise ValueError("side must be 'buy' or 'sell'")
+        return v
+
+
+class SafetyCheckResult(BaseModel):
+    position_size_valid: bool
+    daily_trade_limit: bool
+    daily_loss_limit: bool
+    temperature_check: bool
+    active_position_limit: bool
+    consecutive_loss_check: bool
+    emergency_circuit_breaker: bool
+
+
+class TradeValidationResponse(BaseModel):
+    allowed: bool
+    reason: str
+    safety_checks: SafetyCheckResult
+    validated_at: datetime
+    limits_applied: Dict[str, float]
+
+
+class SafetyLimitsStatus(BaseModel):
+    max_daily_loss_usd: float
+    max_daily_trades: int
+    max_position_size_usd: float
+    min_position_size_usd: float
+    max_active_positions: int
+    min_temperature: str
+
+
+class SafetyCurrentStatus(BaseModel):
+    trades_today: int
+    trades_remaining: int
+    active_positions: int
+    positions_available: int
+
+
+class SafetyStatusResponse(BaseModel):
+    limits: SafetyLimitsStatus
+    current_status: SafetyCurrentStatus
+    safety_enabled: bool
+    last_updated: datetime

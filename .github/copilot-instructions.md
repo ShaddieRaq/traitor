@@ -11,12 +11,13 @@ curl -s http://localhost:8000/api/v1/bots/status/summary | python3 -m json.tool 
 
 ### **Current System Status (September 3, 2025)**
 - ✅ **Phase 3.3 Complete**: Real-time polling architecture operational  
-- 🚀 **Phase 4.1 Active**: Real trading implementation with safety systems
-- ✅ **2 Production Bots**: BTC Scalper (HOT 🔥), ETH Momentum (HOT 🔥)
-- ✅ **104/104 tests passing** (100% success rate)
+- ✅ **Phase 4.1.1 Complete**: Trading Safety Service with hardcoded limits
+- 🚀 **Phase 4.1.2 Active**: Trade Execution Service implementation
+- ✅ **2 Production Bots**: BTC Scalper (HOT 🔥), ETH Momentum (WARM 🌡️)
+- ✅ **104/104 tests passing** (100% success rate, <5 seconds execution)
 - ✅ **Live UI Updates**: Values update every 5 seconds without refresh
 - ✅ **Fresh Data Pipeline**: Backend performs live evaluations on each request
-- ✅ **Clean Production State**: No test artifacts, unified temperature system
+- ✅ **Trading Safety**: Comprehensive limits and emergency stop functionality
 
 ## 🎯 **ARCHITECTURE ESSENTIALS**
 
@@ -65,8 +66,8 @@ Trading: Coinbase Advanced Trade API (JWT auth)
 curl -s "http://localhost:8000/api/v1/bots/status/summary" | python3 -m json.tool
 
 # Expected results (Sept 3, 2025):
-# BTC Scalper: HOT 🔥 (score: ~-0.537)
-# ETH Momentum: HOT 🔥 (score: ~0.091)
+# BTC Scalper: HOT 🔥 (score: ~-0.307)
+# ETH Momentum: WARM 🌡️ (score: ~0.061)
 
 # Verify UI auto-updates
 open http://localhost:3000  # Values should change every 5 seconds
@@ -94,6 +95,11 @@ curl -X POST http://localhost:8000/api/v1/bot-evaluation/1/evaluate
 - `GET /api/v1/market/ticker/{product_id}` - Live ticker data
 - `GET /api/v1/market/accounts` - Account balances (uses portfolio breakdown)
 
+### **Trading Safety APIs (Phase 4.1.1)**
+- `POST /api/v1/trades/validate-trade` - Validate trade against safety limits
+- `GET /api/v1/trades/safety-status` - Current safety status and limits
+- `POST /api/v1/trades/emergency-stop` - Emergency halt all trading
+
 ## ⚠️ **CRITICAL LESSONS LEARNED**
 
 ### **Development Environment**
@@ -102,6 +108,7 @@ curl -X POST http://localhost:8000/api/v1/bot-evaluation/1/evaluate
 - **Database**: SQLite (`backend/trader.db`) - single file, no setup needed
 - **Redis**: Docker container managed by `docker-compose.yml`
 - **Process Management**: All services run as background processes with PID tracking
+- **Test Suite**: 104 tests with <5 second execution time
 
 ### **Real-Time Architecture Patterns**
 - **Polling > WebSocket**: Simple 5-second polling more reliable than complex WebSocket
@@ -128,6 +135,12 @@ from app.utils.temperature import calculate_bot_temperature
 # ✅ CORRECT: USD account access
 portfolios = client.get_portfolios()
 breakdown = client.get_portfolio_breakdown(portfolio_uuid=portfolios[0]['uuid'])
+
+# ✅ CORRECT: Signal config parsing (from JSON TEXT in database)
+signal_config = json.loads(bot.signal_config)
+rsi_config = signal_config.get('RSI', {})
+if rsi_config.get('enabled', False):
+    weight = rsi_config.get('weight', 0.0)
 
 # ✅ CORRECT: Virtual environment usage
 # Always use project scripts instead of direct python commands:
