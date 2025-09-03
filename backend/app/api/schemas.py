@@ -188,12 +188,12 @@ class TradeResponse(BaseModel):
     side: str
     size: float
     price: float
-    fee: float
+    fee: Optional[float] = None
     order_id: str
     status: str
-    combined_signal_score: float
+    combined_signal_score: Optional[float] = None
     created_at: datetime
-    filled_at: Optional[datetime]
+    filled_at: Optional[datetime] = None
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -275,3 +275,57 @@ class SafetyStatusResponse(BaseModel):
     current_status: SafetyCurrentStatus
     safety_enabled: bool
     last_updated: datetime
+
+
+# Phase 4.1.2: Trade Execution Schemas
+
+class TradeExecutionRequest(BaseModel):
+    """Request schema for trade execution."""
+    bot_id: int = Field(..., gt=0, description="ID of the bot executing the trade")
+    side: str = Field(..., description="Trade side: 'buy' or 'sell'")
+    size_usd: float = Field(..., gt=0, description="Trade size in USD")
+    current_temperature: Optional[str] = Field(None, description="Current bot temperature (optional)")
+    
+    @field_validator('side')
+    @classmethod
+    def validate_side(cls, v):
+        if v not in ['buy', 'sell']:
+            raise ValueError("Side must be 'buy' or 'sell'")
+        return v.lower()
+
+
+class TradeExecutionResponse(BaseModel):
+    """Response schema for successful trade execution."""
+    success: bool
+    trade_id: int
+    order_id: str
+    bot: Dict[str, Any]
+    execution: Dict[str, Any]
+    safety_validation: Dict[str, Any]
+    order_details: Dict[str, Any]
+    executed_at: str
+
+
+class TradeExecutionError(BaseModel):
+    """Response schema for failed trade execution."""
+    success: bool = False
+    error: str
+    error_type: str
+    bot_id: int
+    request: Dict[str, Any]
+    failed_at: str
+
+
+class TradeStatusResponse(BaseModel):
+    """Response schema for trade status queries."""
+    trade_id: int
+    bot_id: int
+    order_id: str
+    product_id: str
+    side: str
+    size: float
+    price: float
+    status: str
+    created_at: Optional[str]
+    filled_at: Optional[str]
+    combined_signal_score: Optional[float]

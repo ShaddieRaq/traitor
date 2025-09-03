@@ -316,24 +316,56 @@ class CoinbaseService:
             return None
         
         try:
-            if side.lower() == "buy":
-                response = self.client.market_order_buy(
-                    product_id=product_id,
-                    base_size=str(size)
-                )
-            else:
-                response = self.client.market_order_sell(
-                    product_id=product_id,
-                    base_size=str(size)
-                )
+            import uuid
+            import time
+            import os
+            client_order_id = str(uuid.uuid4())
             
-            return {
-                "order_id": response.order_id,
-                "product_id": product_id,
-                "side": side,
-                "size": size,
-                "status": "pending"
-            }
+            # Check if we're in test/development mode
+            # Set TRADING_MODE=production to enable real trades
+            is_test_mode = os.getenv("TRADING_MODE", "test").lower() != "production"
+            
+            if is_test_mode:
+                # Mock response for safe testing - prevents real money trades
+                # To enable real trading, set environment variable: TRADING_MODE=production
+                mock_order_id = f"mock-{int(time.time())}-{client_order_id[:8]}"
+                logger.info(f"🧪 Mock trade executed: {side} {size} {product_id} - Order ID: {mock_order_id}")
+                
+                return {
+                    "order_id": mock_order_id,
+                    "client_order_id": client_order_id,
+                    "product_id": product_id,
+                    "side": side,
+                    "size": size,
+                    "status": "filled",  # Mock as immediately filled
+                    "mock": True
+                }
+            else:
+                # Real Coinbase order execution
+                if side.lower() == "buy":
+                    response = self.client.market_order_buy(
+                        product_id=product_id,
+                        base_size=str(size),
+                        client_order_id=client_order_id
+                    )
+                else:
+                    response = self.client.market_order_sell(
+                        product_id=product_id,
+                        base_size=str(size),
+                        client_order_id=client_order_id
+                    )
+                
+                # Extract order ID from response (need to check SDK structure)
+                order_id = getattr(response, 'order_id', None) or getattr(response, 'id', None)
+                
+                return {
+                    "order_id": order_id,
+                    "client_order_id": client_order_id,
+                    "product_id": product_id,
+                    "side": side,
+                    "size": size,
+                    "status": "pending"
+                }
             
         except Exception as e:
             logger.error(f"Error placing {side} order for {product_id}: {e}")
