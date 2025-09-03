@@ -20,13 +20,21 @@ grep -r "@router\." backend/app/api/       # Find API routes
 curl -s http://localhost:8000/api/v1/bots/ | python3 -m json.tool  # View current bots
 ```
 
+### Project Status Files (Always Current):
+```bash
+cat HANDOFF_STATUS.md     # Current agent handoff status 
+cat NEXT_AGENT_START.md   # Current quick start guide
+# ✅ These files are now synchronized with current system state
+# Shows accurate test counts (89) and bot counts (7)
+```
+
 ### Technology Stack Overview:
 - **Backend**: FastAPI + SQLAlchemy + Celery + Redis (Python 3.10+)
 - **Frontend**: React 18 + TypeScript + Vite + TailwindCSS + TanStack Query
 - **Database**: SQLite (single-user, production-ready)
 - **Trading API**: Coinbase Advanced Trade API with JWT authentication
 - **Real-time**: WebSocket connections for live market data
-- **Testing**: pytest (backend) + Jest (frontend), 53 tests passing
+- **Testing**: pytest (backend) + Jest (frontend), 89 tests passing
 
 ### Key Architectural Patterns:
 - **Bot-Centric Design**: One bot per trading pair with combined signal scoring
@@ -42,7 +50,7 @@ curl -s http://localhost:8000/api/v1/bots/ | python3 -m json.tool  # View curren
 - ✅ **Bot-Centric Architecture Operational**: Complete migration from signal-based to bot system
 - ✅ **Phase 1.3 COMPLETE**: Enhanced bot parameters with trade controls and position sizing
 - ✅ **Phase 2.3 COMPLETE**: Signal Confirmation System with time-based validation
-- ✅ **6 Test Bots Active**: Various signal configurations for testing (BTC, ETH, LTC bots)
+- ✅ **7 Test Bots Active**: Various signal configurations for testing (BTC, ETH, LTC bots)
 - ✅ All services running and healthy (Redis, Backend, Frontend, Celery Workers)
 - ✅ Coinbase API integration functional with USD fiat account access
 - ✅ API endpoints: http://localhost:8000/api/docs
@@ -1399,7 +1407,7 @@ Our tests cover the features we're **actually delivering now**:
    - **UPDATED**: Replaced deprecated signals API tests with bot API tests
 
 #### ✅ **Test Suite Statistics (2025-09-02)**
-- **Total Tests**: 53 tests across 5 test files
+- **Total Tests**: 89 tests across 6 test files
 - **Success Rate**: 100% (53/53 passing)
 - **Execution Time**: 3.55 seconds for full suite
 - **Coverage Areas**: CRUD operations, parameter validation, signal processing, live API integration
@@ -1482,7 +1490,7 @@ This approach ensures our test suite serves as a reliable indicator of applicati
 ✅ **Frontend Integration**: TypeScript interfaces aligned, all parameters working  
 ✅ **Celery Tasks**: Modernized with bot-centric approach, all workers running  
 ✅ **Import Cleanup**: All legacy signal imports removed and replaced  
-✅ **Comprehensive Testing**: 53/53 tests passing with full parameter validation  
+✅ **Comprehensive Testing**: 89/89 tests passing with full parameter validation  
 ✅ **Codebase Cleanup**: Removed test data, deprecated files, and unused imports  
 
 ### **Live Deployment Status**
