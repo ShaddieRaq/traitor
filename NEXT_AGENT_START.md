@@ -1,18 +1,35 @@
 # 🚀 Quick Start Guide for Next Agent
 
 **CRITICAL**: Phase 3.3 is complete. Ready for Phase 4 (Position Management) or new initiatives.
-## 🚀 **READY FOR PHASE 4: Position Management**
 
-Pha## 📚 **DOCUMENTATION REFERENCES**
+## ⚡ **INSTANT VERIFICATION COMMANDS**
 
-- **Enhanced Instructions**: `.github/copilot-instructions.md` (Updated with 80+ lines of critical lessons)
-- **Temperature Architecture**: Comprehensive temperature system documentation
+```bash
+# 1. Check service## 📚 **DOCUMENTATION REFERENCES**
+
+- **Complete Instructions**: `.github/copilot-instructions.md` (Updated for Phase 3.3)
 - **Current Classes**: `docs/current_class_diagram.md` 
 - **Handoff Status**: `HANDOFF_STATUS.md` (Updated for Phase 3.3 completion)
 - **Visual Architecture**: `docs/VISUAL_ARCHITECTURE.md`
 
 ---
-**Current Status**: Phase 3.3 Complete - Real-time Dashboard with Unified Temperature System Operational! 🌡️🔄ovides the complete foundation for trading implementation:
+**Current Status**: Phase 3.3 Complete - Real-time WebSocket-Driven Bot Evaluation Operational! 🚀🌡️should all be ✅)
+./scripts/status.sh
+
+# 2. Verify test suite (should be 104/104 passing)
+./scripts/test.sh
+
+# 3. Check current bots and their temperatures
+curl -s "http://localhost:8000/api/v1/bots/" | python3 -m json.tool
+curl -s "http://localhost:8000/api/v1/bot-temperatures/dashboard" | python3 -m json.tool
+
+# 4. Verify WebSocket streaming is operational
+curl -s "http://localhost:8000/api/v1/market/websocket/status" | python3 -m json.tool
+```
+
+## 🚀 **READY FOR PHASE 4: Position Management**
+
+Phase 3.3 provides the complete foundation for trading implementation:
 
 ### **Available Real-time Infrastructure** (Ready for Position Management)
 ```bash
@@ -23,7 +40,7 @@ curl -s "http://localhost:8000/api/v1/bot-temperatures/dashboard"
 curl -X POST "http://localhost:8000/api/v1/bot-evaluation/1/evaluate"
 
 # WebSocket market data for instant trade execution
-curl -s "http://localhost:8000/api/v1/ws/websocket/status"
+curl -s "http://localhost:8000/api/v1/market/websocket/status"
 
 # Signal confirmation for trade validation
 curl -s "http://localhost:8000/api/v1/bots/1/confirmation-status"
@@ -42,11 +59,7 @@ curl -s "http://localhost:8000/api/v1/bots/1/confirmation-status"
 - **Real-time Signal Evaluation**: Foundation for automated trade decisions
 - **WebSocket Infrastructure**: Instant market data for trade execution
 - **Clean Data Models**: Bot, Trade, and BotSignalHistory ready for extension
-- **Comprehensive Testing**: 89 tests provide confidence for trading featuresERIFICATION COMMANDS**
-
-```bash
-# 1. Check service status (should all be ✅)
-./scripts/status.sh
+- **Comprehensive Testing**: 104 tests provide confidence for trading features
 
 # 2. Verify all tests pass (should be 104/104)
 cd backend && source venv/bin/activate && python -m pytest tests/ -q

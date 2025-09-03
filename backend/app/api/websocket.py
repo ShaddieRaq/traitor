@@ -68,101 +68,6 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-def handle_ticker_update(message: dict):
-    """Handle ticker updates from Coinbase WebSocket."""
-    try:
-        events = message.get('events', [])
-        for event in events:
-            tickers = event.get('tickers', [])
-            for ticker in tickers:
-                product_id = ticker.get('product_id')
-                price = float(ticker.get('price', 0))
-                
-                # Schedule bot evaluation for this product
-                asyncio.create_task(evaluate_bots_for_product(product_id, price))
-                
-    except Exception as e:
-        logger.error(f"Error handling ticker update: {e}")
-
-
-async def evaluate_bots_for_product(product_id: str, current_price: float):
-    """Evaluate all bots for a specific product and broadcast updates."""
-    try:
-        # Get database session
-        from ..core.database import SessionLocal
-        db = SessionLocal()
-        
-        try:
-            # Get all running bots for this product
-            bots = db.query(Bot).filter(
-                Bot.pair == product_id,
-                Bot.status == "RUNNING"
-            ).all()
-            
-            if not bots:
-                return
-                
-            # Initialize bot evaluator if needed
-            if not manager.bot_evaluator:
-                manager.bot_evaluator = BotSignalEvaluator(db)
-            
-            bot_updates = []
-            for bot in bots:
-                try:
-                    # Get some basic market data (in real implementation, this would be more comprehensive)
-                    # For now, we'll create a simple DataFrame with current price
-                    import pandas as pd
-                    market_data = pd.DataFrame({
-                        'close': [current_price],
-                        'high': [current_price],
-                        'low': [current_price],
-                        'open': [current_price],
-                        'volume': [0]
-                    })
-                    
-                    # Evaluate bot signals
-                    evaluation_result = manager.bot_evaluator.evaluate_bot(bot, market_data)
-                    
-                    # Calculate temperature data (Phase 3.3 enhancement)
-                    temperature_data = manager.bot_evaluator.calculate_bot_temperature(bot, market_data)
-                    
-                    bot_update = {
-                        'bot_id': bot.id,
-                        'bot_name': bot.name,
-                        'pair': bot.pair,
-                        'status': bot.status,
-                        'current_price': current_price,
-                        'combined_score': evaluation_result['overall_score'],
-                        'action': evaluation_result['action'],
-                        'confidence': evaluation_result['confidence'],
-                        'confirmation_status': evaluation_result['confirmation_status'],
-                        'temperature': temperature_data['temperature'],
-                        'temperature_emoji': temperature_data['temperature_emoji'],
-                        'distance_to_action': temperature_data['distance_to_action'],
-                        'next_action': temperature_data['next_action'],
-                        'threshold_info': temperature_data['threshold_info'],
-                        'timestamp': datetime.utcnow().isoformat()
-                    }
-                    
-                    bot_updates.append(bot_update)
-                    
-                except Exception as e:
-                    logger.error(f"Error evaluating bot {bot.id}: {e}")
-            
-            if bot_updates:
-                # Broadcast updates to all connected clients
-                await manager.broadcast({
-                    "type": "bot_updates",
-                    "data": bot_updates
-                })
-                
-        finally:
-            db.close()
-            
-    except Exception as e:
-        logger.error(f"Error in evaluate_bots_for_product: {e}")
-
-
 def calculate_bot_temperature(overall_score: float) -> str:
     """
     Calculate bot temperature based on overall signal score.
@@ -233,6 +138,58 @@ async def websocket_bot_status(websocket: WebSocket):
         manager.disconnect(websocket)
 
 
+@router.post("/websocket/start")
+async def start_websocket_streaming(db: Session = Depends(get_db)):
+    """Start WebSocket streaming for all active bot pairs."""
+    try:
+        # Get active products from running bots
+        from ..services.streaming_bot_evaluator import StreamingBotEvaluator
+        streaming_evaluator = StreamingBotEvaluator(db)
+        active_products = streaming_evaluator.get_active_products()
+        
+        if not active_products:
+            return {
+                "success": False,
+                "message": "No running bots found - no products to stream",
+                "active_products": []
+            }
+        
+        # Start WebSocket connection for active products
+        success = coinbase_service.start_websocket(active_products, ['ticker'])
+        
+        return {
+            "success": success,
+            "message": "WebSocket streaming started for active bot pairs" if success else "Failed to start WebSocket streaming",
+            "active_products": active_products,
+            "connection_status": coinbase_service.get_websocket_status()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error starting WebSocket streaming: {e}")
+        return {
+            "success": False,
+            "message": f"Error starting WebSocket streaming: {str(e)}",
+            "active_products": []
+        }
+
+
+@router.post("/websocket/stop")
+async def stop_websocket_streaming():
+    """Stop WebSocket streaming."""
+    try:
+        coinbase_service.stop_websocket()
+        return {
+            "success": True,
+            "message": "WebSocket streaming stopped"
+        }
+    except Exception as e:
+        logger.error(f"Error stopping WebSocket streaming: {e}")
+        return {
+            "success": False,
+            "message": f"Error stopping WebSocket streaming: {str(e)}"
+        }
+
+
 @router.get("/websocket/status")
 async def get_websocket_status():
     """Get current WebSocket connection status."""
@@ -252,8 +209,8 @@ async def start_market_stream(product_ids: List[str] = None):
         # Default to major trading pairs
         product_ids = ["BTC-USD", "ETH-USD", "LTC-USD"]
     
-    # Add our ticker handler to Coinbase service
-    coinbase_service.add_message_handler('ticker', handle_ticker_update)
+    # Note: Ticker handling is now done directly in coinbase_service._handle_ws_message
+    # via StreamingBotEvaluator integration
     
     # Start WebSocket connection
     success = coinbase_service.start_websocket(product_ids, ['ticker'])

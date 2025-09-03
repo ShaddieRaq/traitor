@@ -6,21 +6,23 @@ A modern, bot-centric cryptocurrency trading system with advanced signal evaluat
 
 - 🤖 **Bot-Centric Trading**: One bot per trading pair with intelligent signal aggregation
 - 📊 **Web Dashboard**: Modern React interface for bot monitoring and management  
-- 🔄 **Real-Time WebSocket Data**: Live Coinbase ticker streaming with 1-2 updates/second
+- 🔄 **Real-Time Bot Evaluation**: WebSocket-driven bot processing on market data updates
 - 🏦 **Coinbase Integration**: Direct integration with Coinbase Advanced Trade API
 - ⚡ **Background Processing**: Celery-based async task processing with Redis
 - 📈 **Advanced Signals**: Enhanced RSI, Moving Average, MACD with -1 to +1 scoring
 - 🎯 **Risk Management**: Sophisticated position sizing, stop-loss, and trade controls
 - ✅ **Signal Confirmation**: Time-based signal verification to prevent false signals
-- 🌡️ **Bot Temperature**: Hot 🔥/warm 🌡️/cool ❄️/frozen 🧊 indicators operational
+- 🌡️ **Bot Temperature**: Hot 🔥/warm 🌡️/cool ❄️/frozen 🧊 indicators with sensitive testing thresholds
+- 🚀 **HFT Ready**: High-frequency trading infrastructure foundation
 
 ## Tech Stack
 
-- **Backend**: FastAPI, SQLAlchemy, Celery, Redis, Pydantic V2, WebSocket
+- **Backend**: FastAPI, SQLAlchemy, Celery, Redis, Pydantic V2, WebSocket, StreamingBotEvaluator
 - **Frontend**: React 18, TypeScript, Vite, TailwindCSS, TanStack Query
 - **Database**: SQLite (single-user, production-ready)
 - **Queue**: Redis for background task processing
 - **API**: Coinbase Advanced Trade API with JWT authentication + WebSocket
+- **Real-time**: Hybrid WebSocket/polling architecture for optimal stability
 - **Testing**: 104 comprehensive tests with 100% pass rate
 
 ## Bot-Centric Architecture
@@ -31,23 +33,28 @@ This system uses a **bot-centric approach** where:
 - **Signal confirmation system** requiring consistency over time before trading
 - **Advanced scoring** with -1 (strong sell) to +1 (strong buy) signal ranges
 - **Trade controls** including step percentages, cooldown periods, and position limits
-- **Real-time evaluation** triggered by live WebSocket market data updates
+- **Real-time evaluation** automatically triggered by Coinbase WebSocket ticker updates
+- **Sensitive testing thresholds** (10x more responsive) for rapid development feedback
+- **Hybrid architecture** combining WebSocket efficiency with frontend polling stability
 
 ### Current Status (Phase 3.3 Complete)
-- ✅ **Unified Temperature System**: Single source of truth with realistic thresholds (0.05/0.15/0.3)
-- ✅ **Real-time Dashboard**: WebSocket-driven live updates without page refresh
+- ✅ **Real-time WebSocket Bot Evaluation**: Bots automatically evaluated on Coinbase ticker updates
+- ✅ **StreamingBotEvaluator Service**: Real-time processing triggered by market data changes
+- ✅ **Hybrid Architecture**: WebSocket backend + polling frontend for optimal stability
+- ✅ **Sensitive Testing Thresholds**: 10x more responsive (0.08/0.03/0.005) for development
+- ✅ **Production Thresholds Ready**: Conservative thresholds (0.3/0.15/0.05) for real trading
 - ✅ **Bot Temperature System**: Hot 🔥/Warm 🌡️/Cool ❄️/Frozen 🧊 classification operational
-- ✅ **Temperature API**: Dedicated endpoints for individual and dashboard temperature data
-- ✅ **Live WebSocket Integration**: Real-time Coinbase ticker data streaming
+- ✅ **WebSocket Management API**: Start/stop/status endpoints for controlling real-time streams
+- ✅ **Live Market Data Integration**: Real-time Coinbase ticker data streaming
 - ✅ **Signal Evaluation Engine**: BotSignalEvaluator service operational
 - ✅ **Enhanced Signals**: RSI, MA, MACD with advanced scoring algorithms
 - ✅ **Signal Confirmation System**: Time-based validation prevents false signals
 - ✅ **2 Production Bots** configured (clean state after comprehensive cleanup)
 - ✅ **Weight Validation**: Signal weights properly enforced (≤ 1.0)
-- ✅ **104/104 tests passing** including signal confirmation + WebSocket + temperature system
+- ✅ **104/104 tests passing** including temperature system with sensitive thresholds
 - ✅ **Pydantic V2 Migration**: Modern validation with enhanced schemas
 - ✅ **Pristine Codebase**: No duplicate code, development artifacts, or temporary files
-- ✅ **Enhanced Documentation**: Comprehensive lessons learned for future agents
+- ✅ **HFT Foundation**: Infrastructure ready for high-frequency trading implementations
 
 ## Quick Start
 

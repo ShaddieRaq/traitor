@@ -76,7 +76,7 @@ class CoinbaseService:
             return False
     
     def _handle_ws_message(self, message):
-        """Handle incoming WebSocket messages."""
+        """Handle incoming WebSocket messages and trigger bot evaluations."""
         try:
             if isinstance(message, str):
                 message = json.loads(message)
@@ -91,14 +91,39 @@ class CoinbaseService:
                     except Exception as e:
                         logger.error(f"Error in message handler for {channel}: {e}")
             
-            # Log ticker updates for debugging
+            # Handle ticker updates for bot evaluation
             if channel == 'ticker':
-                product_id = message.get('events', [{}])[0].get('tickers', [{}])[0].get('product_id', 'unknown')
-                price = message.get('events', [{}])[0].get('tickers', [{}])[0].get('price', 'unknown')
-                logger.debug(f"Ticker update: {product_id} @ ${price}")
+                events = message.get('events', [])
+                for event in events:
+                    tickers = event.get('tickers', [])
+                    for ticker in tickers:
+                        product_id = ticker.get('product_id')
+                        price = ticker.get('price')
+                        if product_id and price:
+                            logger.debug(f"Ticker update: {product_id} @ ${price}")
+                            # Trigger bot evaluation for this product
+                            self._trigger_bot_evaluations(product_id, ticker)
                 
         except Exception as e:
             logger.error(f"Error handling WebSocket message: {e}")
+    
+    def _trigger_bot_evaluations(self, product_id: str, ticker_data: dict):
+        """Trigger bot evaluations for a specific product on ticker updates."""
+        try:
+            # Import here to avoid circular imports
+            from ..services.streaming_bot_evaluator import StreamingBotEvaluator
+            from ..core.database import SessionLocal
+            
+            # Create database session
+            db = SessionLocal()
+            try:
+                evaluator = StreamingBotEvaluator(db)
+                evaluator.evaluate_bots_on_ticker_update(product_id, ticker_data)
+            finally:
+                db.close()
+                
+        except Exception as e:
+            logger.error(f"Error triggering bot evaluations for {product_id}: {e}")
     
     def add_message_handler(self, channel: str, handler: Callable):
         """Add a handler function for WebSocket messages from a specific channel."""
