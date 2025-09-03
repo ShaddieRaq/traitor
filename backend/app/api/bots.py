@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 import json
+import pandas as pd
+from datetime import datetime
 from ..core.database import get_db
 from ..models.models import Bot, BotSignalHistory
 from ..api.schemas import BotCreate, BotUpdate, BotResponse, BotStatusResponse

@@ -12,7 +12,7 @@ A modern, bot-centric cryptocurrency trading system with advanced signal evaluat
 - 📈 **Advanced Signals**: Enhanced RSI, Moving Average, MACD with -1 to +1 scoring
 - 🎯 **Risk Management**: Sophisticated position sizing, stop-loss, and trade controls
 - ✅ **Signal Confirmation**: Time-based signal verification to prevent false signals
-- 🌡️ **Bot Temperature**: Ready for hot 🔥/warm 🌡️/cool ❄️/frozen 🧊 indicators
+- 🌡️ **Bot Temperature**: Hot 🔥/warm 🌡️/cool ❄️/frozen 🧊 indicators operational
 
 ## Tech Stack
 
@@ -33,16 +33,18 @@ This system uses a **bot-centric approach** where:
 - **Trade controls** including step percentages, cooldown periods, and position limits
 - **Real-time evaluation** triggered by live WebSocket market data updates
 
-### Current Status (Phase 3.1 Complete)
+### Current Status (Phase 3.2 Complete)
+- ✅ **Bot Temperature System**: Hot 🔥/Warm 🌡️/Cool ❄️/Frozen 🧊 classification operational
+- ✅ **Temperature API**: Dedicated endpoints for individual and dashboard temperature data
 - ✅ **Live WebSocket Integration**: Real-time Coinbase ticker data streaming
 - ✅ **Signal Evaluation Engine**: BotSignalEvaluator service operational
 - ✅ **Enhanced Signals**: RSI, MA, MACD with advanced scoring algorithms
 - ✅ **Signal Confirmation System**: Time-based validation prevents false signals
 - ✅ **2 Production Bots** configured (clean state after test bot removal)
 - ✅ **Weight Validation**: Signal weights properly enforced (≤ 1.0)
-- ✅ **89/89 tests passing** including signal confirmation + WebSocket system
+- ✅ **89/89 tests passing** including signal confirmation + WebSocket + temperature system
 - ✅ **Pydantic V2 Migration**: Modern validation with enhanced schemas
-- ✅ **Codebase Cleanup**: Pristine state with deprecated code removed
+- ✅ **Codebase Cleanup**: Pristine state with no duplicate code or temporary files
 
 ## Quick Start
 
@@ -235,6 +237,11 @@ trader/
 - `POST /api/v1/ws/websocket/start` - Start live market data stream
 - `POST /api/v1/ws/websocket/stop` - Stop market data stream
 - `GET /api/v1/ws/websocket/status` - Check WebSocket connection health
+
+### Bot Temperature API (Phase 3.2)
+- `GET /api/v1/bot-temperatures/` - Get all running bot temperatures
+- `GET /api/v1/bot-temperatures/dashboard` - Get temperature summary dashboard
+- `GET /api/v1/bot-temperatures/{id}` - Get individual bot temperature status
 
 ### Market Data
 - `GET /api/v1/market/products` - List trading pairs

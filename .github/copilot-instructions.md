@@ -15,6 +15,7 @@ curl -s http://localhost:8000/api/v1/bots/ | python3 -m json.tool  # View curren
 - ✅ **Bot-Centric Architecture**: Complete migration from signal-based to bot system
 - ✅ **Phase 2.3 Complete**: Signal confirmation system operational
 - ✅ **Phase 3.1 Complete**: Live WebSocket market data integration operational
+- ✅ **Phase 3.2 Complete**: Bot temperature indicators operational (Hot 🔥/Warm 🌡️/Cool ❄️/Frozen 🧊)
 - ✅ **Codebase Cleanup**: All development artifacts and test bots removed
 
 ### Project Status Files (Check These First)
@@ -41,6 +42,7 @@ Bot.signal_config = {
 - **Primary API**: `/api/v1/bots/` (NOT `/api/v1/signals/` - deprecated)
 - **Bot CRUD**: GET, POST, PUT, DELETE on `/api/v1/bots/`
 - **Signal Evaluation**: `/api/v1/bot-evaluation/{bot_id}/evaluate`
+- **Bot Temperatures**: `/api/v1/bot-temperatures/` (NEW Phase 3.2)
 - **USD Account Access**: Use `get_portfolio_breakdown()` NOT `get_accounts()`
 
 #### Service Architecture
@@ -148,7 +150,9 @@ frontend/src/
 
 **Phase 3.1 Complete**: Live WebSocket market data integration operational with real Coinbase ticker data streaming.
 
-**Next Development**: Phase 3.2 focuses on bot temperature indicators and real-time dashboard updates.
+**Phase 3.2 Complete**: Bot temperature indicators operational with Hot 🔥/Warm 🌡️/Cool ❄️/Frozen 🧊 classification based on signal proximity to thresholds.
+
+**Next Development**: Phase 3.3 focuses on real-time dashboard updates and WebSocket integration for temperature data.
 
 ## 🤖 BOT IMPLEMENTATION STATUS (CURRENT INITIATIVE)
 
@@ -306,11 +310,12 @@ Successfully transitioned from signal-based system to **bot-centric trading arch
 - ✅ Market data processing and storage for signal calculations
 - ✅ **Test:** Real Coinbase ticker data streaming successfully
 
-**Milestone 3.2: Bot Status & Temperature** (IN PROGRESS)
-- Bot temperature calculation based on combined signal score proximity to thresholds
-- Distance to signal thresholds: show how close bot is to trading action
-- Confirmation progress tracking: show confirmation timer progress
-- **Test:** Bot status changes color/temperature as market moves toward/away from signals
+**Milestone 3.2: Bot Status & Temperature** ✅ COMPLETE
+- ✅ Bot temperature calculation based on combined signal score proximity to thresholds
+- ✅ Distance to signal thresholds: show how close bot is to trading action
+- ✅ Confirmation progress tracking: show confirmation timer progress
+- ✅ API endpoints: `/api/v1/bot-temperatures/` with individual and dashboard summaries
+- ✅ **Test:** Bot temperature system operational with Hot 🔥/Warm 🌡️/Cool ❄️/Frozen 🧊 classification
 
 **Milestone 3.3: Real-time Dashboard Updates**
 - WebSocket updates to frontend for live bot status
@@ -743,6 +748,12 @@ The project has been successfully deployed and tested with all services running:
 
 ### Bot Evaluation API (`/api/v1/bot-evaluation`) - PHASE 2.2 FEATURE
 - `POST /api/v1/bot-evaluation/{bot_id}/evaluate` - Evaluate bot signals with market data
+- `GET /api/v1/bot-evaluation/test/{bot_id}` - Test bot evaluation (returns mock data)
+
+### Bot Temperatures API (`/api/v1/bot-temperatures`) - PHASE 3.2 FEATURE
+- `GET /api/v1/bot-temperatures/` - Get all running bot temperatures
+- `GET /api/v1/bot-temperatures/dashboard` - Get temperature summary dashboard
+- `GET /api/v1/bot-temperatures/{bot_id}` - Get individual bot temperature status
 - `GET /api/v1/bot-evaluation/test/{bot_id}` - Test bot evaluation (returns mock data)
 
 ### Market Data API (`/api/v1/market`)
@@ -1402,6 +1413,8 @@ docker ps
 - **API Documentation**: Available at `/api/docs` not `/docs` (configured with api_v1_prefix)
 - **USD Account Missing**: Use portfolio breakdown method, NOT `get_accounts()` - see Portfolio Breakdown section above
 - **Slow Coinbase Tests**: Avoid `'property' in coinbase_object` - use `hasattr()` instead (70+ second difference)
+- **Duplicate API Endpoints**: Use dedicated routers to avoid FastAPI routing conflicts (learned Phase 3.2)
+- **Test Bot Cleanup**: Always remove temporary test bots created during development phases
 - **Exit Code 127**: Command not found - check directory and virtual environment activation
 - **Connection Refused on API calls**: Backend service not running - start uvicorn first
 - **Module Import Errors**: Virtual environment not activated - run `source venv/bin/activate`

@@ -408,6 +408,133 @@ class BotSignalEvaluator:
             }
             for entry in history_entries
         ]
+    
+    def calculate_bot_temperature(self, bot: Bot, market_data: pd.DataFrame) -> Dict[str, Any]:
+        """
+        Calculate bot temperature based on signal proximity to trading thresholds.
+        
+        Temperature levels:
+        - Hot 🔥: Very close to trading (score > 0.7 or < -0.7)
+        - Warm 🌡️: Moderately close (score > 0.4 or < -0.4)  
+        - Cool ❄️: Some interest (score > 0.2 or < -0.2)
+        - Frozen 🧊: No trading interest (score between -0.2 and 0.2)
+        
+        Args:
+            bot: Bot instance
+            market_data: Current market data
+            
+        Returns:
+            Dict containing:
+            - temperature: hot/warm/cool/frozen
+            - temperature_emoji: 🔥/🌡️/❄️/🧊
+            - score: Current combined score
+            - distance_to_action: How close to buy/sell threshold
+            - next_action: What action would be taken if threshold crossed
+            - threshold_info: Details about thresholds
+        """
+        # Get current evaluation
+        evaluation = self.evaluate_bot(bot, market_data)
+        score = evaluation['overall_score']
+        action = evaluation['action']
+        
+        # Calculate temperature based on absolute score
+        abs_score = abs(score)
+        
+        if abs_score >= 0.7:
+            temperature = "hot"
+            temperature_emoji = "🔥"
+        elif abs_score >= 0.4:
+            temperature = "warm" 
+            temperature_emoji = "🌡️"
+        elif abs_score >= 0.2:
+            temperature = "cool"
+            temperature_emoji = "❄️"
+        else:
+            temperature = "frozen"
+            temperature_emoji = "🧊"
+        
+        # Calculate distance to action thresholds
+        buy_threshold = -0.3  # Default buy threshold
+        sell_threshold = 0.3  # Default sell threshold
+        
+        if score > 0:  # Bullish territory
+            distance_to_sell = sell_threshold - score
+            distance_to_action = max(0, distance_to_sell)
+            next_action = "sell" if distance_to_action <= 0 else "approaching_sell"
+        else:  # Bearish territory
+            distance_to_buy = abs(buy_threshold) - abs(score)
+            distance_to_action = max(0, distance_to_buy)
+            next_action = "buy" if distance_to_action <= 0 else "approaching_buy"
+        
+        return {
+            'temperature': temperature,
+            'temperature_emoji': temperature_emoji,
+            'score': score,
+            'abs_score': abs_score,
+            'distance_to_action': round(distance_to_action, 3),
+            'next_action': next_action,
+            'current_action': action,
+            'threshold_info': {
+                'buy_threshold': buy_threshold,
+                'sell_threshold': sell_threshold,
+                'in_buy_zone': score <= buy_threshold,
+                'in_sell_zone': score >= sell_threshold,
+                'in_neutral_zone': buy_threshold < score < sell_threshold
+            },
+            'confirmation_status': evaluation['confirmation_status'],
+            'signal_breakdown': evaluation['signal_results']
+        }
+    
+    def get_all_bot_temperatures(self, market_data_cache: Dict[str, pd.DataFrame] = None) -> List[Dict[str, Any]]:
+        """
+        Get temperature status for all active bots.
+        
+        Args:
+            market_data_cache: Optional cache of market data by trading pair
+            
+        Returns:
+            List of bot temperature data
+        """
+        bots = self.db.query(Bot).filter(Bot.status == 'RUNNING').all()
+        temperatures = []
+        
+        for bot in bots:
+            try:
+                # Use cached market data if available, otherwise create mock data
+                if market_data_cache and bot.pair in market_data_cache:
+                    market_data = market_data_cache[bot.pair]
+                else:
+                    # Create minimal mock data for temperature calculation
+                    market_data = pd.DataFrame({
+                        'close': [100.0],  # Mock price
+                        'high': [101.0],
+                        'low': [99.0],
+                        'open': [100.5],
+                        'volume': [1000]
+                    })
+                
+                temp_data = self.calculate_bot_temperature(bot, market_data)
+                temp_data.update({
+                    'bot_id': bot.id,
+                    'bot_name': bot.name,
+                    'pair': bot.pair,
+                    'status': bot.status
+                })
+                temperatures.append(temp_data)
+                
+            except Exception as e:
+                # Add error entry for debugging
+                temperatures.append({
+                    'bot_id': bot.id,
+                    'bot_name': bot.name,
+                    'pair': bot.pair,
+                    'status': bot.status,
+                    'temperature': 'error',
+                    'temperature_emoji': '❌',
+                    'error': str(e)
+                })
+        
+        return temperatures
 
 
 def get_bot_evaluator(db: Session = None) -> BotSignalEvaluator:
