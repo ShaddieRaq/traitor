@@ -1,6 +1,6 @@
 # 🚀 Quick Start Guide for Next Agent
 
-**CRITICAL**: Read this first before starting Phase 3.1 implementation.
+**CRITICAL**: Read this first before starting Phase 3.2 implementation.
 
 ## ⚡ **IMMEDIATE VERIFICATION COMMANDS**
 
@@ -11,63 +11,68 @@
 # 2. Verify all tests pass (should be 89/89)
 cd backend && source venv/bin/activate && python -m pytest tests/ -q
 
-# 3. Check current bot configuration (7 bots)
+# 3. Check current bot configuration (2 production bots)
 curl -s http://localhost:8000/api/v1/bots/ | python3 -m json.tool
 
 # 4. Test Phase 2.3 signal confirmation system
 curl -s "http://localhost:8000/api/v1/bots/1/confirmation-status" | python3 -m json.tool
 
-# 5. View current class structure (includes confirmation system)
+# 5. Test Phase 3.1 WebSocket integration
+curl -s "http://localhost:8000/api/v1/ws/websocket/status" | python3 -m json.tool
+
+# 6. View current class structure (includes WebSocket system)
 cat docs/current_class_diagram.md
 ```
 
-## 📋 **PHASE 2.3 COMPLETION CHECKLIST**
+## 📋 **PHASE 3.1 COMPLETION CHECKLIST**
 
-- ✅ **Signal Evaluation Engine**: BotSignalEvaluator service operational
-- ✅ **Enhanced Signal Processing**: RSI, MA, MACD with -1 to +1 scoring
-- ✅ **Weighted Aggregation**: Multi-signal combination with configurable weights  
-- ✅ **Signal Confirmation System**: Time-based signal verification operational
-- ✅ **Confirmation API**: Complete REST API for confirmation management
-- ✅ **Database Enhancement**: BotSignalHistory with confirmation tracking
-- ✅ **Test Suite**: 89/89 passing (16% increase from Phase 2.2)
-- ✅ **JSON Serialization**: Support for numpy/pandas types in database storage
+- ✅ **Live WebSocket Connection**: Real-time Coinbase ticker data streaming
+- ✅ **Multi-product Subscriptions**: BTC-USD and ETH-USD data flowing
+- ✅ **Background Processing**: WebSocket runs in separate thread without blocking
+- ✅ **API Management**: Full WebSocket lifecycle with start/stop/status endpoints
+- ✅ **Connection Health**: Robust connection management with proper initialization
+- ✅ **Codebase Cleanup**: Removed 5 test bots, deprecated files, development artifacts
+- ✅ **Production Ready**: Clean state with 2 production-quality bots only
+- ✅ **Test Suite**: 89/89 passing (100% success rate maintained)
 
-## 🎯 **PHASE 3.1 STARTING POINT**
+## 🎯 **PHASE 3.2 STARTING POINT**
 
 ### **Ready to Implement**
-**Phase 3.1: Real-time Data & Bot Status** - Build live market data integration and bot temperature indicators on the completed signal confirmation system.
+**Phase 3.2: Bot Status & Temperature Indicators** - Build bot temperature calculation and real-time status indicators on the completed live market data foundation.
 
-### **Key Phase 3.1 Milestones**
-1. **Live Market Data Integration** - WebSocket connection to Coinbase ticker for real-time updates
-2. **Bot Status & Temperature** - Temperature calculation based on signal proximity to thresholds
-3. **Real-time Dashboard Updates** - WebSocket updates to frontend for live bot status
+### **Key Phase 3.2 Milestones**
+1. **Bot Temperature Calculation** - Calculate hot 🔥/warm 🌡️/cool ❄️/frozen 🧊 based on signal proximity
+2. **Distance to Thresholds** - Show how close bots are to trading actions
+3. **Confirmation Progress Tracking** - Real-time confirmation timer progress display
 
-### **Phase 2.3 Foundation Available**
-- **7 Configured Bots** with complete signal confirmation capabilities
+### **Phase 3.1 Foundation Available**
+- **2 Production Bots** with complete signal confirmation capabilities
+- **Live WebSocket Data** providing real-time market ticker updates
 - **Signal Confirmation System** providing time-based validation
-- **Enhanced BotSignalEvaluator Service** with confirmation integration
-- **Comprehensive Test Suite** with Phase 2.3 confirmation system coverage
+- **Enhanced BotSignalEvaluator Service** ready for real-time bot temperature calculation
 
 ## 🔧 **ESSENTIAL FILE LOCATIONS**
 
-### **Core Implementation Files (Updated Phase 2.3)**
+### **Core Implementation Files (Updated Phase 3.1)**
 ```
-backend/app/services/bot_evaluator.py    # Enhanced: BotSignalEvaluator with confirmation
+backend/app/services/coinbase_service.py  # Enhanced: WebSocket integration added
+backend/app/api/websocket.py              # NEW: WebSocket API endpoints
+backend/app/main.py                       # Enhanced: WebSocket router integration
+backend/app/services/bot_evaluator.py     # Signal aggregation with confirmation
+backend/app/api/bots.py                   # Bot CRUD + confirmation endpoints
+backend/app/models/models.py              # Bot and BotSignalHistory models
 backend/app/services/signals/technical.py # Enhanced signal implementations  
-backend/app/api/bot_evaluation.py        # Bot evaluation endpoints
-backend/app/api/bots.py                   # Enhanced: Bot CRUD + confirmation endpoints
-backend/app/models/models.py              # Enhanced: Bot and BotSignalHistory models
-backend/app/services/signals/             # Signal implementations
-backend/app/api/schemas.py                # Pydantic V2 validation schemas
 ```
 
-### **Key Test Files (Updated Phase 2.3)**
+### **Key Test Files (Updated Phase 3.1)**
 ```
-tests/test_signal_confirmation.py    # NEW: Signal confirmation testing (64 tests)
+tests/test_signal_confirmation.py    # Signal confirmation testing (12 tests)
 tests/test_bot_evaluator.py          # BotSignalEvaluator testing (11 tests)
 tests/test_signals.py                # Enhanced signal testing (21 tests)
 tests/test_bots.py                    # Bot CRUD & validation (21 tests)
 tests/test_new_parameters.py         # New parameter testing (8 tests)
+tests/test_coinbase.py               # Live Coinbase integration (7 tests)
+tests/test_api.py                     # API endpoint testing (9 tests)
 ```
 
 ## ⚠️ **CRITICAL PATTERNS TO FOLLOW**

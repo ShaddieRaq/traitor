@@ -1,25 +1,26 @@
 # Bot-Centric Coinbase Trading System
 
-A modern, bot-centric cryptocurrency trading system with advanced signal evaluation, built with Python (FastAPI) backend and React frontend.
+A modern, bot-centric cryptocurrency trading system with advanced signal evaluation and real-time market data integration, built with Python (FastAPI) backend and React frontend.
 
 ## Features
 
 - 🤖 **Bot-Centric Trading**: One bot per trading pair with intelligent signal aggregation
 - 📊 **Web Dashboard**: Modern React interface for bot monitoring and management  
-- 🔄 **Real-Time Data**: Live market data and automated bot evaluation
+- 🔄 **Real-Time WebSocket Data**: Live Coinbase ticker streaming with 1-2 updates/second
 - 🏦 **Coinbase Integration**: Direct integration with Coinbase Advanced Trade API
 - ⚡ **Background Processing**: Celery-based async task processing with Redis
 - 📈 **Advanced Signals**: Enhanced RSI, Moving Average, MACD with -1 to +1 scoring
 - 🎯 **Risk Management**: Sophisticated position sizing, stop-loss, and trade controls
 - ✅ **Signal Confirmation**: Time-based signal verification to prevent false signals
+- 🌡️ **Bot Temperature**: Ready for hot 🔥/warm 🌡️/cool ❄️/frozen 🧊 indicators
 
 ## Tech Stack
 
-- **Backend**: FastAPI, SQLAlchemy, Celery, Redis, Pydantic V2
+- **Backend**: FastAPI, SQLAlchemy, Celery, Redis, Pydantic V2, WebSocket
 - **Frontend**: React 18, TypeScript, Vite, TailwindCSS, TanStack Query
 - **Database**: SQLite (single-user, production-ready)
 - **Queue**: Redis for background task processing
-- **API**: Coinbase Advanced Trade API with JWT authentication
+- **API**: Coinbase Advanced Trade API with JWT authentication + WebSocket
 - **Testing**: 89 comprehensive tests with 100% pass rate
 
 ## Bot-Centric Architecture
@@ -30,16 +31,18 @@ This system uses a **bot-centric approach** where:
 - **Signal confirmation system** requiring consistency over time before trading
 - **Advanced scoring** with -1 (strong sell) to +1 (strong buy) signal ranges
 - **Trade controls** including step percentages, cooldown periods, and position limits
+- **Real-time evaluation** triggered by live WebSocket market data updates
 
-### Current Status (Phase 2.3 Complete)
+### Current Status (Phase 3.1 Complete)
+- ✅ **Live WebSocket Integration**: Real-time Coinbase ticker data streaming
 - ✅ **Signal Evaluation Engine**: BotSignalEvaluator service operational
 - ✅ **Enhanced Signals**: RSI, MA, MACD with advanced scoring algorithms
 - ✅ **Signal Confirmation System**: Time-based validation prevents false signals
-- ✅ **7 Active Bots** configured with various signal combinations
+- ✅ **2 Production Bots** configured (clean state after test bot removal)
 - ✅ **Weight Validation**: Signal weights properly enforced (≤ 1.0)
-- ✅ **89/89 tests passing** including Phase 2.3 signal confirmation system
+- ✅ **89/89 tests passing** including signal confirmation + WebSocket system
 - ✅ **Pydantic V2 Migration**: Modern validation with enhanced schemas
-- ✅ **Live Market Data**: $111,221 BTC verified through Coinbase integration
+- ✅ **Codebase Cleanup**: Pristine state with deprecated code removed
 
 ## Quick Start
 
@@ -218,13 +221,20 @@ trader/
 
 ## API Endpoints
 
-### Bot Management
+### Bot Management API
 - `GET /api/v1/bots/` - List all bots
 - `POST /api/v1/bots/` - Create new bot
-- `GET /api/v1/bots/{id}` - Get specific bot
+- `GET /api/v1/bots/{id}` - Get bot details
 - `PUT /api/v1/bots/{id}` - Update bot configuration
+- `DELETE /api/v1/bots/{id}` - Delete bot
 - `POST /api/v1/bots/{id}/start` - Start bot
 - `POST /api/v1/bots/{id}/stop` - Stop bot
+- `GET /api/v1/bots/{id}/confirmation-status` - Get signal confirmation status
+
+### WebSocket API (Phase 3.1)
+- `POST /api/v1/ws/websocket/start` - Start live market data stream
+- `POST /api/v1/ws/websocket/stop` - Stop market data stream
+- `GET /api/v1/ws/websocket/status` - Check WebSocket connection health
 
 ### Market Data
 - `GET /api/v1/market/products` - List trading pairs
@@ -313,10 +323,16 @@ Signals are now configured within bots rather than as standalone entities:
 - `PUT /api/v1/bots/{bot_id}` - Update bot parameters
 - `POST /api/v1/bots/{bot_id}/start` - Start bot trading
 - `POST /api/v1/bots/{bot_id}/stop` - Stop bot trading
+- `GET /api/v1/bots/{bot_id}/confirmation-status` - Get signal confirmation status
 
-**Signal Evaluation (NEW):**
+**Signal Evaluation:**
 - `POST /api/v1/bot-evaluation/{bot_id}/evaluate` - Evaluate bot signals with live market data
 - `GET /api/v1/bot-evaluation/test/{bot_id}` - Test bot evaluation with mock data
+
+**WebSocket Market Data (Phase 3.1):**
+- `POST /api/v1/ws/websocket/start` - Start live market data stream
+- `POST /api/v1/ws/websocket/stop` - Stop market data stream
+- `GET /api/v1/ws/websocket/status` - Check WebSocket connection health
 
 **Market Data:**
 - `GET /api/v1/market/ticker/{product_id}` - Live price data

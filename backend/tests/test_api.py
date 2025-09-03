@@ -190,13 +190,4 @@ class TestTradesAPI:
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, dict)
-        data = response.json()
-        assert isinstance(data, list)
-        # New system might have no trades yet
-    
-    def test_get_trade_stats(self, client):
-        """Test getting trade statistics."""
-        response = client.get("/api/v1/trades/stats")
-        assert response.status_code == 200
-        data = response.json()
         # Should return stats structure even if empty

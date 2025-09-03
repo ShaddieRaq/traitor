@@ -1,73 +1,154 @@
-# Bot-Centric Coinbase Trading System Development Guide
+# Bot-Centric Coinbase Trading System - AI Agent Guide
 
-## 🚀 QUICK START FOR AI AGENTS
+## 🚀 IMMEDIATE PRODUCTIVITY ESSENTIALS
 
-### Essential Commands (Use These First):
+### Critical Commands (Run These First)
 ```bash
-./scripts/status.sh   # Check current service status
-./scripts/start.sh    # Start all services (if not running)
-./scripts/logs.sh     # View logs if issues occur
-./scripts/test.sh     # Run tests to verify functionality
-```
-
-### Essential Code Discovery:
-```bash
-# Before referencing ANY code, run these:
-python scripts/generate_class_diagram.py  # Get current class structure
-cat docs/current_class_diagram.md         # View all classes and methods
-grep -r "class.*Bot" backend/app/models/   # Find bot models
-grep -r "@router\." backend/app/api/       # Find API routes
+./scripts/status.sh   # Check if system is running
+./scripts/start.sh    # Start all services if needed
 curl -s http://localhost:8000/api/v1/bots/ | python3 -m json.tool  # View current bots
 ```
 
-### Project Status Files (Always Current):
+### Current System Status (Sept 2, 2025)
+- ✅ **2 Production Bots** configured and ready (clean state after test bot removal)
+- ✅ **89/89 tests passing** across 7 test files (100% success rate)
+- ✅ **Bot-Centric Architecture**: Complete migration from signal-based to bot system
+- ✅ **Phase 2.3 Complete**: Signal confirmation system operational
+- ✅ **Phase 3.1 Complete**: Live WebSocket market data integration operational
+- ✅ **Codebase Cleanup**: All development artifacts and test bots removed
+
+### Project Status Files (Check These First)
 ```bash
-cat HANDOFF_STATUS.md     # Current agent handoff status 
-cat NEXT_AGENT_START.md   # Current quick start guide
-# ✅ These files are now synchronized with current system state
-# Shows accurate test counts (89) and bot counts (7)
+cat HANDOFF_STATUS.md     # Detailed phase completion status
+cat NEXT_AGENT_START.md   # Quick verification commands  
+cat README.md             # Project overview and setup
 ```
 
-### Technology Stack Overview:
-- **Backend**: FastAPI + SQLAlchemy + Celery + Redis (Python 3.10+)
-- **Frontend**: React 18 + TypeScript + Vite + TailwindCSS + TanStack Query
-- **Database**: SQLite (single-user, production-ready)
-- **Trading API**: Coinbase Advanced Trade API with JWT authentication
-- **Real-time**: WebSocket connections for live market data
-- **Testing**: pytest (backend) + Jest (frontend), 89 tests passing
+### Essential Architecture Understanding
 
-### Key Architectural Patterns:
-- **Bot-Centric Design**: One bot per trading pair with combined signal scoring
-- **Service Layer Pattern**: Business logic in `backend/app/services/` (CoinbaseService, signals)
-- **Signal Factory**: Dynamic signal creation via `create_signal_instance()` in `signals/base.py`
-- **JSON Configuration**: Signal parameters stored as JSON in `Bot.signal_config` field
-- **Portfolio Breakdown API**: USD fiat access requires `get_portfolio_breakdown()`, NOT `get_accounts()`
-- **Modern React**: No React imports needed (JSX transform), TanStack Query for server state
-- **Management Scripts**: Always use `./scripts/*.sh` instead of manual service commands
-- **Signal Confirmation**: Phase 2.3 time-based confirmation system prevents false signals
+#### Bot-Centric Design Pattern
+```python
+# One bot per trading pair with weighted signal aggregation
+Bot.signal_config = {
+    "rsi": {"enabled": true, "weight": 0.6, "period": 14, ...},
+    "moving_average": {"enabled": true, "weight": 0.4, ...},
+    "macd": null  # Disabled signals can be null
+}
+# Total weights must be ≤ 1.0 (enforced at API level)
+```
 
-### Current System State (2025-09-02):
-- ✅ **Bot-Centric Architecture Operational**: Complete migration from signal-based to bot system
-- ✅ **Phase 1.3 COMPLETE**: Enhanced bot parameters with trade controls and position sizing
-- ✅ **Phase 2.3 COMPLETE**: Signal Confirmation System with time-based validation
-- ✅ **7 Test Bots Active**: Various signal configurations for testing (BTC, ETH, LTC bots)
-- ✅ All services running and healthy (Redis, Backend, Frontend, Celery Workers)
-- ✅ Coinbase API integration functional with USD fiat account access
-- ✅ API endpoints: http://localhost:8000/api/docs
-- ✅ Frontend dashboard: http://localhost:3000
-- ✅ **Modern React Setup**: TypeScript + Vite + TailwindCSS + TanStack Query
-- ✅ **Real-time Components**: MarketTicker with live data updates
-- ✅ **Clean Codebase**: All deprecated signal imports and references removed
-- ✅ **Test Suite**: 89/89 tests passing with comprehensive validation
-- ✅ **Signal Confirmation**: Phase 2.3 confirmation system operational with API endpoints
+#### Critical API Patterns
+- **Primary API**: `/api/v1/bots/` (NOT `/api/v1/signals/` - deprecated)
+- **Bot CRUD**: GET, POST, PUT, DELETE on `/api/v1/bots/`
+- **Signal Evaluation**: `/api/v1/bot-evaluation/{bot_id}/evaluate`
+- **USD Account Access**: Use `get_portfolio_breakdown()` NOT `get_accounts()`
 
-### ⚠️ CRITICAL: Common AI Agent Mistakes to Avoid:
-- **Never reference `/api/v1/signals/`** - Use `/api/v1/bots/` (signals API was removed)
-- **Never use `get_accounts()` for USD** - Use `get_portfolio_breakdown()` for fiat access
-- **Never run manual service commands** - Use `./scripts/*.sh` management scripts
-- **Never assume class names** - Run discovery commands first or check `docs/current_class_diagram.md`
-- **Never skip virtual environment** - Always `cd backend && source venv/bin/activate` before Python commands
-- **Never use React imports in TSX** - Modern JSX transform enabled, only import hooks/utilities
+#### Service Architecture
+```
+Backend: FastAPI + SQLAlchemy + Celery + Redis
+Database: SQLite with Bot/BotSignalHistory models
+Frontend: React 18 + TypeScript + TailwindCSS + TanStack Query
+Trading: Coinbase Advanced Trade API (JWT auth)
+```
+
+### Development Workflow Patterns
+
+#### Always Use Management Scripts
+```bash
+# ❌ DON'T: Manual service commands
+uvicorn app.main:app --reload
+
+# ✅ DO: Use management scripts
+./scripts/start.sh    # Handles all services + health checks
+./scripts/stop.sh     # Clean shutdown
+./scripts/test.sh     # Run full test suite
+```
+
+#### Backend Development Pattern
+```bash
+# Required for ALL Python work
+cd backend && source venv/bin/activate
+
+# Code discovery (before referencing any classes)
+python scripts/generate_class_diagram.py
+cat docs/current_class_diagram.md
+```
+
+#### Database Models (Current)
+```python
+# Primary models (backend/app/models/models.py)
+class Bot(Base):           # Main bot config with signal_config JSON field
+class BotSignalHistory(Base): # Signal tracking for confirmation system
+class MarketData(Base):    # OHLCV candlestick data
+class Trade(Base):         # Trade execution records
+```
+
+### Critical Implementation Details
+
+#### Signal Configuration Validation
+```python
+# Signal weights are validated at API level
+if total_enabled_weights > 1.0:
+    raise ValueError("Total enabled signal weights cannot exceed 1.0")
+
+# Bot parameters have strict ranges
+position_size_usd: 10.0 - 10,000.0
+trade_step_pct: 0.0 - 50.0
+cooldown_minutes: 1 - 1440
+```
+
+#### Frontend Modern React Patterns
+```typescript
+// No React imports needed (JSX transform)
+import { useState, useEffect } from 'react';  // Hooks only
+import { useBots } from '../hooks/useBots';   // TanStack Query hooks
+```
+
+#### Coinbase API Critical Pattern
+```python
+# ❌ WRONG: Only returns crypto accounts
+accounts = client.get_accounts()
+
+# ✅ CORRECT: Returns both crypto AND fiat accounts  
+portfolios = client.get_portfolios()
+breakdown = client.get_portfolio_breakdown(portfolio_uuid=portfolios[0]['uuid'])
+```
+
+### Common Pitfalls to Avoid
+
+1. **Never reference deprecated Signal API** - Use `/api/v1/bots/`
+2. **Never skip virtual environment** - `source venv/bin/activate` first
+3. **Never assume class names** - Use discovery commands
+4. **Never use manual service commands** - Use `./scripts/*.sh`
+5. **Never import React in .tsx files** - Modern JSX transform enabled
+
+### Testing Strategy
+- **Live API Testing**: All tests use real Coinbase API (no mocking)
+- **Database Testing**: Real SQLite operations with session isolation
+- **Bot Validation**: Comprehensive parameter and weight validation tests
+- **Signal Processing**: RSI, MA, MACD calculation accuracy verification
+
+### File Structure Key Points
+```
+backend/app/
+├── api/bots.py              # Primary bot management API
+├── services/bot_evaluator.py  # Signal aggregation engine
+├── services/signals/        # Individual signal implementations
+├── models/models.py         # Database schema
+└── tasks/trading_tasks.py   # Celery background processing
+
+frontend/src/
+├── hooks/useBots.ts         # Bot management hooks
+├── components/             # Organized by feature (Market/, Portfolio/)
+└── pages/                  # Route components
+```
+
+### Current Phase Status
+**Phase 2.3 Complete**: Signal confirmation system prevents false signals through time-based validation. Bots track signal consistency over configurable periods before taking action.
+
+**Phase 3.1 Complete**: Live WebSocket market data integration operational with real Coinbase ticker data streaming.
+
+**Next Development**: Phase 3.2 focuses on bot temperature indicators and real-time dashboard updates.
 
 ## 🤖 BOT IMPLEMENTATION STATUS (CURRENT INITIATIVE)
 
@@ -218,27 +299,27 @@ Successfully transitioned from signal-based system to **bot-centric trading arch
 - Progress calculation and time-based validation
 - Complete test coverage: 89/89 tests passing (100% success rate)
 
-#### **Phase 3: Real-time Data & Bot Status** (2-3 days)
-**Milestone 3.1: Live Market Data Integration** ✅
-- WebSocket connection to Coinbase ticker (realistic: 1-2 updates/second)
-- Bot evaluation triggered by every ticker update for responsive trading
-- Market data processing and storage for signal calculations
-- **Test:** Bot status updates in real-time as prices change
+#### **Phase 3: Real-time Data & Bot Status** ✅ COMPLETE
+**Milestone 3.1: Live Market Data Integration** ✅ COMPLETE
+- ✅ WebSocket connection to Coinbase ticker (realistic: 1-2 updates/second)
+- ✅ Bot evaluation triggered by every ticker update for responsive trading
+- ✅ Market data processing and storage for signal calculations
+- ✅ **Test:** Real Coinbase ticker data streaming successfully
 
-**Milestone 3.2: Bot Status & Temperature** ✅
+**Milestone 3.2: Bot Status & Temperature** (IN PROGRESS)
 - Bot temperature calculation based on combined signal score proximity to thresholds
 - Distance to signal thresholds: show how close bot is to trading action
 - Confirmation progress tracking: show confirmation timer progress
 - **Test:** Bot status changes color/temperature as market moves toward/away from signals
 
-**Milestone 3.3: Real-time Dashboard Updates** ✅
+**Milestone 3.3: Real-time Dashboard Updates**
 - WebSocket updates to frontend for live bot status
 - Real-time signal scores, distances, and confirmation progress
 - No page refresh required for any bot status changes
 - **Test:** Watch bot statuses change live as market moves
 
-#### **Phase 4: Position Management** (3-4 days)
-**Milestone 4.1: Paper Trading** ✅
+#### **Phase 4: Position Management** (PLANNED)
+**Milestone 4.1: Paper Trading**
 - Paper trading mode for all bots (simulate without real money)
 - Simulated position tracking with market prices
 - Trade history and P&L calculation for testing
@@ -1535,23 +1616,23 @@ The system is now perfectly positioned for implementing real-time signal evaluat
 
 ### **✅ API Endpoints Verified Working**
 - **Health Check**: `GET /health` → `{"status":"healthy","service":"Trading Bot"}`
-- **Bot Management**: `GET /api/v1/bots/` → 5 bots currently configured
-- **Market Data**: `GET /api/v1/market/ticker/BTC-USD` → Live BTC price: $111,221
+- **Bot Management**: `GET /api/v1/bots/` → 2 production bots configured
+- **Market Data**: `GET /api/v1/market/ticker/BTC-USD` → Live BTC price data flowing
 - **API Documentation**: Available at `/api/docs` and `/api/redoc`
 
-### **✅ Current Bot Inventory**
+### **✅ Current Bot Inventory (Clean Production State)**
 ```
-1. BTC Scalper (BTC-USD) - STOPPED - Scalping configuration with RSI+MA signals
-2. ETH Momentum Bot (ETH-USD) - STOPPED - Momentum-based signal configuration  
-3. Invalid Position Size Bot (BTC-USD) - STOPPED - Edge case testing bot
-4. Test API Fix Bot (BTC-USD) - STOPPED - Post-routing fix validation bot
-5. Post-Cleanup Test Bot (ETH-USD) - STOPPED - Multi-signal Pydantic V2 test bot
+1. BTC Scalper (BTC-USD) - STOPPED - Scalping configuration with RSI signal (weight: 0.66)
+2. ETH Momentum Bot (ETH-USD) - STOPPED - Multi-signal configuration (RSI + MA + MACD)
+   - Balanced weights: RSI 0.4 + MA 0.35 + MACD 0.25 = 1.0
+   - Optimized for momentum trading with longer confirmation (10 min)
 ```
+**Note**: All test/development bots removed during cleanup - only production-ready configurations remain.
 
 ### **✅ Test Suite Status**
-- **Total Tests**: 89 tests across 6 test files
+- **Total Tests**: 89 tests across 7 test files  
 - **Success Rate**: 100% (89/89 passing)
-- **Execution Time**: ~3.4 seconds for full suite
+- **Execution Time**: ~3.7 seconds for full suite
 - **Coverage Areas**: Bot CRUD, Signal processing, Signal confirmation, Coinbase integration, API validation
 - **Live Testing**: All tests run against real services (no mocking)
 
@@ -1575,7 +1656,7 @@ The system is now perfectly positioned for implementing real-time signal evaluat
 ### **📊 System Performance Metrics**
 - **Memory Usage**: 2.2% of system resources
 - **Response Times**: API endpoints respond in <100ms
-- **Database**: SQLite with 5 active bots, efficient queries
+- **Database**: SQLite with 7 active bots, efficient queries
 - **Coinbase Integration**: Live market data flowing correctly
 - **Error Rate**: 0% - all systems stable
 

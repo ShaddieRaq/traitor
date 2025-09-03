@@ -1,5 +1,8 @@
-from typing import Optional, List
+from typing import Optional, List, Callable, Dict, Any
 import pandas as pd
+import asyncio
+import json
+from threading import Thread
 from coinbase.rest import RESTClient
 from coinbase.websocket import WSClient
 from ..core.config import settings
@@ -26,11 +29,18 @@ def timeout(duration):
 
 
 class CoinbaseService:
-    """Service for interacting with Coinbase Advanced Trade API."""
+    """Service for interacting with Coinbase Advanced Trade API with WebSocket support."""
     
     def __init__(self):
         self.client = None
         self.ws_client = None
+        self.ws_thread = None
+        self.is_ws_running = False
+        self.message_handlers: Dict[str, List[Callable]] = {
+            'ticker': [],
+            'level2': [],
+            'heartbeat': []
+        }
         self._initialize_client()
     
     def _initialize_client(self):
@@ -46,6 +56,137 @@ class CoinbaseService:
                 logger.warning("Coinbase API credentials not provided")
         except Exception as e:
             logger.error(f"Failed to initialize Coinbase client: {e}")
+    
+    def _initialize_websocket(self):
+        """Initialize Coinbase WebSocket client."""
+        try:
+            if settings.coinbase_api_key and settings.coinbase_api_secret:
+                self.ws_client = WSClient(
+                    api_key=settings.coinbase_api_key,
+                    api_secret=settings.coinbase_api_secret,
+                    on_message=self._handle_ws_message
+                )
+                logger.info("Coinbase WebSocket client initialized successfully")
+                return True
+            else:
+                logger.warning("Coinbase API credentials not provided for WebSocket")
+                return False
+        except Exception as e:
+            logger.error(f"Failed to initialize Coinbase WebSocket client: {e}")
+            return False
+    
+    def _handle_ws_message(self, message):
+        """Handle incoming WebSocket messages."""
+        try:
+            if isinstance(message, str):
+                message = json.loads(message)
+            
+            channel = message.get('channel', '')
+            
+            # Route message to appropriate handlers
+            if channel in self.message_handlers:
+                for handler in self.message_handlers[channel]:
+                    try:
+                        handler(message)
+                    except Exception as e:
+                        logger.error(f"Error in message handler for {channel}: {e}")
+            
+            # Log ticker updates for debugging
+            if channel == 'ticker':
+                product_id = message.get('events', [{}])[0].get('tickers', [{}])[0].get('product_id', 'unknown')
+                price = message.get('events', [{}])[0].get('tickers', [{}])[0].get('price', 'unknown')
+                logger.debug(f"Ticker update: {product_id} @ ${price}")
+                
+        except Exception as e:
+            logger.error(f"Error handling WebSocket message: {e}")
+    
+    def add_message_handler(self, channel: str, handler: Callable):
+        """Add a handler function for WebSocket messages from a specific channel."""
+        if channel not in self.message_handlers:
+            self.message_handlers[channel] = []
+        self.message_handlers[channel].append(handler)
+        logger.info(f"Added message handler for {channel} channel")
+    
+    def remove_message_handler(self, channel: str, handler: Callable):
+        """Remove a handler function for WebSocket messages."""
+        if channel in self.message_handlers and handler in self.message_handlers[channel]:
+            self.message_handlers[channel].remove(handler)
+            logger.info(f"Removed message handler for {channel} channel")
+    
+    def start_websocket(self, product_ids: List[str], channels: List[str] = None):
+        """Start WebSocket connection for specified products and channels."""
+        if channels is None:
+            channels = ['ticker']  # Default to ticker updates
+            
+        if self.is_ws_running:
+            logger.warning("WebSocket is already running")
+            return False
+            
+        if not self._initialize_websocket():
+            logger.error("Failed to initialize WebSocket client")
+            return False
+        
+        try:
+            def ws_run():
+                try:
+                    logger.info(f"Opening WebSocket connection...")
+                    self.ws_client.open()
+                    logger.info("WebSocket connection opened")
+                    
+                    logger.info(f"Starting ticker subscription for {product_ids}")
+                    # Use the specific ticker method for each product
+                    for product_id in product_ids:
+                        self.ws_client.ticker(product_id)
+                        logger.info(f"Subscribed to ticker for {product_id}")
+                    
+                    logger.info("Starting WebSocket message loop...")
+                    self.ws_client.run_forever_with_exception_check()
+                    
+                except Exception as e:
+                    logger.error(f"WebSocket error: {e}")
+                    import traceback
+                    logger.error(f"WebSocket traceback: {traceback.format_exc()}")
+                    self.is_ws_running = False
+            
+            self.ws_thread = Thread(target=ws_run, daemon=True)
+            self.ws_thread.start()
+            self.is_ws_running = True
+            logger.info("WebSocket thread started successfully")
+            
+            # Give the connection a moment to establish
+            import time
+            time.sleep(1)
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to start WebSocket: {e}")
+            return False
+    
+    def stop_websocket(self):
+        """Stop WebSocket connection."""
+        if not self.is_ws_running:
+            logger.info("WebSocket is not running")
+            return
+            
+        try:
+            self.is_ws_running = False
+            if self.ws_client:
+                self.ws_client.close()
+            if self.ws_thread and self.ws_thread.is_alive():
+                self.ws_thread.join(timeout=5)
+            logger.info("WebSocket stopped successfully")
+        except Exception as e:
+            logger.error(f"Error stopping WebSocket: {e}")
+    
+    def get_websocket_status(self) -> Dict[str, Any]:
+        """Get current WebSocket connection status."""
+        return {
+            "is_running": self.is_ws_running,
+            "thread_alive": self.ws_thread.is_alive() if self.ws_thread else False,
+            "client_initialized": self.ws_client is not None,
+            "handler_count": {channel: len(handlers) for channel, handlers in self.message_handlers.items()}
+        }
     
     def get_products(self) -> List[dict]:
         """Get available trading products."""
