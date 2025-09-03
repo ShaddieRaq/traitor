@@ -11,7 +11,7 @@ curl -s http://localhost:8000/api/v1/bots/status/summary | python3 -m json.tool 
 
 ### **Current System Status (September 3, 2025)**
 - ✅ **Phase 3.3 Complete**: Real-time polling architecture operational  
-- ✅ **2 Production Bots**: BTC Scalper (HOT 🔥), ETH Momentum (WARM 🌡️)
+- ✅ **2 Production Bots**: BTC Scalper (HOT 🔥), ETH Momentum (HOT 🔥)
 - ✅ **104/104 tests passing** (100% success rate)
 - ✅ **Live UI Updates**: Values update every 5 seconds without refresh
 - ✅ **Fresh Data Pipeline**: Backend performs live evaluations on each request
@@ -24,6 +24,15 @@ curl -s http://localhost:8000/api/v1/bots/status/summary | python3 -m json.tool 
 - **Signal scoring**: -1 (strong sell) to +1 (strong buy)
 - **Temperature indicators**: HOT 🔥/WARM 🌡️/COOL ❄️/FROZEN 🧊
 - **Weight validation**: Signal weights must be ≤ 1.0 (API enforced)
+- **Signal confirmation**: Time-based validation prevents false signals
+- **JSON signal config**: Stored as TEXT in database, parsed for evaluation
+
+### **Data Flow Architecture**
+```
+Market Data → Signal Evaluation → Temperature Calculation → UI Display
+     ↓              ↓                      ↓                 ↓
+Coinbase API → BotSignalEvaluator → calculate_bot_temperature → TanStack Query
+```
 
 ### **Real-Time Data Flow**
 - **Frontend**: TanStack Query polling every 5 seconds
@@ -55,8 +64,8 @@ Trading: Coinbase Advanced Trade API (JWT auth)
 curl -s "http://localhost:8000/api/v1/bots/status/summary" | python3 -m json.tool
 
 # Expected results (Sept 3, 2025):
-# BTC Scalper: HOT 🔥 (score: ~0.522)
-# ETH Momentum: WARM 🌡️ (score: ~0.064)
+# BTC Scalper: HOT 🔥 (score: ~-0.537)
+# ETH Momentum: HOT 🔥 (score: ~0.091)
 
 # Verify UI auto-updates
 open http://localhost:3000  # Values should change every 5 seconds
@@ -86,6 +95,13 @@ curl -X POST http://localhost:8000/api/v1/bot-evaluation/1/evaluate
 
 ## ⚠️ **CRITICAL LESSONS LEARNED**
 
+### **Development Environment**
+- **Backend**: Python 3.10.12 in `backend/venv/` virtual environment
+- **Frontend**: Node.js v20.18.0 with Vite + React 18
+- **Database**: SQLite (`backend/trader.db`) - single file, no setup needed
+- **Redis**: Docker container managed by `docker-compose.yml`
+- **Process Management**: All services run as background processes with PID tracking
+
 ### **Real-Time Architecture Patterns**
 - **Polling > WebSocket**: Simple 5-second polling more reliable than complex WebSocket
 - **Fresh Evaluations**: Backend must calculate live, not use cached `bot.current_combined_score`
@@ -111,6 +127,12 @@ from app.utils.temperature import calculate_bot_temperature
 # ✅ CORRECT: USD account access
 portfolios = client.get_portfolios()
 breakdown = client.get_portfolio_breakdown(portfolio_uuid=portfolios[0]['uuid'])
+
+# ✅ CORRECT: Virtual environment usage
+# Always use project scripts instead of direct python commands:
+./scripts/test.sh          # Not: python -m pytest
+./scripts/start.sh         # Not: python app/main.py
+source backend/venv/bin/activate  # For manual venv activation
 ```
 
 ```typescript
@@ -141,6 +163,19 @@ export const useBotsStatus = () => {
 - `app/api/bots.py` - Primary bot management API
 - `app/models/models.py` - Database schema (Bot, BotSignalHistory)
 - `app/services/coinbase_service.py` - External API integration
+- `app/services/signals/` - Individual signal implementations (RSI, MA, MACD)
+- `backend/venv/` - **Virtual environment** (use project scripts, not direct python)
+
+### **Signal Configuration Pattern**
+```python
+# Bot signal_config stored as JSON TEXT in database:
+{
+  "RSI": {"weight": 0.4, "period": 14, "oversold": 30, "overbought": 70, "enabled": true},
+  "MA": {"weight": 0.3, "short_period": 10, "long_period": 20, "enabled": true},
+  "MACD": {"weight": 0.3, "fast": 12, "slow": 26, "signal": 9, "enabled": true}
+}
+# Total enabled weights must be ≤ 1.0 (enforced by API validation)
+```
 
 ### **Key Frontend Files**
 - `src/hooks/useBots.ts` - Bot management with TanStack Query
