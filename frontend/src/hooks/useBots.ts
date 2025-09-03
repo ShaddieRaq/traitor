@@ -31,6 +31,10 @@ export const useBotsStatus = () => {
       return response.data as BotStatus[];
     },
     refetchInterval: 5000, // Refresh every 5 seconds for real-time updates
+    refetchIntervalInBackground: true, // Continue polling when tab is in background
+    refetchOnWindowFocus: true, // Refetch when window comes back into focus
+    refetchOnMount: true, // Refetch when component mounts
+    staleTime: 0, // Always consider data stale to force fresh fetches
   });
 };
 

@@ -1,0 +1,380 @@
+# 🔧 Implementation Guide
+
+Detailed technical patterns, code specifics, and implementation knowledge for the trading bot system.
+
+## 🏗️ **Core Architecture Patterns**
+
+### **Bot-Centric Design Pattern**
+```python
+# One bot per trading pair with weighted signal aggregation
+Bot.signal_config = {
+    "rsi": {"enabled": true, "weight": 0.6, "period": 14, ...},
+    "moving_average": {"enabled": true, "weight": 0.4, ...},
+    "macd": null  # Disabled signals can be null
+}
+# Total weights must be ≤ 1.0 (enforced at API level)
+```
+
+### **Signal Scoring System**
+```python
+# Bot scores represent combined weighted signal strength (-1.0 to +1.0)
+Bot Score = (RSI_score × RSI_weight) + (MA_score × MA_weight) + (MACD_score × MACD_weight)
+
+# Example: ETH Bot with score -0.166
+# - RSI: -0.2 × 0.4 = -0.08
+# - MA:  -0.1 × 0.35 = -0.035  
+# - MACD: -0.3 × 0.25 = -0.075
+# Combined: -0.19 (WARM temperature)
+```
+
+### **Temperature Calculation System**
+```python
+# File: app/utils/temperature.py
+# TESTING THRESHOLDS: Sensitive for rapid testing (10x more sensitive)
+def calculate_bot_temperature(combined_score: float) -> str:
+    abs_score = abs(combined_score)
+    if abs_score >= 0.08:   return "HOT"     # Very sensitive - was 0.3
+    elif abs_score >= 0.03: return "WARM"    # Very sensitive - was 0.15  
+    elif abs_score >= 0.005: return "COOL"   # Very sensitive - was 0.05
+    else:                   return "FROZEN"  # No signal
+
+# PRODUCTION THRESHOLDS: Conservative for real trading (future use)
+def calculate_bot_temperature_production(combined_score: float) -> str:
+    abs_score = abs(combined_score)
+    if abs_score >= 0.3:    return "HOT"     # Strong signal
+    elif abs_score >= 0.15: return "WARM"    # Moderate signal  
+    elif abs_score >= 0.05: return "COOL"    # Weak signal
+    else:                   return "FROZEN"  # No signal
+```
+
+## 🔄 **Real-Time Data Architecture**
+
+### **Proven Polling Pattern**
+```typescript
+// Frontend: TanStack Query with aggressive polling
+export const useBotsStatus = () => {
+  return useQuery({
+    queryKey: ['bots', 'status'],
+    queryFn: async () => {
+      const response = await api.get('/bots/status/summary');
+      return response.data as BotStatus[];
+    },
+    refetchInterval: 5000,                 // Poll every 5 seconds
+    refetchIntervalInBackground: true,     // Continue when tab inactive
+    refetchOnWindowFocus: true,            // Refresh when tab focused
+    refetchOnMount: true,                  // Fresh data on component mount
+    staleTime: 0,                          // Always consider data stale
+  });
+};
+```
+
+### **Fresh Backend Evaluation Pattern**
+```python
+# Backend: Status summary performs fresh evaluations on each request
+@router.get("/status/summary")
+def get_bots_status_summary(db: Session = Depends(get_db)):
+    # Get fresh market data for all trading pairs
+    market_data_cache = {}
+    for pair in unique_pairs:
+        market_data_cache[pair] = coinbase_service.get_historical_data(pair)
+    
+    # Evaluate each bot with fresh market data
+    for bot in bots:
+        temp_data = evaluator.calculate_bot_temperature(bot, market_data)
+        fresh_score = temp_data.get('score', 0.0)  # Fresh score, not cached!
+```
+
+## 📊 **Signal Implementation Details**
+
+### **RSI Signal Implementation**
+```python
+class RSISignal(BaseSignal):
+    def calculate_score(self, data: pd.DataFrame) -> float:
+        # Calculate RSI using pandas rolling calculations
+        delta = data['close'].diff()
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
+        
+        avg_gain = gain.rolling(window=self.period).mean()
+        avg_loss = loss.rolling(window=self.period).mean()
+        
+        rs = avg_gain / avg_loss
+        rsi = 100 - (100 / (1 + rs))
+        
+        current_rsi = rsi.iloc[-1]
+        
+        # Soft scoring with neutral zones
+        if current_rsi <= self.buy_threshold:
+            return min(-0.1, (self.buy_threshold - current_rsi) / 30)
+        elif current_rsi >= self.sell_threshold:
+            return max(0.1, (current_rsi - self.sell_threshold) / 30)
+        else:
+            return 0.0  # Neutral zone
+```
+
+### **Moving Average Signal Implementation**
+```python
+class MovingAverageSignal(BaseSignal):
+    def calculate_score(self, data: pd.DataFrame) -> float:
+        fast_ma = data['close'].rolling(window=self.fast_period).mean()
+        slow_ma = data['close'].rolling(window=self.slow_period).mean()
+        
+        current_fast = fast_ma.iloc[-1]
+        current_slow = slow_ma.iloc[-1]
+        
+        # Calculate percentage separation
+        separation_pct = ((current_fast - current_slow) / current_slow) * 100
+        
+        # Sigmoid-like scoring for smooth transitions
+        score = 2 / (1 + math.exp(-separation_pct * 2)) - 1
+        return max(-1.0, min(1.0, score))
+```
+
+## 🏦 **Coinbase API Integration Patterns**
+
+### **USD Fiat Account Access**
+```python
+# CRITICAL: get_accounts() only returns crypto accounts
+# Must use portfolio breakdown for USD access
+class CoinbaseService:
+    def get_accounts(self) -> List[dict]:
+        try:
+            # Portfolio breakdown method for complete account access
+            portfolios = self.client.get_portfolios()
+            breakdown = self.client.get_portfolio_breakdown(portfolio_uuid=portfolios[0]['uuid'])
+            
+            accounts = []
+            for position in breakdown.get('spot_positions', []):
+                # Fiat accounts identified by is_cash=True
+                accounts.append({
+                    'currency': position.get('asset', ''),
+                    'available_balance': float(position.get('total_balance_fiat', 0)),
+                    'is_cash': position.get('is_cash', False)
+                })
+            return accounts
+        except Exception as e:
+            return self._get_accounts_fallback()
+```
+
+### **Performance Optimization**
+```python
+# Avoid slow SDK introspection (70+ second delays)
+# ❌ WRONG: Triggers slow __getitem__ operation
+if 'product_id' in coinbase_product_object:
+
+# ✅ CORRECT: Fast attribute checking
+if hasattr(product, 'product_id'):
+```
+
+## 🧪 **Testing Patterns**
+
+### **Live API Testing Strategy**
+```python
+# No mocking - use real services for accurate testing
+def test_coinbase_integration():
+    service = CoinbaseService()
+    products = service.get_products()
+    assert len(products) > 700  # Real product count
+    
+    # Test real account access
+    accounts = service.get_accounts()
+    assert any(acc.get('is_cash') for acc in accounts)  # USD account exists
+```
+
+### **Test Cleanup Pattern**
+```python
+# Individual test cleanup
+def test_parameter_ranges(self, client):
+    created_bot_ids = []
+    try:
+        # Test logic that creates bots
+        if response.status_code == 201:
+            created_bot_ids.append(response.json()["id"])
+    finally:
+        # Always clean up
+        for bot_id in created_bot_ids:
+            client.delete(f"/api/v1/bots/{bot_id}")
+
+# Session-wide cleanup fixture
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_test_bots():
+    yield  # Let tests run
+    # Clean up any remaining test bots by name pattern
+    test_bot_names = ["Invalid Position Size Bot", "Invalid Percentage Bot"]
+    for bot in get_all_bots():
+        if bot.name in test_bot_names:
+            delete_bot(bot.id)
+```
+
+## 🎨 **Frontend Implementation Patterns**
+
+### **Data Merging Pattern**
+```typescript
+// Merge full bot data with status data for complete information
+const mergedBots = useMemo(() => {
+  if (!bots || !botsStatus) return bots || [];
+  
+  return bots.map(bot => {
+    const status = botsStatus.find(s => s.id === bot.id);
+    return {
+      ...bot,
+      temperature: status?.temperature,
+      distance_to_signal: status?.distance_to_signal
+    };
+  });
+}, [bots, botsStatus]);
+```
+
+### **Reactive Component Keys**
+```tsx
+// Use changing data in React keys to force re-renders
+{botsStatus?.map((bot) => (
+  <div key={`bot-${bot.id}-${bot.current_combined_score}`}>  // Reactive key!
+    <span className="text-2xl">
+      {bot.temperature === 'HOT' ? '🔥' : 
+       bot.temperature === 'WARM' ? '🌡️' : 
+       bot.temperature === 'COOL' ? '❄️' : '🧊'}
+    </span>
+    <span>{bot.current_combined_score.toFixed(3)}</span>
+  </div>
+))}
+```
+
+## 🔧 **Database Schema Patterns**
+
+### **Bot Configuration Schema**
+```python
+class Bot(Base):
+    __tablename__ = "bots"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    pair = Column(String, nullable=False)  # BTC-USD, ETH-USD, etc.
+    status = Column(String, default="STOPPED")  # RUNNING/STOPPED/ERROR
+    
+    # Position Management
+    position_size_usd = Column(Float, default=100.0)  # $10 - $10,000
+    max_positions = Column(Integer, default=1)
+    
+    # Risk Management
+    stop_loss_pct = Column(Float, default=5.0)
+    take_profit_pct = Column(Float, default=10.0)
+    
+    # Trade Controls
+    trade_step_pct = Column(Float, default=2.0)     # 0% - 50%
+    cooldown_minutes = Column(Integer, default=15)   # 1 min - 1 day
+    
+    # Signal Configuration (JSON field)
+    signal_config = Column(JSON, nullable=False)
+    
+    # Confirmation Settings
+    confirmation_minutes = Column(Integer, default=5)
+    signal_confirmation_start = Column(DateTime, nullable=True)
+```
+
+### **Signal History Schema**
+```python
+class BotSignalHistory(Base):
+    __tablename__ = "bot_signal_history"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    bot_id = Column(Integer, ForeignKey("bots.id"))
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    
+    # Signal Scores
+    overall_score = Column(Float, nullable=False)
+    action = Column(String, nullable=False)  # buy/sell/hold
+    confidence = Column(Float, default=0.0)
+    
+    # Individual Signal Breakdown
+    rsi_score = Column(Float, nullable=True)
+    ma_score = Column(Float, nullable=True)
+    macd_score = Column(Float, nullable=True)
+    
+    # Metadata
+    evaluation_metadata = Column(JSON, nullable=True)
+```
+
+## 🔐 **Configuration Management**
+
+### **Environment Variables Pattern**
+```python
+# app/core/config.py
+class Settings(BaseSettings):
+    # Database
+    database_url: str = "sqlite:///./trader.db"
+    
+    # Coinbase API
+    coinbase_api_key: str = ""
+    coinbase_api_secret: str = ""
+    
+    # Redis
+    redis_url: str = "redis://localhost:6379"
+    
+    # Development
+    debug: bool = False
+    
+    class Config:
+        env_file = ".env"
+```
+
+### **Signal Configuration Validation**
+```python
+# Pydantic V2 model validator
+@model_validator(mode='after')
+def validate_total_weight(self):
+    total_weight = 0.0
+    if self.rsi and self.rsi.enabled:
+        total_weight += self.rsi.weight
+    if self.moving_average and self.moving_average.enabled:
+        total_weight += self.moving_average.weight
+    if self.macd and self.macd.enabled:
+        total_weight += self.macd.weight
+    
+    if total_weight > 1.0:
+        raise ValueError(f'Total enabled signal weights ({total_weight:.2f}) cannot exceed 1.0')
+    return self
+```
+
+## 🚀 **Service Management Patterns**
+
+### **Health Check Implementation**
+```python
+@app.get("/health")
+def health_check():
+    return {
+        "status": "healthy",
+        "service": "Trading Bot",
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": "3.3.0"
+    }
+```
+
+### **Management Script Pattern**
+```bash
+#!/bin/bash
+# scripts/status.sh - Check all service health
+
+check_service() {
+    local service_name=$1
+    local port=$2
+    local endpoint=$3
+    
+    if lsof -i :$port > /dev/null 2>&1; then
+        if curl -s $endpoint > /dev/null 2>&1; then
+            echo "✅ $service_name: Running (port $port)"
+        else
+            echo "⚠️  $service_name: Port active but not responding"
+        fi
+    else
+        echo "❌ $service_name: Not running"
+    fi
+}
+
+check_service "FastAPI Backend" 8000 "http://localhost:8000/health"
+check_service "React Frontend" 3000 "http://localhost:3000"
+```
+
+---
+*Implementation Guide Last Updated: September 3, 2025*  
+*Covers: Core patterns, real-time architecture, signal calculations, testing*

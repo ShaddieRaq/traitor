@@ -91,3 +91,39 @@ def db_session():
         import os
         if os.path.exists("./test_signal_confirmation.db"):
             os.remove("./test_signal_confirmation.db")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_test_bots():
+    """Clean up any test bots after all tests complete."""
+    yield  # Let tests run first
+    
+    # Post-test cleanup
+    try:
+        from fastapi.testclient import TestClient
+        from app.main import app
+        
+        client = TestClient(app)
+        
+        # Get all bots and delete any with test names
+        response = client.get("/api/v1/bots/")
+        if response.status_code == 200:
+            bots = response.json()
+            test_bot_names = [
+                "Invalid Position Size Bot",
+                "Invalid Percentage Bot", 
+                "Invalid Weight Bot",
+                "Invalid RSI Bot",
+                "Invalid MA Bot"
+            ]
+            
+            for bot in bots:
+                if bot.get("name") in test_bot_names:
+                    try:
+                        client.delete(f"/api/v1/bots/{bot['id']}")
+                        print(f"Cleaned up test bot: {bot['name']} (ID: {bot['id']})")
+                    except Exception as e:
+                        print(f"Warning: Failed to clean up test bot {bot['id']}: {e}")
+                        
+    except Exception as e:
+        print(f"Warning: Post-test cleanup failed: {e}")

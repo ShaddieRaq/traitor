@@ -161,27 +161,70 @@ def stop_all_bots(db: Session = Depends(get_db)):
 
 @router.get("/status/summary", response_model=List[BotStatusResponse])
 def get_bots_status_summary(db: Session = Depends(get_db)):
-    """Get lightweight status summary of all bots for dashboard."""
+    """Get lightweight status summary of all bots for dashboard with fresh evaluations."""
+    from ..services.bot_evaluator import get_bot_evaluator
+    from ..services.coinbase_service import coinbase_service
+    import pandas as pd
+    
     bots = db.query(Bot).all()
+    evaluator = get_bot_evaluator(db)
+    
+    # Get fresh market data for all unique trading pairs
+    market_data_cache = {}
+    unique_pairs = set(bot.pair for bot in bots)
+    for pair in unique_pairs:
+        try:
+            market_data_cache[pair] = coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
+        except Exception as e:
+            print(f"Failed to get market data for {pair}: {e}")
+            # Use mock data as fallback
+            market_data_cache[pair] = pd.DataFrame({
+                'close': [100.0],
+                'high': [101.0],
+                'low': [99.0], 
+                'open': [100.5],
+                'volume': [1000]
+            })
     
     status_list = []
     for bot in bots:
-        # Calculate bot temperature based on combined score
-        temperature = calculate_bot_temperature(bot.current_combined_score)
-        
-        # Calculate distance to signal (simplified for now)
-        distance_to_signal = calculate_distance_to_signal(bot.current_combined_score)
-        
-        status_list.append({
-            "id": bot.id,
-            "name": bot.name,
-            "pair": bot.pair,
-            "status": bot.status,
-            "current_combined_score": bot.current_combined_score,
-            "current_position_size": bot.current_position_size,
-            "temperature": temperature,
-            "distance_to_signal": distance_to_signal
-        })
+        try:
+            # Get fresh evaluation for this bot
+            market_data = market_data_cache.get(bot.pair)
+            if market_data is not None and not market_data.empty:
+                temp_data = evaluator.calculate_bot_temperature(bot, market_data)
+                fresh_score = temp_data.get('score', 0.0)
+                temperature = temp_data.get('temperature', 'FROZEN')
+                distance_to_signal = temp_data.get('distance_to_action', 1.0)
+            else:
+                # Fallback to cached data if no market data available
+                fresh_score = bot.current_combined_score
+                temperature = calculate_bot_temperature(bot.current_combined_score)
+                distance_to_signal = calculate_distance_to_signal(bot.current_combined_score)
+                
+            status_list.append({
+                "id": bot.id,
+                "name": bot.name,
+                "pair": bot.pair,
+                "status": bot.status,
+                "current_combined_score": fresh_score,
+                "current_position_size": bot.current_position_size,
+                "temperature": temperature,
+                "distance_to_signal": distance_to_signal
+            })
+        except Exception as e:
+            print(f"Error evaluating bot {bot.id}: {e}")
+            # Fallback to cached data for this bot
+            status_list.append({
+                "id": bot.id,
+                "name": bot.name,
+                "pair": bot.pair,
+                "status": bot.status,
+                "current_combined_score": bot.current_combined_score,
+                "current_position_size": bot.current_position_size,
+                "temperature": calculate_bot_temperature(bot.current_combined_score),
+                "distance_to_signal": calculate_distance_to_signal(bot.current_combined_score)
+            })
     
     return status_list
 

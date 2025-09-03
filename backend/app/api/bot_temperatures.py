@@ -87,10 +87,10 @@ def get_bot_dashboard_summary(db: Session = Depends(get_db)):
     
     # Categorize by temperature
     temp_counts = {
-        'hot': len([t for t in temperatures if t.get('temperature') == 'hot']),
-        'warm': len([t for t in temperatures if t.get('temperature') == 'warm']),
-        'cool': len([t for t in temperatures if t.get('temperature') == 'cool']),
-        'frozen': len([t for t in temperatures if t.get('temperature') == 'frozen']),
+        'hot': len([t for t in temperatures if t.get('temperature') == 'HOT']),
+        'warm': len([t for t in temperatures if t.get('temperature') == 'WARM']),
+        'cool': len([t for t in temperatures if t.get('temperature') == 'COOL']),
+        'frozen': len([t for t in temperatures if t.get('temperature') == 'FROZEN']),
         'error': len([t for t in temperatures if t.get('temperature') == 'error'])
     }
     

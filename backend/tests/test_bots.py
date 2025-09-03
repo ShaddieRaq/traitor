@@ -321,28 +321,43 @@ class TestBotParameterValidation:
     
     def test_parameter_ranges(self, client):
         """Test parameter range validation."""
-        # Test negative position size
-        invalid_bot = {
-            "name": "Invalid Position Size Bot",
-            "description": "Bot with negative position size",
-            "pair": "BTC-USD",
-            "position_size_usd": -100.0
-        }
+        created_bot_ids = []  # Track created bots for cleanup
         
-        response = client.post("/api/v1/bots/", json=invalid_bot)
-        # Should either reject or use defaults - depends on validation rules
-        
-        # Test zero or negative percentages
-        invalid_bot = {
-            "name": "Invalid Percentage Bot",
-            "description": "Bot with invalid percentages",
-            "pair": "BTC-USD",
-            "stop_loss_pct": -1.0,  # Should be positive
-            "take_profit_pct": 0.0   # Should be positive
-        }
-        
-        response = client.post("/api/v1/bots/", json=invalid_bot)
-        # Should either reject or use defaults
+        try:
+            # Test negative position size
+            invalid_bot = {
+                "name": "Invalid Position Size Bot",
+                "description": "Bot with negative position size",
+                "pair": "BTC-USD",
+                "position_size_usd": -100.0
+            }
+            
+            response = client.post("/api/v1/bots/", json=invalid_bot)
+            if response.status_code == 201:  # Bot was created despite invalid data
+                created_bot_ids.append(response.json()["id"])
+            # Should either reject or use defaults - depends on validation rules
+            
+            # Test zero or negative percentages
+            invalid_bot = {
+                "name": "Invalid Percentage Bot",
+                "description": "Bot with invalid percentages",
+                "pair": "BTC-USD",
+                "stop_loss_pct": -1.0,  # Should be positive
+                "take_profit_pct": 0.0   # Should be positive
+            }
+            
+            response = client.post("/api/v1/bots/", json=invalid_bot)
+            if response.status_code == 201:  # Bot was created despite invalid data
+                created_bot_ids.append(response.json()["id"])
+            # Should either reject or use defaults
+            
+        finally:
+            # Clean up any created test bots
+            for bot_id in created_bot_ids:
+                try:
+                    client.delete(f"/api/v1/bots/{bot_id}")
+                except Exception as e:
+                    print(f"Warning: Failed to clean up test bot {bot_id}: {e}")
 
 
 class TestBotStatusOperations:

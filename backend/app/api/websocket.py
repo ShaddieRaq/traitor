@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from ..core.database import get_db
 from ..models.models import Bot
 from ..services.coinbase_service import coinbase_service
+from ..utils.temperature import calculate_bot_temperature
 from ..services.bot_evaluator import BotSignalEvaluator
 
 logger = logging.getLogger(__name__)
@@ -66,28 +67,6 @@ class ConnectionManager:
 
 # Global connection manager
 manager = ConnectionManager()
-
-
-def calculate_bot_temperature(overall_score: float) -> str:
-    """
-    Calculate bot temperature based on overall signal score.
-    
-    Returns:
-        - "hot" 🔥: Score > 0.7 or < -0.7 (strong signal)
-        - "warm" 🌡️: Score > 0.3 or < -0.3 (moderate signal)  
-        - "cool" ❄️: Score > 0.1 or < -0.1 (weak signal)
-        - "frozen" 🧊: Score between -0.1 and 0.1 (no signal)
-    """
-    abs_score = abs(overall_score)
-    
-    if abs_score > 0.7:
-        return "hot"
-    elif abs_score > 0.3:
-        return "warm"
-    elif abs_score > 0.1:
-        return "cool"
-    else:
-        return "frozen"
 
 
 @router.websocket("/bot-status")

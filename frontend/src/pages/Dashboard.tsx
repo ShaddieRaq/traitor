@@ -1,10 +1,9 @@
 import PortfolioOverview from '../components/Portfolio/PortfolioOverview';
 import MarketTicker from '../components/Market/MarketTicker';
-import WebSocketDashboardSimple from '../components/WebSocketDashboardSimple';
 import { useBotsStatus } from '../hooks/useBots';
 
 const Dashboard: React.FC = () => {
-  const { data: botsStatus } = useBotsStatus();
+  const { data: botsStatus, isLoading } = useBotsStatus();
   const runningBots = botsStatus?.filter(bot => bot.status === 'RUNNING') || [];
   const hotBots = botsStatus?.filter(bot => bot.temperature === 'HOT') || [];
   const totalBots = botsStatus?.length || 0;
@@ -25,8 +24,60 @@ const Dashboard: React.FC = () => {
       {/* Market Ticker */}
       <MarketTicker />
 
-      {/* WebSocket Dashboard - Phase 3.3 Real-time Updates (Simple Test) */}
-      <WebSocketDashboardSimple />
+      {/* Real-time Bot Temperature Monitor - Polling-based */}
+      <div className="bg-white overflow-hidden shadow rounded-lg">
+        <div className="px-4 py-5 sm:p-6">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <div className="text-2xl">🌡️</div>
+            </div>
+            <div className="ml-5 w-0 flex-1">
+              <dl>
+                <dt className="text-sm font-medium text-gray-500 truncate">
+                  Real-time Bot Temperature Monitor
+                </dt>
+                <dd className="mt-1 text-3xl font-semibold text-gray-900">
+                  {totalBots} Bots • {runningBots.length} Running • {hotBots.length} Hot
+                </dd>
+              </dl>
+            </div>
+          </div>
+          
+          {/* Bot Status Cards */}
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {botsStatus?.map((bot) => (
+              <div key={`bot-${bot.id}-${bot.current_combined_score}`} className="p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-900">{bot.name}</h4>
+                    <p className="text-xs text-gray-500">{bot.pair}</p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className={`text-xs px-2 py-1 rounded ${bot.status === 'RUNNING' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                      {bot.status}
+                    </span>
+                    <span className="text-2xl">
+                      {bot.temperature === 'HOT' ? '🔥' : bot.temperature === 'WARM' ? '🌡️' : bot.temperature === 'COOL' ? '❄️' : '🧊'}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <p className="text-sm text-gray-600">
+                    Score: <span className="font-mono">{bot.current_combined_score.toFixed(3)}</span>
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Temperature: {bot.temperature} • Distance: {bot.distance_to_signal?.toFixed(2) || 'N/A'}
+                  </p>
+                </div>
+              </div>
+            )) || (
+              <div className="text-sm text-gray-500">
+                {isLoading ? 'Loading bot data...' : 'No bots found'}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Portfolio Overview */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -91,7 +142,7 @@ const Dashboard: React.FC = () => {
                         {bot.status}
                       </span>
                       <span className="text-sm">
-                        {bot.temperature === 'HOT' ? '🔥' : bot.temperature === 'WARM' ? '🌡️' : bot.temperature === 'COLD' ? '❄️' : '🧊'}
+                        {bot.temperature === 'HOT' ? '🔥' : bot.temperature === 'WARM' ? '🌡️' : bot.temperature === 'COOL' ? '❄️' : '🧊'}
                       </span>
                     </div>
                   </div>
