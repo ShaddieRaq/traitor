@@ -11,6 +11,7 @@ curl -s http://localhost:8000/api/v1/bots/status/summary | python3 -m json.tool 
 
 ### **Current System Status (September 3, 2025)**
 - ✅ **Phase 3.3 Complete**: Real-time polling architecture operational  
+- 🚀 **Phase 4.1 Active**: Real trading implementation with safety systems
 - ✅ **2 Production Bots**: BTC Scalper (HOT 🔥), ETH Momentum (HOT 🔥)
 - ✅ **104/104 tests passing** (100% success rate)
 - ✅ **Live UI Updates**: Values update every 5 seconds without refresh
@@ -212,7 +213,13 @@ export const useBotsStatus = () => {
 
 ## 🚀 **NEXT PHASE READINESS - PHASE 4**
 
-### **Ready Infrastructure**
+### **Phase 4.1: Core Trading Infrastructure (ACTIVE)**
+- **Trading Safety Service**: Hardcoded limits and circuit breakers
+- **Trade Execution Service**: Real order placement with existing coinbase integration
+- **Trade Recording**: Real-time status tracking and P&L calculation
+- **Current Sub-phase**: 4.1.1 - Trading Safety Service implementation
+
+### **Ready Infrastructure from Phase 3**
 - ✅ **Real-time bot evaluation** with polling architecture
 - ✅ **Temperature system** for trade signal strength
 - ✅ **Signal confirmation** preventing false signals
@@ -220,10 +227,11 @@ export const useBotsStatus = () => {
 - ✅ **Live market data** integration operational
 
 ### **Phase 4 Objectives**
-- **Paper Trading**: Simulate trades using existing signal evaluation
-- **Position Tracking**: Monitor current positions with P&L calculation
-- **Risk Management**: Automated stop-loss using temperature system
-- **Order Execution**: Integration with Coinbase order placement
+- **Real Trading Engine**: Direct implementation with micro-positions ($10-25 initial trades)
+- **Order Creation Service**: Build on existing Coinbase integration for actual order placement
+- **Position Tracking**: Real-time trade status and P&L monitoring using proven polling patterns  
+- **Progressive Risk Management**: Temperature-based position sizing and trade controls
+- **Trade Execution Pipeline**: Connect bot signal evaluation directly to order placement
 
 ## 🔍 **TROUBLESHOOTING QUICK REFERENCE**
 
@@ -253,9 +261,10 @@ For detailed information beyond this essential guide:
 - **[Implementation Guide](docs/IMPLEMENTATION_GUIDE.md)** - Technical patterns, code specifics
 - **[Troubleshooting Playbook](docs/TROUBLESHOOTING_PLAYBOOK.md)** - Debug solutions  
 - **[Phase History](docs/PHASE_HISTORY.md)** - Complete development timeline
+- **[Phase 4 Breakdown](docs/PHASE_4_BREAKDOWN.md)** - Current phase detailed implementation plan
 - **[Project Status](PROJECT_STATUS.md)** - Current state and next phase readiness
 
 ---
 *AI Agent Instructions - Essential Guide*  
 *Last Updated: September 3, 2025*  
-*Phase 3.3 Complete → Phase 4 Ready*
+*Phase 3.3 Complete → Phase 4.1 Active*
