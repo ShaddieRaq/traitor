@@ -5,6 +5,7 @@ Bot temperature API endpoints for Phase 3.2.
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import pandas as pd
+import logging
 from datetime import datetime
 
 from ..core.database import get_db
@@ -12,6 +13,7 @@ from ..models.models import Bot
 from ..services.bot_evaluator import get_bot_evaluator
 from ..utils.temperature import calculate_bot_temperature, get_temperature_emoji
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -31,7 +33,7 @@ def get_all_bot_temperatures(db: Session = Depends(get_db)):
         try:
             market_data_cache[pair] = coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
         except Exception as e:
-            print(f"Failed to get market data for {pair}: {e}")
+            logger.warning(f"Failed to get market data for {pair}: {e}")
             # Use mock data as fallback
             market_data_cache[pair] = pd.DataFrame({
                 'close': [100.0],
@@ -71,7 +73,7 @@ def get_bot_dashboard_summary(db: Session = Depends(get_db)):
         try:
             market_data_cache[pair] = coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
         except Exception as e:
-            print(f"Failed to get market data for {pair}: {e}")
+            logger.warning(f"Failed to get market data for {pair}: {e}")
             # Use mock data as fallback
             market_data_cache[pair] = pd.DataFrame({
                 'close': [100.0],
@@ -128,7 +130,7 @@ def get_bot_temperature(bot_id: int, db: Session = Depends(get_db)):
             })
     except Exception as e:
         # Use mock data as fallback
-        print(f"Failed to get market data for {bot.pair}: {e}")
+        logger.warning(f"Failed to get market data for {bot.pair}: {e}")
         market_data = pd.DataFrame({
             'close': [100.0],
             'high': [101.0],

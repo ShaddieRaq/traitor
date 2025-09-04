@@ -116,6 +116,31 @@ This directory contains shell scripts to manage the Trading Bot application life
 - `-c, --clear` - Clear all log files
 - `-h, --help` - Show help
 
+### 🧹 `cleanup.sh`
+**Clean up test data after running tests**
+- Removes all test bots and their associated data
+- Cleans up orphaned signal history and trades
+- Removes old signal history to prevent accumulation
+- Safe dry-run mode available
+
+```bash
+# Preview what would be cleaned up (recommended first)
+./scripts/cleanup.sh --dry-run
+
+# Actually clean up test data
+./scripts/cleanup.sh
+
+# Keep more signal history (default is 24 hours)
+./scripts/cleanup.sh --keep-hours=48
+```
+
+#### Cleanup Features:
+- **Test Bot Removal**: Deletes bots with 'test' in their name
+- **Associated Data**: Removes trades and signal history for deleted bots  
+- **Orphaned Data**: Cleans up data for non-existent bots
+- **Signal History**: Removes old entries to prevent database bloat
+- **Dry Run**: Preview changes before applying them
+
 ## File Structure
 
 ```

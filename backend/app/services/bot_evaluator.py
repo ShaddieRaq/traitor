@@ -5,6 +5,7 @@ Bot signal evaluation service for aggregating multiple signals with Phase 2.3 co
 from typing import Dict, List, Any, Optional
 import json
 import pandas as pd
+import logging
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -13,6 +14,8 @@ from ..models.models import Bot, BotSignalHistory
 from ..services.signals.base import create_signal_instance
 from ..core.database import get_db
 from ..utils.temperature import calculate_bot_temperature, get_temperature_emoji
+
+logger = logging.getLogger(__name__)
 
 
 class BotSignalEvaluator:
@@ -520,7 +523,7 @@ class BotSignalEvaluator:
                     self.db.commit()
                 except Exception as e:
                     self.db.rollback()
-                    print(f"Warning: Failed to update bot score in database: {e}")
+                    logger.warning(f"Failed to update bot score in database: {e}")
                 
                 temp_data.update({
                     'bot_id': bot.id,

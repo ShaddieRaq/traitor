@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Text, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Text, ForeignKey, JSON, Numeric
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from ..core.database import Base
@@ -72,7 +72,7 @@ class MarketData(Base):
 
 
 class Trade(Base):
-    """Trade execution records."""
+    """Trade execution records with enhanced position management."""
     __tablename__ = "trades"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -86,6 +86,14 @@ class Trade(Base):
     status = Column(String(20))  # "pending", "filled", "cancelled"
     combined_signal_score = Column(Float)  # Combined signal score that triggered this trade
     signal_scores = Column(Text)  # JSON string of individual signal scores at trade time
+    
+    # Phase 4.1.3: Enhanced Position Management
+    position_tranches = Column(Text)  # JSON array of position tranches
+    average_entry_price = Column(Numeric(precision=20, scale=8))  # Weighted average entry price
+    tranche_number = Column(Integer, default=1)  # Sequential tranche tracking (1, 2, 3...)
+    position_status = Column(String(20), default="CLOSED")  # CLOSED, BUILDING, OPEN, REDUCING
+    size_usd = Column(Float)  # Trade size in USD
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     filled_at = Column(DateTime(timezone=True))
     

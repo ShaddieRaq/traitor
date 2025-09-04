@@ -1,8 +1,8 @@
-# Environment Configuration for Phase 4.1.2
+# Environment Configuration for Trading Bot
 
 ## Trading Mode Configuration
 
-The trading system now supports configurable trading modes to prevent accidental real money trades during development:
+The trading system supports configurable trading modes to prevent accidental real money trades during development:
 
 ### Test Mode (Default)
 ```bash

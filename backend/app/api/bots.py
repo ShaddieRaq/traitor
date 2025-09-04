@@ -2,11 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 import json
+import logging
 from datetime import datetime
 from ..core.database import get_db
 from ..models.models import Bot, BotSignalHistory
 from ..api.schemas import BotCreate, BotUpdate, BotResponse, BotStatusResponse
 from ..utils.temperature import calculate_bot_temperature
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -176,7 +179,7 @@ def get_bots_status_summary(db: Session = Depends(get_db)):
         try:
             market_data_cache[pair] = coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
         except Exception as e:
-            print(f"Failed to get market data for {pair}: {e}")
+            logger.warning(f"Failed to get market data for {pair}: {e}")
             # Use mock data as fallback
             market_data_cache[pair] = pd.DataFrame({
                 'close': [100.0],
@@ -213,7 +216,7 @@ def get_bots_status_summary(db: Session = Depends(get_db)):
                 "distance_to_signal": distance_to_signal
             })
         except Exception as e:
-            print(f"Error evaluating bot {bot.id}: {e}")
+            logger.error(f"Error evaluating bot {bot.id}: {e}")
             # Fallback to cached data for this bot
             status_list.append({
                 "id": bot.id,
