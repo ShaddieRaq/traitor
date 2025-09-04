@@ -25,6 +25,7 @@ trader/
 │   │   ├── 🔧 services/              # Business logic
 │   │   │   ├── coinbase_service.py   # Coinbase API client
 │   │   │   ├── bot_evaluator.py      # Signal evaluation service
+│   │   │   ├── trading_service.py    # Trade execution service (Phase 4.1.2)
 │   │   │   └── signals/              # Signal implementations
 │   │   │       ├── base.py           # Abstract base signal
 │   │   │       └── technical.py      # RSI, MA, MACD signals
@@ -175,7 +176,10 @@ graph LR
         POST_RESET[POST /api/v1/bots/{id}/reset-confirmation<br/>Reset confirmation]
     end
     
-    subgraph "Trading Operations"
+    subgraph "Trading Operations (Phase 4.1.2)"
+        POST_EXECUTE[POST /api/v1/trades/execute<br/>Execute trade]
+        GET_STATUS_TRADE[GET /api/v1/trades/status/{trade_id}<br/>Trade status]
+        GET_RECENT[GET /api/v1/trades/recent/{bot_id}<br/>Recent trades]
         GET_TRADES[GET /api/v1/trades<br/>Trade history]
         GET_STATS[GET /api/v1/trades/stats<br/>Trading statistics]
     end

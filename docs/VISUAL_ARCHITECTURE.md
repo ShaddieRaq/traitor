@@ -586,38 +586,77 @@ graph TB
 ```mermaid
 sequenceDiagram
     participant S as Signal Engine
-    participant T as Trading Engine
-    participant R as Risk Manager
-    participant C as Coinbase API
+    participant TS as TradingService
+    participant SS as SafetyService
+    participant CS as CoinbaseService
     participant D as Database
     participant U as User Dashboard
     
     Note over S,U: Signal Processing Complete
-    S->>T: Signal Score: +0.8 (Strong Buy)
-    T->>R: Request trade validation
-    R->>D: Check current positions
-    D-->>R: Position data
-    R->>R: Validate risk limits
+    S->>TS: Execute trade request (bot_id, action)
+    TS->>SS: Validate trade safety
+    SS->>D: Check positions & limits
+    D-->>SS: Position data
+    SS->>SS: Validate all safety checks
     
-    alt Risk Check Passed
-        R-->>T: Trade approved
-        T->>C: Submit market buy order
-        C-->>T: Order ID: abc123
-        T->>D: Save pending trade
-        T->>U: Notify trade submitted
+    alt Safety Checks Passed
+        SS-->>TS: Trade approved
+        TS->>CS: Submit order (mock/production)
         
-        Note over C: Order Processing
-        C->>T: Order filled notification
-        T->>D: Update trade status
-        T->>U: Notify trade completed
-    else Risk Check Failed
-        R-->>T: Trade rejected
-        T->>D: Log rejection reason
-        T->>U: Notify trade blocked
+        alt Production Mode
+            CS->>CS: Call Coinbase API
+            CS-->>TS: Order result
+        else Mock Mode
+            CS->>CS: Simulate trade
+            CS-->>TS: Mock order result
+        end
+        
+        TS->>D: Save trade record
+        TS->>D: Update bot signal score
+        TS->>U: Notify trade completed
+    else Safety Checks Failed
+        SS-->>TS: Trade rejected (reason)
+        TS->>D: Log rejection
+        TS->>U: Notify trade blocked
     end
     
     Note over S,U: Continue monitoring
     S->>S: Wait for next signal cycle
+```
+
+### Enhanced Position Management
+```mermaid
+flowchart TD
+    subgraph "Single Logical Position"
+        POS[Position for Bot X]
+        T1[Tranche 1<br/>$100 @ $50]
+        T2[Tranche 2<br/>$150 @ $52]
+        T3[Tranche 3<br/>$200 @ $55]
+        POS --> T1
+        POS --> T2
+        POS --> T3
+    end
+    
+    subgraph "Position Calculations"
+        AVG[Average Entry: $52.78]
+        TOTAL[Total Value: $450]
+        PNL[P&L: Current - Average]
+    end
+    
+    subgraph "Trading Patterns"
+        DCA[Dollar Cost Averaging]
+        GRAD[Graduated Entries]
+        PARTIAL[Partial Exits]
+    end
+    
+    T1 --> AVG
+    T2 --> AVG
+    T3 --> AVG
+    AVG --> PNL
+    
+    DCA --> T1
+    GRAD --> T2
+    PARTIAL --> T3
 ```
 
 ### Risk Management System
@@ -830,17 +869,23 @@ gantt
     MA Crossover Signal    :done, ma, 2025-09-02, 1d
     Signal Testing        :active, test_sig, 2025-09-02, 2d
     
-    section Phase 3: Trading Core
-    Coinbase Integration   :crit, coinbase, 2025-09-04, 3d
-    Risk Management       :risk, 2025-09-07, 2d
-    Trade Execution       :trade_exec, 2025-09-09, 2d
-    Order Management      :orders, 2025-09-11, 2d
+    section Phase 3: Foundation
+    Core Models & Safety  :done, foundation, 2025-09-01, 5d
+    Signal-Safety Pipeline :done, pipeline, 2025-09-06, 3d
+    Backend Integration   :done, backend, 2025-09-09, 2d
     
-    section Phase 4: UI Enhancement
-    Real-time Dashboard   :dashboard, 2025-09-13, 3d
-    Signal Configuration  :config_ui, 2025-09-16, 2d
-    Trade History View    :history, 2025-09-18, 2d
-    Mobile Responsive     :mobile, 2025-09-20, 2d
+    section Phase 4: Trading Engine
+    Trade Execution Service :done, exec_service, 2025-09-11, 2d
+    Enhanced Position Model :active, positions, 2025-09-13, 3d
+    Tranche Management     :tranches, 2025-09-16, 2d
+    Advanced Trading Patterns :patterns, 2025-09-18, 3d
+    Portfolio Analysis     :portfolio, 2025-09-21, 2d
+    
+    section Phase 5: UI Enhancement
+    Real-time Dashboard   :dashboard, 2025-09-23, 3d
+    Position Visualization :pos_viz, 2025-09-26, 2d
+    Trade History View    :history, 2025-09-28, 2d
+    Mobile Responsive     :mobile, 2025-09-30, 2d
     
     section Phase 5: Production
     Error Handling        :errors, 2025-09-22, 2d
@@ -861,18 +906,14 @@ quadrantChart
     quadrant-3 Fill-ins
     quadrant-4 Questionable
     
-    Signal Configuration UI: [0.3, 0.9]
-    Real-time Price Display: [0.2, 0.8]
-    RSI Signal Logic: [0.4, 0.9]
-    Coinbase API Integration: [0.8, 0.9]
-    Risk Management: [0.7, 0.8]
-    Trade Execution: [0.9, 0.9]
-    WebSocket Real-time: [0.6, 0.7]
-    Mobile Responsive: [0.5, 0.5]
-    Advanced Charting: [0.8, 0.4]
-    Machine Learning: [0.9, 0.3]
-    Multi-exchange: [0.9, 0.2]
-    Social Trading: [0.7, 0.2]
+    Trade Execution Service: [0.7, 0.9]
+    Enhanced Position Model: [0.8, 0.8]
+    Real-time Dashboard: [0.6, 0.8]
+    Tranche Management: [0.7, 0.7]
+    Portfolio Analytics: [0.5, 0.7]
+    Position Visualization: [0.4, 0.6]
+    Advanced Trading Patterns: [0.9, 0.8]
+    Mobile Responsive UI: [0.3, 0.5]
 ```
 
 ### Technology Decision Tree

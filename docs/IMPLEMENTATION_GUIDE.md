@@ -206,6 +206,88 @@ def cleanup_test_bots():
             delete_bot(bot.id)
 ```
 
+## 🚀 **Trading Execution Service (Phase 4.1.2)**
+
+### **TradingService Architecture**
+```python
+# File: app/services/trading_service.py
+class TradingService:
+    def __init__(self):
+        self.coinbase_service = CoinbaseService()
+        self.safety_service = TradingSafetyService()
+        self.db = SessionLocal()
+    
+    async def execute_trade(self, bot_id: int, action: str) -> TradeResult:
+        """
+        Complete trade execution pipeline with safety integration
+        """
+        # 1. Validate trade through safety service
+        safety_result = await self.safety_service.validate_trade(
+            bot_id, action, self.db
+        )
+        
+        if not safety_result.is_safe:
+            # Record rejection and return
+            return TradeResult(
+                success=False, 
+                message=safety_result.reason,
+                trade_id=None
+            )
+        
+        # 2. Execute trade (mock or production based on TRADING_MODE)
+        trade_result = await self._execute_order(bot, action)
+        
+        # 3. Record trade and update bot state
+        trade = self._create_trade_record(bot, action, trade_result)
+        self._update_bot_signal_score(bot, action)
+        
+        return TradeResult(
+            success=True,
+            message="Trade executed successfully",
+            trade_id=trade.id
+        )
+```
+
+### **Mock vs Production Trading**
+```python
+# Environment-based trading mode toggle
+class CoinbaseService:
+    def __init__(self):
+        self.trading_mode = os.getenv("TRADING_MODE", "mock")
+    
+    async def place_order(self, side: str, amount: str, product_id: str):
+        if self.trading_mode == "mock":
+            # Simulate trade with realistic response
+            return MockOrderResult(
+                order_id=f"mock_{uuid4()}",
+                status="filled",
+                filled_value=float(amount) * self._get_mock_price(product_id)
+            )
+        else:
+            # Execute real Coinbase API call
+            return await self._place_real_order(side, amount, product_id)
+```
+
+### **Trade Status Tracking**
+```python
+# Real-time trade status endpoints
+@router.get("/status/{trade_id}")
+async def get_trade_status(trade_id: int, db: Session = Depends(get_db)):
+    trade = db.query(Trade).filter(Trade.id == trade_id).first()
+    if not trade:
+        raise HTTPException(status_code=404, detail="Trade not found")
+    
+    return {
+        "trade_id": trade.id,
+        "status": trade.status,
+        "bot_id": trade.bot_id,
+        "action": trade.action,
+        "amount": trade.amount,
+        "executed_at": trade.executed_at,
+        "filled_value": trade.filled_value
+    }
+```
+
 ## 🎨 **Frontend Implementation Patterns**
 
 ### **Data Merging Pattern**
