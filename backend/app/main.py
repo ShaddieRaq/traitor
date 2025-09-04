@@ -1,6 +1,5 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from .api import bots, market, trades, bot_evaluation, websocket, bot_temperatures
 from .core.config import settings
 from .core.database import engine, Base

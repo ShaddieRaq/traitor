@@ -31,8 +31,38 @@ def test_phase_4_1_1_integration():
     
     # Test 2: Valid Trade Validation
     print("\n2. Testing Valid Trade Validation...")
+    
+    # First, create a fresh test bot for this integration test
+    import random
+    test_bot_id = random.randint(1000, 9999)  # Use random ID to avoid conflicts
+    
+    test_bot_data = {
+        "name": f"Integration Test Bot {test_bot_id}",
+        "description": "Test bot for Phase 4.1.1 integration testing",
+        "pair": "BTC-USD",
+        "position_size_usd": 100.0,
+        "max_positions": 1,
+        "stop_loss_pct": 5.0,
+        "take_profit_pct": 10.0,
+        "trade_step_pct": 2.0,
+        "cooldown_minutes": 15,
+        "signal_config": {
+            "RSI": {"enabled": True, "weight": 0.4, "period": 14, "oversold": 30, "overbought": 70}
+        }
+    }
+    
+    # Create the test bot
+    create_response = requests.post(
+        f"{base_url}/bots/",
+        json=test_bot_data,
+        headers={"Content-Type": "application/json"}
+    )
+    assert create_response.status_code == 200
+    created_bot = create_response.json()
+    test_bot_id = created_bot["id"]
+    
     valid_trade = {
-        "bot_id": 1,
+        "bot_id": test_bot_id,
         "side": "buy",
         "size_usd": 10.0
     }
@@ -47,14 +77,14 @@ def test_phase_4_1_1_integration():
     
     assert validation["validation"]["allowed"] is True
     assert "All safety checks passed" in validation["validation"]["reason"]
-    assert validation["bot"]["name"] == "BTC Scalper"
+    assert created_bot["name"] in validation["bot"]["name"]
     
     print(f"✅ Valid Trade: APPROVED - {validation['validation']['reason']}")
     
     # Test 3: Invalid Trade Validation (Oversized)
     print("\n3. Testing Invalid Trade Validation (Oversized Position)...")
     invalid_trade = {
-        "bot_id": 1,
+        "bot_id": test_bot_id,  # Use the same test bot
         "side": "buy", 
         "size_usd": 50.0  # Exceeds $25 limit
     }
@@ -94,6 +124,12 @@ def test_phase_4_1_1_integration():
     
     print(f"✅ Tiny Trade: REJECTED - {validation['validation']['reason']}")
     
+    # Start the test bot before testing emergency stop
+    print(f"\n4.5. Starting test bot {test_bot_id} for emergency stop test...")
+    start_response = requests.post(f"{base_url}/bots/{test_bot_id}/start")
+    if start_response.status_code == 200:
+        print("✅ Test bot started successfully")
+    
     # Test 5: Emergency Stop
     print("\n5. Testing Emergency Stop...")
     response = requests.post(f"{base_url}/trades/emergency-stop")
@@ -116,13 +152,20 @@ def test_phase_4_1_1_integration():
     
     print(f"✅ Bot Status: All {len(bots)} bots are STOPPED")
     
-    # Test 7: Restart Bots (Cleanup)
-    print("\n7. Restarting Bots (Cleanup)...")
-    for bot in bots:
-        response = requests.post(f"{base_url}/bots/{bot['id']}/start")
-        assert response.status_code == 200
+    # Cleanup: Remove test bot
+    print(f"\n7. Cleaning up test bot {test_bot_id}...")
+    delete_response = requests.delete(f"{base_url}/bots/{test_bot_id}")
+    if delete_response.status_code == 200:
+        print(f"✅ Test bot {test_bot_id} deleted successfully")
     
-    print(f"✅ Cleanup: Restarted {len(bots)} bots")
+    # Test 7: Restart Bots (Cleanup)
+    print("\n8. Restarting Bots (Cleanup)...")
+    for bot in bots:
+        if bot['id'] != test_bot_id:  # Skip the deleted test bot
+            response = requests.post(f"{base_url}/bots/{bot['id']}/start")
+            assert response.status_code == 200
+    
+    print(f"✅ Cleanup: Restarted {len([b for b in bots if b['id'] != test_bot_id])} bots")
     
     print("\n" + "=" * 50)
     print("🎉 Phase 4.1.1 Trading Safety Service - ALL TESTS PASSED!")

@@ -6,12 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import pandas as pd
 import logging
-from datetime import datetime
 
 from ..core.database import get_db
 from ..models.models import Bot
 from ..services.bot_evaluator import get_bot_evaluator
-from ..utils.temperature import calculate_bot_temperature, get_temperature_emoji
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

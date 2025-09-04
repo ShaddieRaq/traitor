@@ -2,7 +2,7 @@
 Bot signal evaluation service for aggregating multiple signals with Phase 2.3 confirmation system.
 """
 
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 import json
 import pandas as pd
 import logging

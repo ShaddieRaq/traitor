@@ -1,11 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List, Dict, Any
+from typing import List
 import json
 import logging
-from datetime import datetime
 from ..core.database import get_db
-from ..models.models import Bot, BotSignalHistory
+from ..models.models import Bot
 from ..api.schemas import BotCreate, BotUpdate, BotResponse, BotStatusResponse
 from ..utils.temperature import calculate_bot_temperature
 
