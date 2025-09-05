@@ -93,6 +93,7 @@ class Trade(Base):
     tranche_number = Column(Integer, default=1)  # Sequential tranche tracking (1, 2, 3...)
     position_status = Column(String(20), default="CLOSED")  # CLOSED, BUILDING, OPEN, REDUCING
     size_usd = Column(Float)  # Trade size in USD
+    trading_mode = Column(String(20), default="production")  # ALL TRADES ARE REAL
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     filled_at = Column(DateTime(timezone=True))

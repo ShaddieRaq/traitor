@@ -20,9 +20,10 @@ celery_app.conf.update(
             "task": "app.tasks.data_tasks.fetch_market_data_task",
             "schedule": 60.0,  # Every minute
         },
-        "evaluate-signals": {
-            "task": "app.tasks.trading_tasks.evaluate_signals_task",
-            "schedule": 300.0,  # Every 5 minutes
-        },
+        # Temporarily disabled to fix performance issue
+        # "evaluate-signals": {
+        #     "task": "app.tasks.trading_tasks.evaluate_bot_signals",
+        #     "schedule": 300.0,  # Every 5 minutes
+        # },
     },
 )

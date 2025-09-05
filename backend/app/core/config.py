@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     coinbase_api_key: str = ""
     coinbase_api_secret: str = ""
     
+    # Trading configuration - ALWAYS PRODUCTION MODE
+    # ALL TRADES ARE REAL - NO MOCK MODE
+    
     # Redis for Celery
     redis_url: str = "redis://localhost:6379/0"
     
@@ -23,7 +26,7 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     
     class Config:
-        env_file = "../.env"
+        env_file = "/Users/lazy_genius/Projects/trader/.env"  # Absolute path to ensure it's found
         case_sensitive = False
 
 

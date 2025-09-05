@@ -191,10 +191,10 @@ def get_bots_status_summary(db: Session = Depends(get_db)):
     status_list = []
     for bot in bots:
         try:
-            # Get fresh evaluation for this bot
+            # Get fresh evaluation for this bot (lightweight - no automatic trading)
             market_data = market_data_cache.get(bot.pair)
             if market_data is not None and not market_data.empty:
-                temp_data = evaluator.calculate_bot_temperature(bot, market_data)
+                temp_data = evaluator.calculate_bot_temperature_light(bot, market_data)
                 fresh_score = temp_data.get('score', 0.0)
                 temperature = temp_data.get('temperature', 'FROZEN')
                 distance_to_signal = temp_data.get('distance_to_action', 1.0)

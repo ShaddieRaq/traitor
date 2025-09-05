@@ -131,6 +131,13 @@ class BotSignalEvaluator:
         if self.enable_confirmation:
             self.save_signal_history(bot, evaluation_result, current_price)
         
+        # Phase 4.2.1: Automatic trade execution on confirmed signals
+        if self._should_execute_automatic_trade(bot, evaluation_result):
+            automatic_trade_result = self._execute_automatic_trade(bot, evaluation_result)
+            evaluation_result['automatic_trade'] = automatic_trade_result
+        else:
+            evaluation_result['automatic_trade'] = None
+        
         return evaluation_result
     
     def _create_signal_instance(self, signal_name: str, config: Dict[str, Any]):
@@ -419,6 +426,108 @@ class BotSignalEvaluator:
             for entry in history_entries
         ]
     
+    def calculate_bot_temperature_light(self, bot: Bot, market_data: pd.DataFrame) -> Dict[str, Any]:
+        """
+        Calculate bot temperature WITHOUT triggering automatic trading.
+        Used for status displays and dashboard to prevent performance issues.
+        """
+        try:
+            # Use the same signal evaluation logic as the full evaluation but without automatic trading
+            signal_results = {}
+            total_score = 0.0
+            total_weight = 0.0
+            
+            # Parse signal configuration (handle JSON string from database)
+            if isinstance(bot.signal_config, str):
+                signal_config = json.loads(bot.signal_config)
+            else:
+                signal_config = bot.signal_config
+            
+            # RSI Signal
+            rsi_config = signal_config.get('rsi')
+            if rsi_config and rsi_config.get('enabled', False):
+                try:
+                    rsi_signal = self._create_signal_instance('rsi', rsi_config)
+                    if rsi_signal:
+                        rsi_result = rsi_signal.calculate(market_data)  # Fixed: use calculate() not evaluate()
+                        if rsi_result and 'score' in rsi_result:
+                            signal_results['rsi'] = rsi_result
+                            weight = rsi_config.get('weight', 1.0)
+                            total_score += rsi_result['score'] * weight
+                            total_weight += weight
+                except Exception as e:
+                    logger.warning(f"RSI calculation failed in lightweight mode: {e}")
+            
+            # Moving Average Signal
+            ma_config = signal_config.get('moving_average')
+            if ma_config and ma_config.get('enabled', False):
+                try:
+                    ma_signal = self._create_signal_instance('moving_average', ma_config)
+                    if ma_signal:
+                        ma_result = ma_signal.calculate(market_data)  # Fixed: use calculate() not evaluate()
+                        if ma_result and 'score' in ma_result:
+                            signal_results['moving_average'] = ma_result
+                            weight = ma_config.get('weight', 1.0)
+                            total_score += ma_result['score'] * weight
+                            total_weight += weight
+                except Exception as e:
+                    logger.warning(f"MA calculation failed in lightweight mode: {e}")
+            
+            # MACD Signal
+            macd_config = signal_config.get('macd')
+            if macd_config and macd_config.get('enabled', False):
+                try:
+                    macd_signal = self._create_signal_instance('macd', macd_config)
+                    if macd_signal:
+                        macd_result = macd_signal.calculate(market_data)  # Fixed: use calculate() not evaluate()
+                        if macd_result and 'score' in macd_result:
+                            signal_results['macd'] = macd_result
+                            weight = macd_config.get('weight', 1.0)
+                            total_score += macd_result['score'] * weight
+                            total_weight += weight
+                except Exception as e:
+                    logger.warning(f"MACD calculation failed in lightweight mode: {e}")
+                    if macd_signal:
+                        macd_result = macd_signal.calculate(market_data)  # Fixed: use calculate() not evaluate()
+                        if macd_result and 'score' in macd_result:
+                            signal_results['macd'] = macd_result
+                            weight = macd_config.get('weight', 1.0)
+                            total_score += macd_result['score'] * weight
+                            total_weight += weight
+                except Exception as e:
+                    logger.warning(f"MACD calculation failed in lightweight mode: {e}")
+            
+            # Calculate final score and temperature
+            overall_score = total_score / max(total_weight, 1.0) if total_weight > 0 else 0.0
+            temperature = calculate_bot_temperature(overall_score)
+            
+            # Calculate distance to thresholds (match full evaluation logic)
+            buy_threshold = -0.3
+            sell_threshold = 0.3
+            
+            if overall_score > 0:  # Bullish territory
+                distance_to_sell = sell_threshold - overall_score
+                distance_to_action = max(0, distance_to_sell)
+            else:  # Bearish territory
+                distance_to_buy = abs(buy_threshold) - abs(overall_score)
+                distance_to_action = max(0, distance_to_buy)
+            
+            return {
+                'score': overall_score,
+                'temperature': temperature,
+                'distance_to_action': distance_to_action,
+                'signal_results': signal_results
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in lightweight temperature calculation: {e}")
+            return {
+                'score': 0.0,
+                'temperature': 'FROZEN',
+                'distance_to_action': 1.0,
+                'signal_results': {}
+            }
+
     def calculate_bot_temperature(self, bot: Bot, market_data: pd.DataFrame) -> Dict[str, Any]:
         """
         Calculate bot temperature based on signal proximity to trading thresholds.
@@ -546,6 +655,164 @@ class BotSignalEvaluator:
                 })
         
         return temperatures
+
+    # Phase 4.2.1: Automatic Trading Integration Methods
+    
+    def _should_execute_automatic_trade(self, bot: Bot, evaluation_result: Dict[str, Any]) -> bool:
+        """
+        Determine if automatic trade should be executed based on bot status and signal confirmation.
+        
+        Args:
+            bot: Bot instance
+            evaluation_result: Signal evaluation result with confirmation status
+            
+        Returns:
+            bool: True if automatic trade should be executed
+        """
+        # Check basic prerequisites for automatic trading
+        if bot.status != 'RUNNING':
+            logger.debug(f"Bot {bot.id} not running - no automatic trade")
+            return False
+        
+        # Check if signal is confirmed
+        confirmation_status = evaluation_result.get('confirmation_status', {})
+        if not confirmation_status.get('is_confirmed', False):
+            logger.debug(f"Bot {bot.id} signal not confirmed - no automatic trade")
+            return False
+        
+        # Check if action requires trading (not 'hold')
+        action = evaluation_result.get('action')
+        if action not in ['buy', 'sell']:
+            logger.debug(f"Bot {bot.id} action '{action}' - no automatic trade needed")
+            return False
+        
+        # Check trade cooldown
+        if not self._check_trade_cooldown(bot):
+            logger.debug(f"Bot {bot.id} in cooldown period - no automatic trade")
+            return False
+        
+        logger.info(f"Bot {bot.id} ready for automatic {action} trade")
+        return True
+    
+    def _check_trade_cooldown(self, bot: Bot) -> bool:
+        """
+        Check if bot is outside cooldown period since last trade.
+        
+        Args:
+            bot: Bot instance
+            
+        Returns:
+            bool: True if cooldown period has passed
+        """
+        try:
+            # Import here to avoid circular dependency
+            from ..models.models import Trade
+            
+            # Get last trade for this bot
+            last_trade = (
+                self.db.query(Trade)
+                .filter(Trade.bot_id == bot.id)
+                .order_by(desc(Trade.created_at))
+                .first()
+            )
+            
+            if not last_trade:
+                logger.debug(f"Bot {bot.id} has no previous trades - cooldown check passed")
+                return True
+            
+            # Calculate time since last trade
+            now = datetime.utcnow()
+            time_since_trade = (now - last_trade.created_at).total_seconds() / 60  # minutes
+            
+            # Get cooldown period (default 15 minutes)
+            cooldown_minutes = getattr(bot, 'cooldown_minutes', None) or 15
+            
+            if time_since_trade >= cooldown_minutes:
+                logger.debug(f"Bot {bot.id} cooldown passed: {time_since_trade:.1f}m >= {cooldown_minutes}m")
+                return True
+            else:
+                remaining_cooldown = cooldown_minutes - time_since_trade
+                logger.debug(f"Bot {bot.id} in cooldown: {remaining_cooldown:.1f}m remaining")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error checking trade cooldown for bot {bot.id}: {str(e)}")
+            # On error, allow trade (fail open for safety)
+            return True
+    
+    def _execute_automatic_trade(self, bot: Bot, evaluation_result: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute automatic trade based on confirmed signal evaluation.
+        
+        Args:
+            bot: Bot instance
+            evaluation_result: Signal evaluation result with confirmed action
+            
+        Returns:
+            Dict with trade execution result
+        """
+        try:
+            # Import here to avoid circular dependency
+            from ..services.trading_service import TradingService
+            
+            action = evaluation_result.get('action')
+            logger.info(f"Executing automatic {action} trade for bot {bot.id} ({bot.name})")
+            
+            # Initialize trading service with database session
+            trading_service = TradingService(db=self.db)
+            
+            # Get current temperature from the evaluation result score (no fresh data needed)
+            current_score = evaluation_result.get('overall_score', 0.0)
+            from ..utils.temperature import calculate_bot_temperature
+            current_temperature = calculate_bot_temperature(current_score)
+            logger.info(f"🌡️ Using temperature: {current_temperature} (score: {current_score})")
+            
+            # Execute trade with intelligent sizing (Phase 4.1.3 integration)
+            trade_result = trading_service.execute_trade(
+                bot_id=bot.id,
+                side=action.upper(),  # Convert to uppercase ('BUY' or 'SELL')
+                size_usd=None,  # Let intelligent sizing handle it
+                current_temperature=current_temperature,  # Pass current temperature
+                auto_size=True  # Use intelligent sizing from Phase 4.1.3
+            )
+            
+            # Log trade execution result
+            if trade_result.get('success'):
+                logger.info(
+                    f"Automatic {action} trade executed successfully for bot {bot.id}: "
+                    f"Trade ID {trade_result.get('trade_id')}"
+                )
+            else:
+                logger.warning(
+                    f"Automatic {action} trade failed for bot {bot.id}: "
+                    f"{trade_result.get('message', 'Unknown error')}"
+                )
+            
+            return {
+                'executed': trade_result.get('success', False),
+                'trade_id': trade_result.get('trade_id'),
+                'action': action,
+                'message': trade_result.get('message', ''),
+                'execution_timestamp': datetime.utcnow().isoformat(),
+                'bot_id': bot.id,
+                'bot_name': bot.name,
+                'full_trade_result': trade_result  # Include full result for debugging
+            }
+            
+        except Exception as e:
+            error_msg = f"Error executing automatic trade for bot {bot.id}: {str(e)}"
+            logger.error(error_msg)
+            
+            return {
+                'executed': False,
+                'trade_id': None,
+                'action': evaluation_result.get('action'),
+                'message': error_msg,
+                'execution_timestamp': datetime.utcnow().isoformat(),
+                'bot_id': bot.id,
+                'bot_name': bot.name,
+                'error': str(e)
+            }
 
 
 def get_bot_evaluator(db: Session = None) -> BotSignalEvaluator:

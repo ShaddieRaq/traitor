@@ -9,13 +9,17 @@ logger = logging.getLogger(__name__)
 
 
 @celery_app.task(name="evaluate_bot_signals")
-def evaluate_bot_signals():
+def evaluate_bot_signals(enable_automatic_trading: bool = False):
     """
     Evaluate trading signals for all active bots.
     NOTE: Real-time evaluation now handled by WebSocket streaming (Phase 3.3).
           This task serves as backup/manual trigger for bot evaluation.
+    
+    Args:
+        enable_automatic_trading: If False, skips automatic trade execution 
+                                (used for scheduled evaluations to prevent loops)
     """
-    logger.info("Manual bot signal evaluation task triggered")
+    logger.info(f"Manual bot signal evaluation task triggered (auto_trading={enable_automatic_trading})")
     
     try:
         db = SessionLocal()

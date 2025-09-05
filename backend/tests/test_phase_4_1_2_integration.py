@@ -47,6 +47,10 @@ def test_phase_4_1_2_api_integration():
         assert test_bot is not None, "No running bots found"
         print(f"✅ Found running bot: {test_bot['name']} (ID: {test_bot['id']})")
         
+        # IMPORTANT: Save original bot state for restoration after test
+        original_position_size = test_bot["current_position_size"]
+        print(f"📝 Saved original position size: ${original_position_size:.2f}")
+        
     except Exception as e:
         print(f"❌ Bot status check failed: {e}")
         return False
@@ -238,6 +242,18 @@ def test_phase_4_1_2_api_integration():
     print("✅ Trade status monitoring active")
     print("✅ Emergency controls verified")
     print("\n🚀 Phase 4.1.2: Trade Execution Service is PRODUCTION READY!")
+    
+    # CRITICAL: Restore original bot state to prevent data corruption
+    print(f"\n🔧 Restoring original bot state for {test_bot['name']}...")
+    try:
+        # Use position reconciliation to fix the bot's position
+        reconcile_response = requests.post(f"{base_url}/position-reconciliation/reconcile", timeout=10)
+        if reconcile_response.status_code == 200:
+            print("✅ Position reconciliation completed - bot state restored")
+        else:
+            print(f"⚠️  Position reconciliation failed: {reconcile_response.text}")
+    except Exception as e:
+        print(f"⚠️  Failed to restore bot state: {e}")
     
     # Return None to avoid pytest warning about returning non-None values
 

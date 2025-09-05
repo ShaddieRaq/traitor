@@ -183,13 +183,13 @@ class MarketDataResponse(BaseModel):
 
 class TradeResponse(BaseModel):
     id: int
-    bot_id: int
+    bot_id: Optional[int] = None  # Optional to handle synced Coinbase trades
     product_id: str
     side: str
     size: float
     price: float
     fee: Optional[float] = None
-    order_id: str
+    order_id: Optional[str] = None  # Optional to handle real Coinbase trades
     status: str
     combined_signal_score: Optional[float] = None
     created_at: datetime

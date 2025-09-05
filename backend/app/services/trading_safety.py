@@ -27,7 +27,7 @@ class TradingSafetyLimits:
     MIN_POSITION_SIZE_USD = 5.00     # Minimum trade size (avoid dust trades)
     
     # Bot limits
-    MAX_ACTIVE_POSITIONS = 2         # Maximum concurrent positions across all bots
+    MAX_ACTIVE_POSITIONS = 5         # Maximum concurrent positions across all bots
     
     # Temperature requirements
     MIN_TEMPERATURE_FOR_TRADING = "WARM"  # Minimum temperature to allow trading
@@ -136,9 +136,13 @@ class TradingSafetyService:
         """Check daily trade count limits (global and per-bot)."""
         today = datetime.utcnow().date()
         
-        # Check global daily trades
+        # Check global daily trades - ONLY COUNT BOT-MADE TRADES
+        # External Coinbase trades should not count toward daily limits
         global_trades_today = self.db.query(Trade).filter(
-            func.date(Trade.created_at) == today
+            and_(
+                func.date(Trade.created_at) == today,
+                Trade.bot_id.isnot(None)  # Only count bot-made trades
+            )
         ).count()
         
         if global_trades_today >= self.limits.MAX_DAILY_TRADES:
@@ -245,9 +249,13 @@ class TradingSafetyService:
         """Get current safety status and limits."""
         today = datetime.utcnow().date()
         
-        # Daily trade count
+        # Daily trade count - ONLY COUNT BOT-MADE TRADES
+        # External Coinbase trades should not count toward daily limits
         trades_today = self.db.query(Trade).filter(
-            func.date(Trade.created_at) == today
+            and_(
+                func.date(Trade.created_at) == today,
+                Trade.bot_id.isnot(None)  # Only count bot-made trades
+            )
         ).count()
         
         # Active positions

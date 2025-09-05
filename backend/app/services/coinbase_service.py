@@ -1,6 +1,5 @@
 from typing import Optional, List, Callable, Dict, Any
 import pandas as pd
-import asyncio
 import json
 from threading import Thread
 from coinbase.rest import RESTClient
@@ -318,54 +317,36 @@ class CoinbaseService:
         try:
             import uuid
             import time
-            import os
             client_order_id = str(uuid.uuid4())
             
-            # Check if we're in test/development mode
-            # Set TRADING_MODE=production to enable real trades
-            is_test_mode = os.getenv("TRADING_MODE", "test").lower() != "production"
+            # REAL TRADE EXECUTION
+            logger.info(f"💰 EXECUTING REAL TRADE: {side} {size} {product_id}")
             
-            if is_test_mode:
-                # Mock response for safe testing - prevents real money trades
-                # To enable real trading, set environment variable: TRADING_MODE=production
-                mock_order_id = f"mock-{int(time.time())}-{client_order_id[:8]}"
-                logger.info(f"🧪 Mock trade executed: {side} {size} {product_id} - Order ID: {mock_order_id}")
-                
-                return {
-                    "order_id": mock_order_id,
-                    "client_order_id": client_order_id,
-                    "product_id": product_id,
-                    "side": side,
-                    "size": size,
-                    "status": "filled",  # Mock as immediately filled
-                    "mock": True
-                }
+            # Real Coinbase order execution
+            if side.lower() == "buy":
+                response = self.client.market_order_buy(
+                    product_id=product_id,
+                    base_size=str(size),
+                    client_order_id=client_order_id
+                )
             else:
-                # Real Coinbase order execution
-                if side.lower() == "buy":
-                    response = self.client.market_order_buy(
-                        product_id=product_id,
-                        base_size=str(size),
-                        client_order_id=client_order_id
-                    )
-                else:
-                    response = self.client.market_order_sell(
-                        product_id=product_id,
-                        base_size=str(size),
-                        client_order_id=client_order_id
-                    )
-                
-                # Extract order ID from response (need to check SDK structure)
-                order_id = getattr(response, 'order_id', None) or getattr(response, 'id', None)
-                
-                return {
-                    "order_id": order_id,
-                    "client_order_id": client_order_id,
-                    "product_id": product_id,
-                    "side": side,
-                    "size": size,
-                    "status": "pending"
-                }
+                response = self.client.market_order_sell(
+                    product_id=product_id,
+                    base_size=str(size),
+                    client_order_id=client_order_id
+                )
+            
+            # Extract order ID from response (need to check SDK structure)
+            order_id = getattr(response, 'order_id', None) or getattr(response, 'id', None)
+            
+            return {
+                "order_id": order_id,
+                "client_order_id": client_order_id,
+                "product_id": product_id,
+                "side": side,
+                "size": size,
+                "status": "pending"
+            }
             
         except Exception as e:
             logger.error(f"Error placing {side} order for {product_id}: {e}")
@@ -480,6 +461,99 @@ class CoinbaseService:
             except Exception as fallback_error:
                 logger.error(f"Fallback method also failed: {fallback_error}")
                 return []
+    
+    def get_recent_fills(self, days_back: int = 1) -> List[Dict[str, Any]]:
+        """
+        Get recent fills/trades from Coinbase API for the specified number of days.
+        
+        Args:
+            days_back: Number of days to look back for fills
+        
+        Returns:
+            List of fill/trade dictionaries with real Coinbase data
+        """
+        try:
+            if not self.client:
+                logger.error("Coinbase client not initialized")
+                return []
+            
+            logger.info(f"🔍 Fetching ALL Coinbase fills for last {days_back} days using pagination...")
+            
+            all_fills = []
+            cursor = None
+            page_count = 0
+            max_pages = 50  # Safety limit to prevent infinite loops
+            
+            # Use pagination to get ALL fills, not just 100
+            while page_count < max_pages:
+                try:
+                    # Get fills with pagination
+                    if cursor:
+                        response = self.client.get_fills(limit=1000, cursor=cursor)  # Max limit
+                    else:
+                        response = self.client.get_fills(limit=1000)  # Max limit for first page
+                    
+                    # Avoid slow __getitem__ - use getattr instead
+                    if not response or not hasattr(response, 'fills'):
+                        logger.warning(f"No fills returned from Coinbase API on page {page_count + 1}")
+                        break
+                    
+                    fills = getattr(response, 'fills', [])
+                    logger.info(f"📊 Page {page_count + 1}: Retrieved {len(fills)} fills from Coinbase")
+                    
+                    if not fills:
+                        logger.info("No more fills to retrieve")
+                        break
+                    
+                    # Convert Coinbase fills to our format
+                    for fill in fills:
+                        try:
+                            processed_fill = {
+                                'order_id': getattr(fill, 'order_id', None),
+                                'trade_id': getattr(fill, 'trade_id', None),  # Unique fill ID
+                                'product_id': getattr(fill, 'product_id', None),
+                                'side': getattr(fill, 'side', '').upper(),
+                                'size': float(getattr(fill, 'size', 0)),
+                                'price': float(getattr(fill, 'price', 0)),
+                                'fee': float(getattr(fill, 'fee', 0)),
+                                'created_at': getattr(fill, 'trade_time', None),  # FIX: Use trade_time for actual timestamp
+                                'liquidity_indicator': getattr(fill, 'liquidity_indicator', None),
+                                'size_in_quote': getattr(fill, 'size_in_quote', False),
+                                'user_id': getattr(fill, 'user_id', None),
+                                'commission': float(getattr(fill, 'commission', 0))
+                            }
+                            
+                            # Calculate USD size
+                            if processed_fill['size_in_quote']:
+                                processed_fill['size_usd'] = processed_fill['size']
+                            else:
+                                processed_fill['size_usd'] = processed_fill['size'] * processed_fill['price']
+                            
+                            all_fills.append(processed_fill)
+                            
+                        except Exception as e:
+                            logger.warning(f"Failed to process fill: {e}")
+                            continue
+                    
+                    # Check for next page
+                    cursor = getattr(response, 'cursor', None)
+                    if not cursor:
+                        logger.info("No more pages available")
+                        break
+                    
+                    page_count += 1
+                    logger.info(f"Moving to page {page_count + 1} with cursor: {cursor[:10]}...")
+                    
+                except Exception as e:
+                    logger.error(f"Error fetching page {page_count + 1}: {e}")
+                    break
+            
+            logger.info(f"✅ Retrieved total of {len(all_fills)} fills across {page_count + 1} pages")
+            return all_fills
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to get Coinbase fills: {e}")
+            return []
 
 
 # Global instance

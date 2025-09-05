@@ -4,6 +4,7 @@ Bot evaluation API endpoints for testing signal aggregation.
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+import pandas as pd
 
 from ..core.database import get_db
 from ..models.models import Bot
@@ -125,4 +126,89 @@ async def test_bot_evaluation(bot_id: int, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=500, 
             detail=f"Error evaluating bot signals: {str(e)}"
+        )
+
+
+@router.post("/{bot_id}/simulate-automatic-trade")
+def simulate_automatic_trade(
+    bot_id: int,
+    action: str,  # 'buy' or 'sell'
+    db: Session = Depends(get_db)
+):
+    """
+    Simulate automatic trade execution for testing Phase 4.2.1 functionality.
+    
+    Args:
+        bot_id: ID of bot to test
+        action: Trade action to simulate ('buy' or 'sell')
+    """
+    # Validate action
+    if action not in ['buy', 'sell']:
+        raise HTTPException(status_code=400, detail="Action must be 'buy' or 'sell'")
+    
+    # Get bot
+    bot = db.query(Bot).filter(Bot.id == bot_id).first()
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    
+    try:
+        # Create evaluator with confirmation disabled for testing
+        evaluator = BotSignalEvaluator(db, enable_confirmation=False)
+        
+        # Get current market data for temperature calculation
+        try:
+            market_data = coinbase_service.get_historical_data(bot.pair, timeframe="1h", limit=100)
+        except Exception as e:
+            # Create minimal market data if service fails
+            market_data = pd.DataFrame({
+                'close': [50000, 50100, 50200],
+                'volume': [100, 100, 100]
+            })
+        
+        # Create simulated evaluation result that would trigger automatic trade
+        simulated_evaluation = {
+            'overall_score': 0.5 if action == 'sell' else -0.5,
+            'action': action,
+            'confidence': 0.8,
+            'signal_results': {},
+            'confirmation_status': {
+                'is_confirmed': True,  # Simulate confirmed signal
+                'needs_confirmation': True,
+                'status': 'confirmed',
+                'action_being_confirmed': action,
+                'confirmation_start': None,
+                'confirmation_progress': 1.0,
+                'time_remaining_minutes': 0
+            },
+            'metadata': {
+                'bot_id': bot.id,
+                'bot_name': bot.name,
+                'simulation': True
+            },
+            'market_data': market_data  # Include market data for temperature calculation
+        }
+        
+        # Test automatic trade execution
+        if evaluator._should_execute_automatic_trade(bot, simulated_evaluation):
+            trade_result = evaluator._execute_automatic_trade(bot, simulated_evaluation)
+            return {
+                "message": f"Simulated automatic {action} trade for bot {bot.name}",
+                "bot_id": bot_id,
+                "action": action,
+                "trade_result": trade_result,
+                "status": "executed" if trade_result.get('executed') else "failed"
+            }
+        else:
+            return {
+                "message": f"Automatic trade not triggered for bot {bot.name}",
+                "bot_id": bot_id,
+                "action": action,
+                "status": "not_triggered",
+                "reason": "Conditions not met for automatic trade"
+            }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error simulating automatic trade: {str(e)}"
         )

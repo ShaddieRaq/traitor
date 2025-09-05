@@ -106,7 +106,7 @@ def test_phase_4_1_1_integration():
     # Test 4: Invalid Trade Validation (Too Small)
     print("\n4. Testing Invalid Trade Validation (Too Small Position)...")
     tiny_trade = {
-        "bot_id": 1,
+        "bot_id": test_bot_id,  # Use the same test bot
         "side": "sell",
         "size_usd": 2.0  # Below $5 minimum
     }

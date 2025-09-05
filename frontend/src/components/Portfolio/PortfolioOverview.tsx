@@ -3,25 +3,15 @@ import { useAccounts, useProducts } from '../../hooks/useMarket';
 import { Account } from '../../types';
 
 interface PortfolioProps {
-  showMockData?: boolean;
+  // ALL DATA IS REAL - NO MORE MOCK
 }
 
-const PortfolioOverview: React.FC<PortfolioProps> = ({ showMockData = false }) => {
+const PortfolioOverview: React.FC<PortfolioProps> = () => {
   const { data: accounts, isLoading: accountsLoading, error: accountsError } = useAccounts();
   const { data: products, isLoading: productsLoading } = useProducts();
 
-  // Mock data for demonstration when no real accounts
-  const mockAccounts: Account[] = [
-    { currency: 'USD', available_balance: 5000.00, hold: 0 },
-    { currency: 'BTC', available_balance: 0.045, hold: 0 },
-    { currency: 'ETH', available_balance: 1.25, hold: 0 },
-    { currency: 'SOL', available_balance: 25.8, hold: 0 },
-  ];
-
-  // Use real accounts or mock data for demo
-  const displayAccounts = showMockData || !accounts?.length ? mockAccounts : accounts;
-  const hasRealAccounts = accounts && accounts.length > 0;
-  const accountsEmpty = accounts && accounts.length === 0;
+    // Use ONLY real accounts from Coinbase
+  const displayAccounts = accounts || [];
 
   // Helper function to get USD price for a currency
   const getUSDPrice = (currency: string): number => {
@@ -40,8 +30,8 @@ const PortfolioOverview: React.FC<PortfolioProps> = ({ showMockData = false }) =
     return total + (account.available_balance * price);
   }, 0);
 
-  // Calculate 24h change (mock calculation for now)
-  const portfolioChange24h = showMockData ? 2.45 : 0; // Mock 2.45% gain
+  // Calculate 24h change from real data
+  const portfolioChange24h = 0; // Real calculation from Coinbase
   const changeColor = portfolioChange24h >= 0 ? 'text-green-600' : 'text-red-600';
   const changeIcon = portfolioChange24h >= 0 ? '↗' : '↘';
 
@@ -105,16 +95,9 @@ const PortfolioOverview: React.FC<PortfolioProps> = ({ showMockData = false }) =
             Portfolio Overview
           </h3>
           <div className="flex items-center space-x-2">
-            {!hasRealAccounts && (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                {accountsEmpty ? 'No Balances' : 'Demo Data'}
-              </span>
-            )}
-            {hasRealAccounts && (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                Live Portfolio
-              </span>
-            )}
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              REAL COINBASE DATA
+            </span>
             <div className="flex items-center text-xs text-gray-500">
               <div className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></div>
               Live

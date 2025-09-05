@@ -21,6 +21,43 @@ This directory contains shell scripts to manage the Trading Bot application life
 ./scripts/stop.sh
 ```
 
+## Testing Workflows
+
+### 🧪 `test-workflow.sh` ⭐ **COMPREHENSIVE TESTING**
+**Complete validation workflow for system changes**
+- **Step 1**: Restart application and verify services
+- **Step 2**: Run all tests (must pass 100%, no skips)
+- **Step 3**: Sync trades with Coinbase  
+- **Step 4**: Validate positions against actual holdings
+- **Final**: System health check and readiness confirmation
+
+```bash
+# Run full testing workflow after any changes
+./scripts/test-workflow.sh
+```
+
+### ⚡ `quick-test.sh` 
+**Rapid validation for development iterations**
+- Quick restart, test run, sync check, position validation
+- Abbreviated output for fast feedback during development
+
+```bash
+# Quick validation during active development
+./scripts/quick-test.sh
+```
+
+### 🔧 `position-reconcile.sh`
+**Position tracking validation and correction**
+- Check for discrepancies between bot tracking and Coinbase holdings
+- Automatically fix position mismatches
+- Essential for production trading safety
+
+```bash
+./scripts/position-reconcile.sh check   # Check only
+./scripts/position-reconcile.sh fix     # Fix discrepancies  
+./scripts/position-reconcile.sh both    # Check then fix with confirmation
+```
+
 ## Scripts Overview
 
 ### 🛠️ `setup.sh`

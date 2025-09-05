@@ -14,6 +14,7 @@ from ..services.coinbase_service import CoinbaseService
 from ..services.trading_safety import TradingSafetyService
 from ..services.bot_evaluator import BotSignalEvaluator
 from ..services.position_service import PositionService
+from ..core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -178,14 +179,20 @@ class TradingService:
         return bot
     
     def _get_bot_temperature(self, bot: Bot) -> str:
-        """Get current bot temperature from evaluator."""
+        """Get current bot temperature from evaluator using fresh market data."""
+        logger.info(f"🔍 Getting temperature for bot {bot.id} ({bot.name})")
         try:
-            # For Phase 4.1.2, we'll use a simplified temperature check
-            # Full market data evaluation will be enhanced in Phase 4.2
-            from ..utils.temperature import calculate_bot_temperature
-            return calculate_bot_temperature(bot.current_combined_score)
+            # Use fresh market data evaluation like status API does
+            logger.info(f"🔍 Fetching market data for {bot.pair}")
+            market_data = self.coinbase_service.get_historical_data(bot.pair)
+            logger.info(f"🔍 Market data fetched, calculating temperature...")
+            temp_data = self.bot_evaluator.calculate_bot_temperature(bot, market_data)
+            temperature = temp_data.get('temperature', 'FROZEN')
+            score = temp_data.get('score', 0.0)
+            logger.info(f"🌡️ Temperature calculation for bot {bot.id}: score={score:.3f}, temp={temperature}")
+            return temperature
         except Exception as e:
-            logger.warning(f"Could not get bot temperature: {e}, defaulting to COOL")
+            logger.error(f"❌ Exception in _get_bot_temperature for bot {bot.id}: {e}", exc_info=True)
             return "COOL"  # Conservative default
     
     def _validate_trade_safety(self, bot: Bot, side: str, size_usd: float, 
@@ -267,6 +274,7 @@ class TradingService:
                 average_entry_price=average_entry_price,
                 position_tranches=position_tranches_json,
                 position_status="BUILDING",  # Will be updated by position service
+                trading_mode="production",  # ALL TRADES ARE REAL
                 created_at=datetime.utcnow()
             )
             
