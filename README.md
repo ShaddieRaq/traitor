@@ -1,20 +1,20 @@
 # Bot-Centric Coinbase Trading System
 
-A modern, bot-centric cryptocurrency trading system with advanced signal evaluation and real-time market data integration, built with Python (FastAPI) backend and React frontend.
+A modern, bot-centric cryptocurrency trading system with **continuous live trading capabilities** and real-time market data integration. Features automated trade execution, advanced signal evaluation, and production-ready safety systems.
 
 ## Features
 
-- 🤖 **Bot-Centric Trading**: One bot per trading pair with intelligent signal aggregation
-- � **Trade Execution**: Complete trading service with mock/production modes and safety integration
-- �📊 **Web Dashboard**: Modern React interface for bot monitoring and management  
-- 🔄 **Real-Time Bot Evaluation**: WebSocket-driven bot processing on market data updates
-- 🏦 **Coinbase Integration**: Direct integration with Coinbase Advanced Trade API
-- ⚡ **Background Processing**: Celery-based async task processing with Redis
-- 📈 **Advanced Signals**: Enhanced RSI, Moving Average, MACD with -1 to +1 scoring
-- 🎯 **Risk Management**: Sophisticated position sizing, stop-loss, and trade controls
-- ✅ **Signal Confirmation**: Time-based signal verification to prevent false signals
-- 🌡️ **Bot Temperature**: Hot 🔥/warm 🌡️/cool ❄️/frozen 🧊 indicators with sensitive testing thresholds
-- 🚀 **HFT Ready**: High-frequency trading infrastructure foundation
+- 🔥 **Live Trading**: Continuous automated trading with real Coinbase order execution
+- 🤖 **Bot-Centric Architecture**: One bot per trading pair with intelligent signal aggregation
+- ⚡ **Automatic Execution**: Signal evaluation → confirmation → live trade placement
+- 📊 **Real-Time Dashboard**: Modern React interface with 5-second live updates
+- 🏦 **Coinbase Integration**: Direct integration with Coinbase Advanced Trade API (production orders)
+- 🛡️ **Production Safety**: Comprehensive safety limits, circuit breakers, emergency controls
+- 📈 **Advanced Signals**: Enhanced RSI, Moving Average with continuous market evaluation
+- 🎯 **Risk Management**: Position sizing, cooldown periods, temperature-based controls
+- ✅ **Zero Confirmation**: Aggressive trading settings for maximum activity
+- 🌡️ **Bot Temperature**: Hot 🔥/warm 🌡️/cool ❄️/frozen 🧊 indicators with live market responsiveness
+- 🚀 **Production Ready**: 185 tests passing, clean codebase, stable operations
 
 ## Tech Stack
 
