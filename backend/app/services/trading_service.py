@@ -80,24 +80,29 @@ class TradingService:
             # 5. Get current market price for calculations
             market_price = self._get_current_price(bot.pair)
             
-            # 6. Calculate position size in base currency
+            # 6. Validate account balance before proceeding
+            balance_validation = self._validate_account_balance(bot.pair, side, size_usd, market_price)
+            if not balance_validation["valid"]:
+                raise TradeExecutionError(f"Insufficient balance: {balance_validation['message']}")
+            
+            # 7. Calculate position size in base currency
             base_size = self._calculate_base_size(side, size_usd, market_price)
             
-            # 7. PHASE 4.1.3: PRE-EXECUTION ANALYTICS 📊
+            # 8. PHASE 4.1.3: PRE-EXECUTION ANALYTICS 📊
             pre_execution_analytics = self._generate_pre_execution_analytics(bot, side, size_usd, market_price, current_temperature)
             
-            # 8. Execute the order on Coinbase
+            # 9. Execute the order on Coinbase
             order_result = self._place_order(bot.pair, side, base_size)
             if not order_result:
                 raise TradeExecutionError("Failed to place order on Coinbase")
             
-            # 9. Record trade with enhanced analytics
+            # 10. Record trade with enhanced analytics
             trade_record = self._record_trade(bot, side, size_usd, market_price, order_result, current_temperature)
             
-            # 10. Update bot position (if this was a successful order)
+            # 11. Update bot position (if this was a successful order)
             self._update_bot_position(bot, side, size_usd)
             
-            # 11. PHASE 4.1.3: POST-EXECUTION ANALYTICS & POSITION SUMMARY 🎯
+            # 12. PHASE 4.1.3: POST-EXECUTION ANALYTICS & POSITION SUMMARY 🎯
             position_summary = self.position_service.get_position_summary(bot.id)
             post_execution_analytics = self._generate_post_execution_analytics(bot, trade_record, position_summary)
             
@@ -205,6 +210,34 @@ class TradingService:
             current_temperature=current_temperature
         )
     
+    def _validate_account_balance(self, product_id: str, side: str, size_usd: float, 
+                                current_price: float) -> Dict[str, Any]:
+        """Validate that account has sufficient balance for the trade."""
+        try:
+            balance_result = self.coinbase_service.validate_trade_balance(
+                product_id=product_id,
+                side=side,
+                size_usd=size_usd,
+                current_price=current_price
+            )
+            
+            if balance_result["valid"]:
+                logger.info(f"✅ Balance validation passed: {balance_result['message']}")
+            else:
+                logger.warning(f"❌ Balance validation failed: {balance_result['message']}")
+            
+            return balance_result
+            
+        except Exception as e:
+            logger.error(f"Error validating account balance: {e}")
+            return {
+                "valid": False,
+                "message": f"Balance validation error: {str(e)}",
+                "available": 0.0,
+                "required": 0.0,
+                "currency": "UNKNOWN"
+            }
+    
     def _get_current_price(self, product_id: str) -> float:
         """Get current market price for the trading pair."""
         try:
@@ -274,7 +307,7 @@ class TradingService:
                 average_entry_price=average_entry_price,
                 position_tranches=position_tranches_json,
                 position_status="BUILDING",  # Will be updated by position service
-                trading_mode="production",  # ALL TRADES ARE REAL
+
                 created_at=datetime.utcnow()
             )
             

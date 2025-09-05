@@ -336,8 +336,25 @@ class CoinbaseService:
                     client_order_id=client_order_id
                 )
             
-            # Extract order ID from response (need to check SDK structure)
-            order_id = getattr(response, 'order_id', None) or getattr(response, 'id', None)
+            # Extract order ID from response - debug the structure
+            logger.info(f"🔍 Coinbase API Response Type: {type(response)}")
+            logger.info(f"🔍 Response success: {getattr(response, 'success', None)}")
+            logger.info(f"🔍 Response success_response: {getattr(response, 'success_response', None)}")
+            
+            order_id = None
+            if hasattr(response, 'success') and response.success and hasattr(response, 'success_response'):
+                success_resp = response.success_response
+                logger.info(f"🔍 Success response type: {type(success_resp)}")
+                logger.info(f"🔍 Success response attributes: {dir(success_resp)}")
+                
+                if hasattr(success_resp, 'order_id'):
+                    order_id = success_resp.order_id
+                elif hasattr(success_resp, 'id'):
+                    order_id = success_resp.id
+                elif hasattr(success_resp, 'order') and hasattr(success_resp.order, 'order_id'):
+                    order_id = success_resp.order.order_id
+            
+            logger.info(f"🔍 Extracted order_id: {order_id}")
             
             return {
                 "order_id": order_id,
@@ -461,6 +478,104 @@ class CoinbaseService:
             except Exception as fallback_error:
                 logger.error(f"Fallback method also failed: {fallback_error}")
                 return []
+    
+    def get_available_balance(self, currency: str) -> float:
+        """
+        Get available balance for a specific currency.
+        
+        Args:
+            currency: Currency code (e.g., 'USD', 'BTC', 'ETH')
+            
+        Returns:
+            Available balance as float, 0.0 if currency not found or error
+        """
+        try:
+            accounts = self.get_accounts()
+            for account in accounts:
+                if account.get('currency') == currency:
+                    return float(account.get('available_balance', 0))
+            
+            logger.warning(f"Currency {currency} not found in accounts")
+            return 0.0
+            
+        except Exception as e:
+            logger.error(f"Error fetching available balance for {currency}: {e}")
+            return 0.0
+    
+    def validate_trade_balance(self, product_id: str, side: str, size_usd: float, 
+                             current_price: float) -> Dict[str, Any]:
+        """
+        Validate that account has sufficient balance for the trade.
+        
+        Args:
+            product_id: Trading pair (e.g., 'BTC-USD')
+            side: 'BUY' or 'SELL'
+            size_usd: Trade size in USD
+            current_price: Current market price
+            
+        Returns:
+            Dict with validation results
+        """
+        try:
+            # Parse the product_id to get base and quote currencies
+            base_currency, quote_currency = product_id.split('-')
+            
+            if side.upper() == 'BUY':
+                # For buy orders, need sufficient quote currency (usually USD)
+                required_balance = size_usd
+                available_balance = self.get_available_balance(quote_currency)
+                currency_needed = quote_currency
+                
+                if available_balance >= required_balance:
+                    return {
+                        'valid': True,
+                        'message': f'Sufficient {currency_needed} balance for ${size_usd:.2f} buy order',
+                        'available': available_balance,
+                        'required': required_balance,
+                        'currency': currency_needed
+                    }
+                else:
+                    return {
+                        'valid': False,
+                        'message': f'Insufficient {currency_needed} balance: ${available_balance:.2f} available, ${required_balance:.2f} required',
+                        'available': available_balance,
+                        'required': required_balance,
+                        'currency': currency_needed
+                    }
+                    
+            else:  # SELL
+                # For sell orders, need sufficient base currency (e.g., BTC)
+                base_size_needed = size_usd / current_price
+                available_balance = self.get_available_balance(base_currency)
+                
+                if available_balance >= base_size_needed:
+                    return {
+                        'valid': True,
+                        'message': f'Sufficient {base_currency} balance for {base_size_needed:.8f} {base_currency} sell order',
+                        'available': available_balance,
+                        'required': base_size_needed,
+                        'currency': base_currency,
+                        'size_usd': size_usd
+                    }
+                else:
+                    return {
+                        'valid': False,
+                        'message': f'Insufficient {base_currency} balance: {available_balance:.8f} available, {base_size_needed:.8f} required (${size_usd:.2f} USD)',
+                        'available': available_balance,
+                        'required': base_size_needed,
+                        'currency': base_currency,
+                        'size_usd': size_usd
+                    }
+                    
+        except Exception as e:
+            logger.error(f"Error validating trade balance: {e}")
+            return {
+                'valid': False,
+                'message': f'Error validating balance: {str(e)}',
+                'available': 0.0,
+                'required': 0.0,
+                'currency': 'UNKNOWN'
+            }
     
     def get_recent_fills(self, days_back: int = 1) -> List[Dict[str, Any]]:
         """

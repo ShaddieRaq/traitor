@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api import bots, market, trades, bot_evaluation, websocket, bot_temperatures, coinbase_sync
+from .api import bots, market, trades, bot_evaluation, websocket, bot_temperatures, coinbase_sync, trading_diagnosis
 from .core.config import settings
 from .core.database import engine, Base
 import logging
@@ -38,6 +38,7 @@ app.include_router(trades.router, prefix="/api/v1/trades", tags=["trades"])
 app.include_router(bot_evaluation.router, prefix="/api/v1/bot-evaluation", tags=["bot-evaluation"])
 app.include_router(websocket.router, prefix="/api/v1/ws", tags=["websocket"])
 app.include_router(coinbase_sync.router, prefix="/api/v1/coinbase-sync", tags=["coinbase-sync"])
+app.include_router(trading_diagnosis.router, prefix="/api/v1/diagnosis", tags=["diagnosis"])
 
 # Position Reconciliation API
 from .api import position_reconciliation

@@ -122,7 +122,7 @@ class CoinbaseSyncService:
                 fee=float(fill.get('fee', 0)),
                 order_id=unique_id,  # Use trade_id for uniqueness
                 status="filled",  # Coinbase fills are already executed
-                trading_mode="production",  # Real Coinbase trade
+
                 combined_signal_score=0.0,  # Real trade - might not have signal
                 signal_scores="{}",  # Real trade - might not have signals
                 size_usd=float(fill.get('size_usd', 0)),
@@ -150,12 +150,12 @@ class CoinbaseSyncService:
         """Get current sync status and trade counts."""
         try:
             total_trades = self.db.query(Trade).count()
-            production_trades = self.db.query(Trade).filter(Trade.trading_mode == "production").count()
+            total_trades = self.db.query(Trade).count()
             # ALL TRADES ARE REAL NOW
             
             return {
                 "total_trades": total_trades,
-                "production_trades": production_trades,
+                "total_trades": total_trades,
                 "all_trades_real": True,
                 "last_sync": "Not implemented yet"  # Could add last sync timestamp
             }

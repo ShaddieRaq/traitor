@@ -253,24 +253,24 @@ const BotForm: React.FC<BotFormProps> = ({ bot, onSubmit, onCancel, isLoading = 
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Buy Threshold</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Buy Threshold (Oversold)</label>
                     <input
                       type="number"
                       value={rsiConfig.buy_threshold}
                       onChange={(e) => setRsiConfig(prev => ({ ...prev, buy_threshold: Number(e.target.value) }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       min="10"
-                      max="50"
+                      max="80"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Sell Threshold</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Sell Threshold (Overbought)</label>
                     <input
                       type="number"
                       value={rsiConfig.sell_threshold}
                       onChange={(e) => setRsiConfig(prev => ({ ...prev, sell_threshold: Number(e.target.value) }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      min="50"
+                      min="20"
                       max="90"
                     />
                   </div>
@@ -434,7 +434,7 @@ const BotForm: React.FC<BotFormProps> = ({ bot, onSubmit, onCancel, isLoading = 
                   onChange={(e) => setMaxPositions(Number(e.target.value))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   min="1"
-                  max="10"
+                  max="100"
                   step="1"
                 />
                 <p className="text-xs text-gray-500 mt-1">Concurrent positions allowed</p>

@@ -64,9 +64,9 @@ class RSISignal(BaseSignal):
             score = (neutral_position - 0.5) * 1.0  # Scale to -0.5 to +0.5
             
             if score > 0.2:
-                action = "buy"
+                action = "sell"  # Fixed: positive score = sell signal
             elif score < -0.2:
-                action = "sell"
+                action = "buy"   # Fixed: negative score = buy signal
             else:
                 action = "hold"
             confidence = abs(score) * 0.5  # Lower confidence in neutral zone

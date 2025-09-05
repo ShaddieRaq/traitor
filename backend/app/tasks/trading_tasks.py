@@ -1,5 +1,6 @@
 from typing import List
 import logging
+from datetime import datetime
 from ..core.database import SessionLocal
 from ..models.models import Bot, MarketData
 from ..services.coinbase_service import coinbase_service
@@ -8,30 +9,74 @@ from .celery_app import celery_app
 logger = logging.getLogger(__name__)
 
 
-@celery_app.task(name="evaluate_bot_signals")
+@celery_app.task(name="app.tasks.trading_tasks.evaluate_bot_signals")
 def evaluate_bot_signals(enable_automatic_trading: bool = False):
     """
-    Evaluate trading signals for all active bots.
-    NOTE: Real-time evaluation now handled by WebSocket streaming (Phase 3.3).
-          This task serves as backup/manual trigger for bot evaluation.
+    Evaluate trading signals for all active bots and execute automatic trades if enabled.
     
     Args:
-        enable_automatic_trading: If False, skips automatic trade execution 
-                                (used for scheduled evaluations to prevent loops)
+        enable_automatic_trading: If True, enables automatic trade execution 
     """
-    logger.info(f"Manual bot signal evaluation task triggered (auto_trading={enable_automatic_trading})")
+    logger.info(f"Bot signal evaluation task triggered (auto_trading={enable_automatic_trading})")
     
     try:
         db = SessionLocal()
         try:
+            # Import here to avoid circular imports
+            from ..services.bot_evaluator import BotSignalEvaluator
+            
             # Get all running bots
             active_bots = db.query(Bot).filter(Bot.status == "RUNNING").all()
-            logger.info(f"Found {len(active_bots)} running bots for manual evaluation")
+            logger.info(f"Found {len(active_bots)} running bots for evaluation")
+            
+            if not active_bots:
+                return {
+                    "status": "no_bots", 
+                    "running_bots": 0,
+                    "message": "No running bots found for evaluation"
+                }
+            
+            # Initialize evaluator
+            evaluator = BotSignalEvaluator(db)
+            evaluation_results = []
+            
+            for bot in active_bots:
+                try:
+                    logger.info(f"Evaluating bot {bot.id} ({bot.name})")
+                    
+                    # Get market data for this bot's pair
+                    market_data = coinbase_service.get_historical_data(bot.pair)
+                    
+                    if market_data.empty:
+                        logger.warning(f"No market data available for {bot.pair}, skipping bot {bot.id}")
+                        continue
+                    
+                    # Evaluate bot (includes automatic trading if enabled)
+                    result = evaluator.evaluate_bot(bot, market_data)
+                    
+                    evaluation_results.append({
+                        "bot_id": bot.id,
+                        "bot_name": bot.name,
+                        "action": result.get("action"),
+                        "score": result.get("overall_score"),
+                        "automatic_trade": result.get("automatic_trade")
+                    })
+                    
+                    logger.info(f"Bot {bot.id} evaluation complete: action={result.get('action')}, score={result.get('overall_score'):.3f}")
+                    
+                except Exception as e:
+                    logger.error(f"Error evaluating bot {bot.id}: {str(e)}")
+                    evaluation_results.append({
+                        "bot_id": bot.id,
+                        "error": str(e)
+                    })
             
             return {
-                "status": "manual_evaluation_complete", 
+                "status": "evaluation_complete", 
                 "running_bots": len(active_bots),
-                "message": f"Manual evaluation completed for {len(active_bots)} bots. Real-time evaluation via WebSocket is active."
+                "evaluated_bots": len(evaluation_results),
+                "results": evaluation_results,
+                "automatic_trading": enable_automatic_trading
             }
             
         finally:
@@ -40,6 +85,79 @@ def evaluate_bot_signals(enable_automatic_trading: bool = False):
     except Exception as e:
         logger.error(f"Error in evaluate_bot_signals task: {str(e)}")
         return {"status": "error", "message": str(e)}
+
+
+@celery_app.task(name="app.tasks.trading_tasks.fast_trading_evaluation")
+def fast_trading_evaluation():
+    """
+    Fast trading evaluation loop - runs every 500ms for responsive trading decisions.
+    Only executes trades when cooldown periods allow.
+    """
+    try:
+        db = SessionLocal()
+        try:
+            # Import here to avoid circular imports
+            from ..services.bot_evaluator import BotSignalEvaluator
+            
+            # Get all running bots
+            active_bots = db.query(Bot).filter(Bot.status == "RUNNING").all()
+            
+            if not active_bots:
+                return {"status": "no_active_bots", "running_bots": 0}
+            
+            # Initialize evaluator
+            evaluator = BotSignalEvaluator(db)
+            trade_attempts = 0
+            successful_trades = 0
+            
+            # Cache market data to avoid redundant API calls
+            market_data_cache = {}
+            unique_pairs = set(bot.pair for bot in active_bots)
+            for pair in unique_pairs:
+                try:
+                    market_data_cache[pair] = coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
+                except Exception as e:
+                    logger.warning(f"Failed to get market data for {pair}: {e}")
+                    continue
+            
+            for bot in active_bots:
+                try:
+                    # Get market data for this bot's pair
+                    market_data = market_data_cache.get(bot.pair)
+                    if market_data is None or market_data.empty:
+                        continue
+                    
+                    # Evaluate bot with automatic trading enabled
+                    result = evaluator.evaluate_bot(bot, market_data)
+                    
+                    # Check if trade was attempted
+                    automatic_trade = result.get("automatic_trade")
+                    if automatic_trade:
+                        trade_attempts += 1
+                        if automatic_trade.get("executed"):
+                            successful_trades += 1
+                    
+                except Exception as e:
+                    logger.error(f"Error in fast evaluation for bot {bot.id}: {str(e)}")
+                    continue
+            
+            return {
+                "status": "fast_evaluation_complete",
+                "evaluated_bots": len(active_bots),
+                "trade_attempts": trade_attempts,
+                "successful_trades": successful_trades,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"Error in fast_trading_evaluation task: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
+
+# Legacy task names for backward compatibility
 
 
 @celery_app.task(name="fetch_market_data") 

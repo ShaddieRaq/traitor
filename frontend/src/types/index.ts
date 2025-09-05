@@ -81,6 +81,11 @@ export interface BotUpdate {
   signal_config?: SignalConfiguration;
 }
 
+export interface BalanceStatus {
+  valid: boolean;
+  message: string;
+}
+
 export interface BotStatus {
   id: number;
   name: string;
@@ -90,6 +95,7 @@ export interface BotStatus {
   current_position_size: number;
   temperature: string;
   distance_to_signal: number;
+  balance_status: BalanceStatus;
 }
 
 export interface MarketData {
@@ -137,4 +143,44 @@ export interface Account {
   currency: string;
   available_balance: number;
   hold: number;
+}
+
+// Phase 4.3: Enhanced Trading Visibility Types
+export interface ConfirmationStatus {
+  is_active: boolean;
+  action?: string;
+  progress: number;
+  time_remaining_seconds: number;
+  started_at?: string;
+  required_duration_minutes: number;
+}
+
+export interface TradingIntent {
+  next_action: string; // "buy", "sell", "hold"
+  signal_strength: number; // 0-1 how close to threshold
+  confidence: number; // 0-1 signal reliability
+  distance_to_threshold: number; // How much more signal needed
+}
+
+export interface TradeReadiness {
+  status: string; // "confirming", "ready", "cooling_down", "no_signal"
+  can_trade: boolean;
+  blocking_reason?: string;
+  cooldown_remaining_minutes: number;
+}
+
+export interface LastTradeInfo {
+  side?: string;
+  price?: number;
+  size?: number;
+  status?: string;
+  executed_at?: string;
+  minutes_ago?: number;
+}
+
+export interface EnhancedBotStatus extends BotStatus {
+  trading_intent: TradingIntent;
+  confirmation: ConfirmationStatus;
+  trade_readiness: TradeReadiness;
+  last_trade?: LastTradeInfo;
 }

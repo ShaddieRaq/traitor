@@ -5,7 +5,7 @@ import json
 import logging
 from ..core.database import get_db
 from ..models.models import Bot
-from ..api.schemas import BotCreate, BotUpdate, BotResponse, BotStatusResponse
+from ..api.schemas import BotCreate, BotUpdate, BotResponse, BotStatusResponse, EnhancedBotStatusResponse
 from ..utils.temperature import calculate_bot_temperature
 
 logger = logging.getLogger(__name__)
@@ -191,18 +191,42 @@ def get_bots_status_summary(db: Session = Depends(get_db)):
     status_list = []
     for bot in bots:
         try:
-            # Get fresh evaluation for this bot (lightweight - no automatic trading)
+            # Get fresh evaluation for this bot (full evaluation)
             market_data = market_data_cache.get(bot.pair)
             if market_data is not None and not market_data.empty:
-                temp_data = evaluator.calculate_bot_temperature_light(bot, market_data)
-                fresh_score = temp_data.get('score', 0.0)
-                temperature = temp_data.get('temperature', 'FROZEN')
-                distance_to_signal = temp_data.get('distance_to_action', 1.0)
+                # Use full evaluation to get accurate signals (automatic trading handled by confirmation system)
+                evaluation_result = evaluator.evaluate_bot(bot, market_data)
+                fresh_score = evaluation_result.get('overall_score', 0.0)
+                temperature = evaluation_result.get('temperature', 'FROZEN')
+                distance_to_signal = abs(fresh_score) if fresh_score != 0 else 1.0
             else:
                 # Fallback to cached data if no market data available
                 fresh_score = bot.current_combined_score
                 temperature = calculate_bot_temperature(bot.current_combined_score)
                 distance_to_signal = calculate_distance_to_signal(bot.current_combined_score)
+                
+            # Check balance status for UI display
+            balance_status = {"valid": True, "message": ""}
+            try:
+                # Get current market price for balance validation
+                ticker = coinbase_service.get_product_ticker(bot.pair)
+                if ticker and 'price' in ticker:
+                    current_price = float(ticker['price'])
+                    # Check both buy and sell scenarios
+                    buy_balance = coinbase_service.validate_trade_balance(bot.pair, "BUY", bot.position_size_usd, current_price)
+                    sell_balance = coinbase_service.validate_trade_balance(bot.pair, "SELL", bot.position_size_usd, current_price)
+                    
+                    if not buy_balance["valid"] and not sell_balance["valid"]:
+                        balance_status = {"valid": False, "message": f"⚠️ Cannot buy or sell: {buy_balance['message']}"}
+                    elif not buy_balance["valid"]:
+                        balance_status = {"valid": False, "message": f"⚠️ Cannot buy: {buy_balance['message']}"}
+                    elif not sell_balance["valid"]:
+                        balance_status = {"valid": False, "message": f"⚠️ Cannot sell: {sell_balance['message']}"}
+                    else:
+                        balance_status = {"valid": True, "message": "✅ Sufficient balance for trading"}
+            except Exception as balance_error:
+                logger.warning(f"Balance check failed for bot {bot.id}: {balance_error}")
+                balance_status = {"valid": False, "message": "⚠️ Unable to verify balance"}
                 
             status_list.append({
                 "id": bot.id,
@@ -212,7 +236,8 @@ def get_bots_status_summary(db: Session = Depends(get_db)):
                 "current_combined_score": fresh_score,
                 "current_position_size": bot.current_position_size,
                 "temperature": temperature,
-                "distance_to_signal": distance_to_signal
+                "distance_to_signal": distance_to_signal,
+                "balance_status": balance_status
             })
         except Exception as e:
             logger.error(f"Error evaluating bot {bot.id}: {e}")
@@ -248,6 +273,217 @@ def get_bot_confirmation_status(bot_id: int, db: Session = Depends(get_db)):
         "bot_name": bot.name,
         "confirmation_status": confirmation_status
     }
+
+
+@router.get("/status/enhanced", response_model=List[EnhancedBotStatusResponse])
+def get_enhanced_bots_status(db: Session = Depends(get_db)):
+    """Get enhanced bot status with trading visibility for Phase 4.3."""
+    from ..services.bot_evaluator import get_bot_evaluator
+    from ..services.coinbase_service import coinbase_service
+    from ..models.models import Trade
+    from ..api.schemas import EnhancedBotStatusResponse, TradingIntent, ConfirmationStatus, TradeReadiness, LastTradeInfo
+    from ..utils.temperature import calculate_bot_temperature
+    import pandas as pd
+    from datetime import datetime, timedelta
+    
+    bots = db.query(Bot).all()
+    evaluator = get_bot_evaluator(db)
+    
+    # Get fresh market data for all unique trading pairs
+    market_data_cache = {}
+    unique_pairs = set(bot.pair for bot in bots)
+    for pair in unique_pairs:
+        try:
+            market_data_cache[pair] = coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
+        except Exception as e:
+            logger.warning(f"Failed to get market data for {pair}: {e}")
+            # Use mock data as fallback
+            market_data_cache[pair] = pd.DataFrame({
+                'close': [100.0],
+                'high': [101.0],
+                'low': [99.0], 
+                'open': [100.5],
+                'volume': [1000]
+            })
+    
+    enhanced_status_list = []
+    
+    for bot in bots:
+        try:
+            # Get fresh evaluation for this bot
+            market_data = market_data_cache.get(bot.pair)
+            if market_data is not None and not market_data.empty:
+                temp_data = evaluator.calculate_bot_temperature_light(bot, market_data)
+                fresh_score = temp_data.get('score', 0.0)
+                temperature = temp_data.get('temperature', 'FROZEN')
+                distance_to_signal = temp_data.get('distance_to_action', 1.0)
+            else:
+                fresh_score = bot.current_combined_score
+                temperature = calculate_bot_temperature(bot.current_combined_score)
+                distance_to_signal = abs(fresh_score) / 0.3 if fresh_score != 0 else 1.0
+            
+            # Get confirmation status
+            confirmation_status = evaluator.get_confirmation_status(bot)
+            
+            # Determine next action based on signal
+            next_action = "hold"
+            if fresh_score > 0.08:  # Using testing thresholds
+                next_action = "sell"
+            elif fresh_score < -0.08:
+                next_action = "buy"
+            
+            # Calculate signal strength (0-1 scale)
+            abs_score = abs(fresh_score)
+            signal_strength = min(abs_score / 0.3, 1.0)  # Normalize to production threshold
+            confidence = min(abs_score / 0.08, 1.0)  # Confidence based on testing threshold
+            
+            # Calculate distance to threshold
+            threshold = 0.08  # Testing threshold for immediate visibility
+            distance_to_threshold = max(0, threshold - abs_score) if abs_score < threshold else 0
+            
+            # Create trading intent
+            trading_intent = TradingIntent(
+                next_action=next_action,
+                signal_strength=signal_strength,
+                confidence=confidence,
+                distance_to_threshold=distance_to_threshold
+            )
+            
+            # Create confirmation status object
+            confirmation = ConfirmationStatus(
+                is_active=confirmation_status.get('needs_confirmation', False),
+                action=confirmation_status.get('action_being_confirmed'),
+                progress=confirmation_status.get('confirmation_progress', 0.0),
+                time_remaining_seconds=int(confirmation_status.get('time_remaining_minutes', 0) * 60),
+                started_at=datetime.fromisoformat(confirmation_status['confirmation_start'].replace('Z', '+00:00')) if confirmation_status.get('confirmation_start') else None,
+                required_duration_minutes=bot.confirmation_minutes
+            )
+            
+            # Calculate cooldown remaining (ANY trade - real trades may not have captured Order ID)
+            cooldown_remaining_minutes = 0
+            last_successful_trade = db.query(Trade).filter(
+                Trade.bot_id == bot.id
+            ).order_by(Trade.created_at.desc()).first()
+            
+            if last_successful_trade:
+                time_since_trade = (datetime.utcnow() - last_successful_trade.created_at).total_seconds() / 60
+                cooldown_minutes = getattr(bot, 'cooldown_minutes', None) or 15
+                cooldown_remaining_minutes = max(0, cooldown_minutes - time_since_trade)
+            
+            # Check balance validation for trade readiness
+            has_sufficient_balance = True
+            balance_blocking_reason = None
+            if next_action != "hold":
+                try:
+                    # Get current market price for balance validation
+                    ticker = coinbase_service.get_product_ticker(bot.pair)
+                    if ticker and 'price' in ticker:
+                        current_price = float(ticker['price'])
+                        balance_result = coinbase_service.validate_trade_balance(
+                            product_id=bot.pair,
+                            side=next_action.upper(),
+                            size_usd=bot.position_size_usd,
+                            current_price=current_price
+                        )
+                        has_sufficient_balance = balance_result["valid"]
+                        if not has_sufficient_balance:
+                            balance_blocking_reason = f"insufficient_balance: {balance_result['message']}"
+                    else:
+                        has_sufficient_balance = False
+                        balance_blocking_reason = "cannot_get_price"
+                except Exception as e:
+                    logger.warning(f"Balance check failed for bot {bot.id}: {e}")
+                    has_sufficient_balance = False
+                    balance_blocking_reason = "balance_check_error"
+            
+            # Determine trade readiness
+            confirmation_required = confirmation_status.get('needs_confirmation', False)
+            confirmation_complete = confirmation_status.get('is_confirmed', False) if confirmation_required else True
+            can_trade = (confirmation_complete and bot.status == 'RUNNING' and 
+                        cooldown_remaining_minutes == 0 and has_sufficient_balance)
+            blocking_reason = None
+            readiness_status = "no_signal"
+            
+            if next_action != "hold":
+                if confirmation_status.get('needs_confirmation', False) and not confirmation_status.get('is_confirmed', False):
+                    readiness_status = "confirming"
+                elif cooldown_remaining_minutes > 0:
+                    readiness_status = "cooling_down"
+                    blocking_reason = "cooldown"
+                elif not has_sufficient_balance:
+                    readiness_status = "blocked"
+                    blocking_reason = balance_blocking_reason
+                elif can_trade:
+                    readiness_status = "ready"
+                else:
+                    readiness_status = "blocked"
+                    blocking_reason = "unknown"
+            
+            if not can_trade and next_action != "hold":
+                if bot.status != 'RUNNING':
+                    blocking_reason = "bot_stopped"
+                elif confirmation_status.get('needs_confirmation', False) and not confirmation_status.get('is_confirmed', False):
+                    blocking_reason = "awaiting_confirmation"
+                elif cooldown_remaining_minutes > 0:
+                    blocking_reason = "cooldown"
+                elif not has_sufficient_balance:
+                    blocking_reason = balance_blocking_reason
+            
+            trade_readiness = TradeReadiness(
+                status=readiness_status,
+                can_trade=can_trade,
+                blocking_reason=blocking_reason,
+                cooldown_remaining_minutes=int(cooldown_remaining_minutes)
+            )
+            
+            # Get last trade info
+            last_trade_query = db.query(Trade).filter(Trade.bot_id == bot.id).order_by(Trade.created_at.desc()).first()
+            last_trade = None
+            if last_trade_query:
+                minutes_ago = int((datetime.utcnow() - last_trade_query.created_at).total_seconds() / 60)
+                last_trade = LastTradeInfo(
+                    side=last_trade_query.side,
+                    price=last_trade_query.price,
+                    size=last_trade_query.size,
+                    status=last_trade_query.status,
+                    executed_at=last_trade_query.created_at,
+                    minutes_ago=minutes_ago
+                )
+            
+            enhanced_status_list.append(EnhancedBotStatusResponse(
+                id=bot.id,
+                name=bot.name,
+                pair=bot.pair,
+                status=bot.status,
+                current_combined_score=fresh_score,
+                current_position_size=bot.current_position_size,
+                temperature=temperature,
+                distance_to_signal=distance_to_signal,
+                trading_intent=trading_intent,
+                confirmation=confirmation,
+                trade_readiness=trade_readiness,
+                last_trade=last_trade
+            ))
+            
+        except Exception as e:
+            logger.error(f"Error creating enhanced status for bot {bot.id}: {e}")
+            # Create basic status on error
+            enhanced_status_list.append(EnhancedBotStatusResponse(
+                id=bot.id,
+                name=bot.name,
+                pair=bot.pair,
+                status=bot.status,
+                current_combined_score=bot.current_combined_score,
+                current_position_size=bot.current_position_size,
+                temperature=calculate_bot_temperature(bot.current_combined_score),
+                distance_to_signal=1.0,
+                trading_intent=TradingIntent(next_action="hold", signal_strength=0.0, confidence=0.0, distance_to_threshold=1.0),
+                confirmation=ConfirmationStatus(is_active=False),
+                trade_readiness=TradeReadiness(status="no_signal", can_trade=False),
+                last_trade=None
+            ))
+    
+    return enhanced_status_list
 
 
 @router.get("/{bot_id}/signal-history")

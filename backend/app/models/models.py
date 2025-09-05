@@ -16,7 +16,7 @@ class Bot(Base):
     
     # Position sizing
     position_size_usd = Column(Float, default=100.0)  # Fixed dollar amount per trade
-    max_positions = Column(Integer, default=1)  # Maximum concurrent positions
+    max_positions = Column(Integer, default=5)  # Maximum concurrent positions
     
     # Risk management
     stop_loss_pct = Column(Float, default=5.0)  # Stop loss percentage
@@ -93,7 +93,7 @@ class Trade(Base):
     tranche_number = Column(Integer, default=1)  # Sequential tranche tracking (1, 2, 3...)
     position_status = Column(String(20), default="CLOSED")  # CLOSED, BUILDING, OPEN, REDUCING
     size_usd = Column(Float)  # Trade size in USD
-    trading_mode = Column(String(20), default="production")  # ALL TRADES ARE REAL
+
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     filled_at = Column(DateTime(timezone=True))

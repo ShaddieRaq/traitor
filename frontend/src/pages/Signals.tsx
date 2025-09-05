@@ -91,9 +91,12 @@ const Signals: React.FC = () => {
       // Convert BotCreate to BotUpdate format
       const updateData: BotUpdate = {
         name: data.name,
+        position_size_usd: data.position_size_usd,
         max_positions: data.max_positions,
         stop_loss_pct: data.stop_loss_pct,
         take_profit_pct: data.take_profit_pct,
+        trade_step_pct: data.trade_step_pct,
+        cooldown_minutes: data.cooldown_minutes,
         signal_config: data.signal_config
       };
       

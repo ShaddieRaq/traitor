@@ -106,10 +106,10 @@ if ! wait_for_service "http://localhost:3000" "React Frontend"; then
 fi
 
 # Step 4: Start Celery Worker
-echo -e "\n${BLUE}👷 Starting Celery Worker...${NC}"
+echo -e "\n${BLUE}👷 Starting Celery Worker (single process)...${NC}"
 cd "$PROJECT_ROOT/backend"
 source venv/bin/activate
-nohup celery -A app.tasks.celery_app worker --loglevel=info > ../logs/celery-worker.log 2>&1 &
+nohup celery -A app.tasks.celery_app worker --loglevel=info --concurrency=1 > ../logs/celery-worker.log 2>&1 &
 WORKER_PID=$!
 echo $WORKER_PID > ../logs/celery-worker.pid
 echo -e "${GREEN}✅ Celery Worker started (PID: $WORKER_PID)${NC}"

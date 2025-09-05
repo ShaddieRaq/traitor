@@ -66,18 +66,18 @@ def get_production_trades_summary(db: Session = Depends(get_db)) -> Dict[str, An
     """Get summary of all production trades."""
     try:
         # Count production trades
-        total_production = db.query(Trade).filter(Trade.trading_mode == "production").count()
+        total_trades = db.query(Trade).count()
         
         # Count production trades today
         today = datetime.utcnow().date()
         production_today = db.query(Trade).filter(
-            Trade.trading_mode == "production",
+
             func.date(Trade.created_at) == today
         ).count()
         
         # Get recent production trades
         recent_trades = db.query(Trade).filter(
-            Trade.trading_mode == "production"
+
         ).order_by(Trade.created_at.desc()).limit(5).all()
         
         recent_trade_data = []
@@ -96,7 +96,7 @@ def get_production_trades_summary(db: Session = Depends(get_db)) -> Dict[str, An
         
         return {
             "status": "success",
-            "total_production_trades": total_production,
+            "total_trades": total_trades,
             "production_trades_today": production_today,
             "recent_trades": recent_trades
         }

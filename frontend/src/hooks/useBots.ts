@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
-import { Bot, BotCreate, BotUpdate, BotStatus } from '../types';
+import { Bot, BotCreate, BotUpdate, BotStatus, EnhancedBotStatus } from '../types';
 
 // Bots API hooks
 export const useBots = () => {
@@ -29,6 +29,21 @@ export const useBotsStatus = () => {
     queryFn: async () => {
       const response = await api.get('/bots/status/summary');
       return response.data as BotStatus[];
+    },
+    refetchInterval: 5000, // Refresh every 5 seconds for real-time updates
+    refetchIntervalInBackground: true, // Continue polling when tab is in background
+    refetchOnWindowFocus: true, // Refetch when window comes back into focus
+    refetchOnMount: true, // Refetch when component mounts
+    staleTime: 0, // Always consider data stale to force fresh fetches
+  });
+};
+
+export const useEnhancedBotsStatus = () => {
+  return useQuery({
+    queryKey: ['bots', 'status', 'enhanced'],
+    queryFn: async () => {
+      const response = await api.get('/bots/status/enhanced');
+      return response.data as EnhancedBotStatus[];
     },
     refetchInterval: 5000, // Refresh every 5 seconds for real-time updates
     refetchIntervalInBackground: true, // Continue polling when tab is in background

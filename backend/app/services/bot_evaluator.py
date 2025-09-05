@@ -275,8 +275,8 @@ class BotSignalEvaluator:
         Uses configurable thresholds for buy/sell decisions.
         Default thresholds: buy <= -0.3, sell >= 0.3, hold otherwise
         """
-        buy_threshold = -0.3
-        sell_threshold = 0.3
+        buy_threshold = -0.1  # Lowered for testing (was -0.3)
+        sell_threshold = 0.1   # Lowered for testing (was 0.3)
         
         if overall_score <= buy_threshold:
             return 'buy'
@@ -691,12 +691,18 @@ class BotSignalEvaluator:
             logger.debug(f"Bot {bot.id} in cooldown period - no automatic trade")
             return False
         
+        # Check balance validation before attempting trade
+        if not self._check_balance_for_automatic_trade(bot, action):
+            logger.warning(f"Bot {bot.id} insufficient balance for {action} trade - no automatic trade")
+            return False
+        
         logger.info(f"Bot {bot.id} ready for automatic {action} trade")
         return True
     
     def _check_trade_cooldown(self, bot: Bot) -> bool:
         """
         Check if bot is outside cooldown period since last trade.
+        Uses database row locking to prevent race conditions during rapid checks.
         
         Args:
             bot: Bot instance
@@ -708,11 +714,13 @@ class BotSignalEvaluator:
             # Import here to avoid circular dependency
             from ..models.models import Trade
             
-            # Get last trade for this bot
+            # Get last trade for this bot with row-level locking to prevent race conditions
+            # This ensures multiple Celery tasks don't bypass cooldown simultaneously
             last_trade = (
                 self.db.query(Trade)
                 .filter(Trade.bot_id == bot.id)
                 .order_by(desc(Trade.created_at))
+                .with_for_update()  # Row-level lock to prevent race conditions
                 .first()
             )
             
@@ -739,6 +747,49 @@ class BotSignalEvaluator:
             logger.error(f"Error checking trade cooldown for bot {bot.id}: {str(e)}")
             # On error, allow trade (fail open for safety)
             return True
+    
+    def _check_balance_for_automatic_trade(self, bot: Bot, action: str) -> bool:
+        """
+        Check if bot has sufficient balance for automatic trade execution.
+        
+        Args:
+            bot: Bot instance
+            action: Trade action ('buy' or 'sell')
+            
+        Returns:
+            bool: True if sufficient balance exists
+        """
+        try:
+            from ..services.coinbase_service import coinbase_service
+            
+            # Get current market price
+            ticker = coinbase_service.get_product_ticker(bot.pair)
+            if not ticker or 'price' not in ticker:
+                logger.error(f"Could not get price for {bot.pair} - blocking automatic trade")
+                return False
+            
+            current_price = float(ticker['price'])
+            trade_size_usd = bot.position_size_usd
+            
+            # Validate balance for the specific action
+            balance_result = coinbase_service.validate_trade_balance(
+                product_id=bot.pair,
+                side=action.upper(),
+                size_usd=trade_size_usd,
+                current_price=current_price
+            )
+            
+            if balance_result["valid"]:
+                logger.debug(f"Bot {bot.id} balance check passed for {action}: {balance_result['message']}")
+                return True
+            else:
+                logger.warning(f"Bot {bot.id} balance check failed for {action}: {balance_result['message']}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error checking balance for bot {bot.id} {action} trade: {str(e)}")
+            # On error, block trade (fail safe)
+            return False
     
     def _execute_automatic_trade(self, bot: Bot, evaluation_result: Dict[str, Any]) -> Dict[str, Any]:
         """

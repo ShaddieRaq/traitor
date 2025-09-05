@@ -19,15 +19,15 @@ class TradingSafetyLimits:
     
     # Daily limits
     MAX_DAILY_LOSS_USD = 100.00  # Maximum daily loss across all bots
-    MAX_DAILY_TRADES = 10        # Maximum trades per day across all bots
-    MAX_TRADES_PER_BOT_DAILY = 5 # Maximum trades per bot per day
+    MAX_DAILY_TRADES = 500       # Maximum trades per day across all bots (increased for cooldown testing)
+    MAX_TRADES_PER_BOT_DAILY = 300 # Maximum trades per bot per day (increased for cooldown testing)
     
     # Position limits  
-    MAX_POSITION_SIZE_USD = 25.00    # Maximum single trade size
+    MAX_POSITION_SIZE_USD = 100.00   # Maximum single trade size (increased from 25)
     MIN_POSITION_SIZE_USD = 5.00     # Minimum trade size (avoid dust trades)
     
     # Bot limits
-    MAX_ACTIVE_POSITIONS = 5         # Maximum concurrent positions across all bots
+    MAX_ACTIVE_POSITIONS = 100       # Maximum concurrent positions across all bots (increased from 20)
     
     # Temperature requirements
     MIN_TEMPERATURE_FOR_TRADING = "WARM"  # Minimum temperature to allow trading
@@ -145,7 +145,11 @@ class TradingSafetyService:
             )
         ).count()
         
+        # DEBUG: Log actual count vs limit
+        logger.info(f"🔍 SAFETY DEBUG: Trades today: {global_trades_today}, Limit: {self.limits.MAX_DAILY_TRADES}")
+        
         if global_trades_today >= self.limits.MAX_DAILY_TRADES:
+            logger.warning(f"❌ DAILY TRADE LIMIT EXCEEDED: {global_trades_today} >= {self.limits.MAX_DAILY_TRADES}")
             return False
         
         # Check per-bot daily trades

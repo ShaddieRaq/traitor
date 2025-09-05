@@ -84,7 +84,7 @@ class BotCreate(BaseModel):
     description: str
     pair: str  # e.g., "BTC-USD"
     position_size_usd: float = 100.0
-    max_positions: int = 1
+    max_positions: int = 5
     stop_loss_pct: float = 5.0
     take_profit_pct: float = 10.0
     confirmation_minutes: int = 5
@@ -154,6 +154,48 @@ class BotResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ConfirmationStatus(BaseModel):
+    """Signal confirmation timer status."""
+    is_active: bool
+    action: Optional[str] = None  # "buy", "sell", or None
+    progress: float = 0.0  # 0-1 completion percentage
+    time_remaining_seconds: int = 0
+    started_at: Optional[datetime] = None
+    required_duration_minutes: int = 5
+
+
+class TradingIntent(BaseModel):
+    """Current trading intent and signal strength."""
+    next_action: str  # "buy", "sell", "hold"
+    signal_strength: float  # 0-1 how close to threshold
+    confidence: float  # 0-1 signal reliability
+    distance_to_threshold: float  # How much more signal needed
+
+
+class TradeReadiness(BaseModel):
+    """Current trade readiness status."""
+    status: str  # "confirming", "ready", "cooling_down", "no_signal"
+    can_trade: bool
+    blocking_reason: Optional[str] = None  # "cooldown", "no_signal", "safety_limit"
+    cooldown_remaining_minutes: int = 0
+
+
+class LastTradeInfo(BaseModel):
+    """Information about the last trade."""
+    side: Optional[str] = None  # "BUY", "SELL"
+    price: Optional[float] = None
+    size: Optional[float] = None
+    status: Optional[str] = None  # "filled", "pending"
+    executed_at: Optional[datetime] = None
+    minutes_ago: Optional[int] = None
+
+
+class BalanceStatusResponse(BaseModel):
+    """Balance validation status for trading."""
+    valid: bool
+    message: str
+
+
 class BotStatusResponse(BaseModel):
     """Lightweight bot status for dashboard."""
     id: int
@@ -164,6 +206,27 @@ class BotStatusResponse(BaseModel):
     current_position_size: float
     temperature: str  # HOT, WARM, COLD, FROZEN
     distance_to_signal: float  # How close to buy/sell threshold
+    balance_status: BalanceStatusResponse  # Balance validation info
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EnhancedBotStatusResponse(BaseModel):
+    """Enhanced bot status with trading visibility."""
+    id: int
+    name: str
+    pair: str
+    status: str
+    current_combined_score: float
+    current_position_size: float
+    temperature: str
+    distance_to_signal: float
+    
+    # Enhanced trading visibility fields
+    trading_intent: TradingIntent
+    confirmation: ConfirmationStatus
+    trade_readiness: TradeReadiness
+    last_trade: Optional[LastTradeInfo] = None
     
     model_config = ConfigDict(from_attributes=True)
 

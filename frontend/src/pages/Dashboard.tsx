@@ -1,15 +1,21 @@
 import PortfolioOverview from '../components/Portfolio/PortfolioOverview';
 import MarketTicker from '../components/Market/MarketTicker';
-import { useBotsStatus } from '../hooks/useBots';
+import { useBotsStatus, useEnhancedBotsStatus } from '../hooks/useBots';
 import { useSystemStatus, getSystemHealthColor, getServiceStatusText } from '../hooks/useSystemStatus';
 import { DataFreshnessIndicator, PollingStatusIndicator } from '../components/DataFreshnessIndicators';
+import EnhancedBotCard from '../components/Trading/EnhancedBotCard';
+import TradingActivitySection from '../components/Trading/TradingActivitySection';
 
 const Dashboard: React.FC = () => {
-  const { data: botsStatus, isLoading, dataUpdatedAt, isFetching } = useBotsStatus();
+  const { data: botsStatus } = useBotsStatus();
+  const { data: enhancedBotsStatus, isLoading, dataUpdatedAt, isFetching } = useEnhancedBotsStatus();
   const { data: systemStatus } = useSystemStatus();
-  const runningBots = botsStatus?.filter(bot => bot.status === 'RUNNING') || [];
-  const hotBots = botsStatus?.filter(bot => bot.temperature === 'HOT') || [];
-  const totalBots = botsStatus?.length || 0;
+  
+  // Use enhanced data when available, fall back to basic data
+  const displayBots = enhancedBotsStatus || botsStatus || [];
+  const runningBots = displayBots?.filter(bot => bot.status === 'RUNNING') || [];
+  const hotBots = displayBots?.filter(bot => bot.temperature === 'HOT') || [];
+  const totalBots = displayBots?.length || 0;
   
   return (
     <div className="space-y-6">
@@ -114,10 +120,16 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
           
-          {/* Bot Status Cards with Data Freshness Indicators */}
-          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {botsStatus?.map((bot) => (
-              <div key={`bot-${bot.id}-${bot.current_combined_score}`} className="p-4 bg-gray-50 rounded-lg">
+          {/* Enhanced Bot Status Cards with Trading Visibility */}
+          <div className="mt-6 space-y-4">
+            {enhancedBotsStatus?.map((bot) => (
+              <EnhancedBotCard 
+                key={`enhanced-bot-${bot.id}-${bot.current_combined_score}`}
+                bot={bot}
+                className="shadow-sm"
+              />
+            )) || displayBots?.map((bot) => (
+              <div key={`bot-${bot.id}-${bot.current_combined_score}`} className="p-4 bg-gray-50 rounded-lg border-2 border-gray-200">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center space-x-2">
@@ -139,7 +151,6 @@ const Dashboard: React.FC = () => {
                       <span className="text-2xl">
                         {bot.temperature === 'HOT' ? '🔥' : bot.temperature === 'WARM' ? '🌡️' : bot.temperature === 'COOL' ? '❄️' : '🧊'}
                       </span>
-                      {/* Temperature change indicator - pulse if recently updated */}
                       {isFetching && (
                         <div className="w-1 h-1 bg-blue-400 rounded-full animate-pulse"></div>
                       )}
@@ -158,6 +169,16 @@ const Dashboard: React.FC = () => {
                   <p className="text-xs text-gray-500">
                     Temperature: {bot.temperature} • Distance: {bot.distance_to_signal?.toFixed(2) || 'N/A'}
                   </p>
+                  {/* Balance Status Display */}
+                  {bot.balance_status && (
+                    <div className={`mt-2 text-xs px-2 py-1 rounded ${
+                      bot.balance_status.valid 
+                        ? 'bg-green-50 text-green-700 border border-green-200' 
+                        : 'bg-red-50 text-red-700 border border-red-200'
+                    }`}>
+                      {bot.balance_status.message}
+                    </div>
+                  )}
                 </div>
               </div>
             )) || (
@@ -221,11 +242,18 @@ const Dashboard: React.FC = () => {
               </div>
               
               <div className="mt-4 space-y-2">
-                {botsStatus?.slice(0, 3).map((bot) => (
+                {displayBots?.slice(0, 3).map((bot) => (
                   <div key={bot.id} className="flex items-center justify-between text-sm">
                     <div className="flex items-center">
                       <div className={`w-2 h-2 rounded-full ${bot.status === 'RUNNING' ? 'bg-green-500' : 'bg-gray-300'} mr-2`}></div>
                       <span className="font-medium">{bot.name}</span>
+                      {/* Show trade readiness for enhanced bots */}
+                      {'trade_readiness' in bot && (bot as any).trade_readiness?.is_ready && (
+                        <div className="ml-2 flex items-center">
+                          <div className="w-1 h-1 bg-orange-400 rounded-full animate-pulse"></div>
+                          <span className="text-xs text-orange-600 ml-1">Ready</span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center space-x-1">
                       <span className={`text-xs px-2 py-1 rounded ${bot.status === 'RUNNING' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
@@ -245,37 +273,8 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Recent Activity */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900">
-            Recent Activity
-          </h3>
-          <div className="mt-4 space-y-3">
-            <div className="flex items-center justify-between py-2 border-b border-gray-100">
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                <span className="text-sm text-gray-900">Bot signal evaluation complete</span>
-              </div>
-              <span className="text-xs text-gray-500">Live</span>
-            </div>
-            <div className="flex items-center justify-between py-2 border-b border-gray-100">
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                <span className="text-sm text-gray-900">Market data stream active</span>
-              </div>
-              <span className="text-xs text-gray-500">Live</span>
-            </div>
-            <div className="flex items-center justify-between py-2">
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-orange-500 rounded-full mr-3"></div>
-                <span className="text-sm text-gray-900">Temperature calculations updated</span>
-              </div>
-              <span className="text-xs text-gray-500">Live</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Trading Activity */}
+      <TradingActivitySection bots={enhancedBotsStatus || []} />
     </div>
   );
 };
