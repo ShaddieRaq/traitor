@@ -1,8 +1,22 @@
 # 🎨 Dashboard UX Analysis & Redesign Requirements
 
-**Analysis Date**: September 5, 2025  
+**Analysis Date**: September 5, 2025 (Updated September 6, 2025)  
 **Focus**: "I think the controls were not well thought out, we need to rethink every control and the data its trying to represent, this is where good UX comes into play, what elements are best for displaying the data?"  
-**Status**: Planning Phase - Documentation Complete
+**Status**: **HIGH PRIORITY** - Identified for Phase 4.5 Implementation
+
+## 🚨 **CRITICAL UX ISSUE IDENTIFIED (September 6, 2025)**
+
+### **Dashboard Information Redundancy Problem**
+**User Feedback**: *"the information that is displays is helpful, but i think its a little redundant and disorganized"*
+
+**Specific Redundancy Issues**:
+- **Signal Strength**: Appears 3+ times in different formats (progress bars, percentages, strength indicators)
+- **Action Duplicates**: SELL/HOLD/BUY shown multiple times within same bot card
+- **Progress Bar Overload**: Multiple bars showing similar confidence/strength data
+- **Scattered Information**: Temperature, status, readiness spread across multiple sections
+- **Visual Clutter**: Reduces scanability and decision-making speed
+
+**Impact**: Useful information becomes hard to parse due to repetitive display patterns
 
 ## 🎯 **Current Dashboard UX Assessment**
 

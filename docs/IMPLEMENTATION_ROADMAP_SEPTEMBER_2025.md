@@ -60,6 +60,35 @@ Based on September 6th discovery: *Sophisticated WebSocket infrastructure alread
 
 **Expected Outcome**: Expose sophisticated WebSocket capabilities to users (optional enhancement)
 
+## 🎨 **PHASE 4.5: Dashboard Information Architecture Cleanup (1-2 days) - HIGH PRIORITY**
+
+### **Problem Identified**
+Current dashboard displays redundant information in disorganized layout:
+- Signal strength appears 3+ times in different formats
+- SELL/HOLD actions duplicated across multiple sections  
+- Multiple progress bars showing similar information
+- Temperature, status, and readiness scattered across interface
+
+### **Dashboard Consolidation Tasks**
+```bash
+# 1. Information Hierarchy Redesign
+- Single primary status indicator per bot (not 3-4 scattered displays)
+- Consolidate signal strength into one clean visualization
+- Remove duplicate action indicators (SELL/HOLD/BUY)
+
+# 2. Clean Card Layout
+- Primary info: Action + Confidence + Temperature (top section)
+- Secondary info: Technical details (collapsible/expandable)
+- Remove redundant progress bars and duplicate signal displays
+
+# 3. Scannable Interface
+- Essential information immediately visible
+- Technical details available but not cluttering
+- Clear visual hierarchy with proper spacing
+```
+
+**Expected Outcome**: Clean, scannable dashboard with essential information prioritized and redundancy eliminated
+
 ## 🧪 **MEDIUM PRIORITY: Enhanced Testing Framework (2-3 days)**
 
 ### **Foundation for Sophisticated Strategies**

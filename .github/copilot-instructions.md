@@ -64,7 +64,21 @@ curl -s http://localhost:8000/api/v1/bots/status/summary | python3 -m json.tool 
 - ✅ **INFORMATION FEEDBACK FIXED**: Complete trade visibility with professional dashboard components
 - ✅ **PROFESSIONAL UX**: Enhanced trading interface with BUY/SELL indicators, balance alerts, signal visualization
 - ⚠️ **FUNDING CONSTRAINT**: Both bots blocked by insufficient funds ($2.25 available, $10 required)
-- 🎯 **NEXT PHASE**: Optional WebSocket visibility controls → Advanced strategy framework
+- 🎯 **NEXT PHASE**: Dashboard information architecture cleanup → Optional WebSocket visibility controls → Advanced strategy framework
+
+### **🎨 Known UI Issue - Dashboard Information Redundancy (High Priority)**
+**Problem**: Current dashboard displays redundant information in disorganized layout
+- Signal strength appears 3+ times in different formats (progress bars, percentages, visual indicators)
+- SELL/HOLD/BUY actions duplicated across multiple sections within same bot card
+- Multiple progress bars showing similar confidence/strength information
+- Temperature, status, and readiness information scattered across interface
+- **User Impact**: Visual clutter reduces scanability and decision-making speed
+
+**Planned Resolution**: Phase 4.5 Dashboard Information Architecture Cleanup
+- Consolidate signal information into single, clear visualization
+- Remove duplicate action indicators and progress bars
+- Establish clear primary/secondary information hierarchy
+- Clean card layout with essential info prioritized
 
 ## 🎯 **ARCHITECTURE ESSENTIALS**
 
