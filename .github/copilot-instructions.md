@@ -31,6 +31,7 @@ curl -s http://localhost:8000/api/v1/bots/status/summary | python3 -m json.tool 
 - ✅ **User Confidence Restored**: Complete operational transparency achieved
 - ✅ **Trade Status Synchronization**: Automatic background updates fix perpetual "pending" status (217 trades corrected)
 - ✅ **Enhanced Timestamp Display**: Professional activity timeline with detailed timestamps and tooltips
+- ✅ **Dashboard Information Cleanup**: Eliminated redundant displays, consolidated bot cards, improved scanability
 
 ### **Critical Issue Resolution - Trade Status Pipeline (September 6, 2025)**
 - ✅ **Perpetual "Pending" Status Fixed**: 217 trades updated from stuck "pending" to proper "completed" status
@@ -64,21 +65,24 @@ curl -s http://localhost:8000/api/v1/bots/status/summary | python3 -m json.tool 
 - ✅ **INFORMATION FEEDBACK FIXED**: Complete trade visibility with professional dashboard components
 - ✅ **PROFESSIONAL UX**: Enhanced trading interface with BUY/SELL indicators, balance alerts, signal visualization
 - ⚠️ **FUNDING CONSTRAINT**: Both bots blocked by insufficient funds ($2.25 available, $10 required)
-- 🎯 **NEXT PHASE**: Dashboard information architecture cleanup → Optional WebSocket visibility controls → Advanced strategy framework
+- 🎯 **NEXT PHASE**: Optional WebSocket visibility controls → Advanced strategy framework
 
-### **🎨 Known UI Issue - Dashboard Information Redundancy (High Priority)**
-**Problem**: Current dashboard displays redundant information in disorganized layout
-- Signal strength appears 3+ times in different formats (progress bars, percentages, visual indicators)
-- SELL/HOLD/BUY actions duplicated across multiple sections within same bot card
-- Multiple progress bars showing similar confidence/strength information
-- Temperature, status, and readiness information scattered across interface
-- **User Impact**: Visual clutter reduces scanability and decision-making speed
+### **✅ Phase 4.5 COMPLETE - Dashboard Information Architecture Cleanup (September 6, 2025)**
+**Problem RESOLVED**: Dashboard information redundancy eliminated with consolidated design
+- **Before**: Signal strength appeared 3+ times, actions duplicated 4+ times
+- **After**: Single consolidated component per bot with clean information hierarchy
+- **Implementation**: New `ConsolidatedBotCard` replaces redundant `TradingIntentDisplay` + `EnhancedBotCard`
+- **User Impact**: Clean, scannable interface with primary info prioritized, technical details expandable
+- **Design Pattern**: Primary Section (essential) → Expandable Technical Details (on-demand)
+- **Status**: ✅ **COMPLETE** - Clean consolidated dashboard operational
 
-**Planned Resolution**: Phase 4.5 Dashboard Information Architecture Cleanup
-- Consolidate signal information into single, clear visualization
-- Remove duplicate action indicators and progress bars
-- Establish clear primary/secondary information hierarchy
-- Clean card layout with essential info prioritized
+### **⚠️ CRITICAL LESSON: Development During Live Trading (September 6, 2025)**
+**Issue Identified**: Making frontend/backend changes while bot actively trades can cause:
+- **Race Conditions**: Multiple evaluation processes competing for database locks
+- **Duplicate Trades**: 1-second apart trades violating 3-minute cooldown (e.g., 09:24:48 and 09:24:47)
+- **State Corruption**: Database inconsistencies from concurrent modifications
+- **Solution**: Always stop active trading bots before making system changes
+- **Best Practice**: Clean bot restart after any development work for stable operation
 
 ## 🎯 **ARCHITECTURE ESSENTIALS**
 
@@ -440,7 +444,8 @@ def recommend_exit_strategy(self, bot_id: int, current_price: float) -> Dict:
 - `src/components/BotForm.tsx` - Bot creation/editing forms
 - `src/components/Trading/EnhancedTradingActivitySection.tsx` - **Phase 3**: Professional real-time trade activity display with enhanced timestamps
 - `src/components/Trading/BalanceStatusIndicator.tsx` - **Phase 3**: Proactive balance management with funding alerts
-- `src/components/Trading/TradingIntentDisplay.tsx` - **Phase 3**: Professional BUY/SELL indicators with signal visualization
+- `src/components/Trading/ConsolidatedBotCard.tsx` - **Phase 4.5**: Consolidated bot display eliminating information redundancy
+- `src/components/Trading/TradingIntentDisplay.tsx` - **Phase 3**: Professional BUY/SELL indicators with signal visualization (replaced by ConsolidatedBotCard)
 - `src/components/Trading/TradeExecutionFeed.tsx` - **Phase 2**: Real-time trade execution progress tracking
 - `src/components/ui/Toast.tsx` - **Phase 2**: Smart notification system for trade updates
 

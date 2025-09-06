@@ -9,6 +9,7 @@ from ..services.trading_safety import TradingSafetyService
 from ..services.trading_service import TradingService, TradeExecutionError
 from ..services.bot_evaluator import BotSignalEvaluator
 from ..services.position_service import PositionService, TrancheStrategy
+from ..services.coinbase_service import CoinbaseService
 
 router = APIRouter()
 
@@ -298,9 +299,21 @@ def execute_trade(
                 # Get current price for analytics (try from result, fallback to latest trade)
                 current_price = result.get("details", {}).get("price")
                 if not current_price:
-                    # Fallback: get price from latest trade
-                    latest_trade = db.query(Trade).filter(Trade.bot_id == bot_id).order_by(Trade.created_at.desc()).first()
-                    current_price = latest_trade.price if latest_trade else 50000.0  # Safe fallback
+                    # Get bot to access trading pair
+                    bot = db.query(Bot).filter(Bot.id == bot_id).first()
+                    if bot:
+                        # Fallback: get real market price from Coinbase
+                        try:
+                            coinbase_service = CoinbaseService()
+                            market_data = coinbase_service.get_ticker(bot.pair)
+                            current_price = float(market_data.get('price', 0))
+                        except Exception:
+                            # Final fallback: get price from latest trade
+                            latest_trade = db.query(Trade).filter(Trade.bot_id == bot_id).order_by(Trade.created_at.desc()).first()
+                            current_price = latest_trade.price if latest_trade else None
+                    
+                    if not current_price:
+                        raise HTTPException(status_code=503, detail="Unable to get current market price")
                 
                 # Get performance analysis with current price
                 performance_analysis = position_service.analyze_position_performance(bot_id, current_price)
@@ -389,7 +402,7 @@ def get_trade_status(
                     position_summary = position_service.get_position_summary(trade.bot_id)
                     
                     # Get current price for analytics
-                    current_price = trade.price if trade.price else 50000.0  # Use trade price or fallback
+                    current_price = trade.price  # Use the trade's own price
                     performance_analysis = position_service.analyze_position_performance(trade.bot_id, current_price)
                     
                     # Add DCA analysis
@@ -985,9 +998,19 @@ def get_live_performance_analytics(
                 # Get position summary
                 position_summary = position_service.get_position_summary(bot.id)
                 
-                # Get current price from latest trade or use fallback
-                latest_trade = db.query(Trade).filter(Trade.bot_id == bot.id).order_by(Trade.created_at.desc()).first()
-                current_price = latest_trade.price if latest_trade else 50000.0
+                # Get current price from Coinbase or latest trade
+                current_price = None
+                try:
+                    coinbase_service = CoinbaseService()
+                    market_data = coinbase_service.get_ticker(bot.pair)
+                    current_price = float(market_data.get('price', 0))
+                except Exception:
+                    # Fallback to latest trade price
+                    latest_trade = db.query(Trade).filter(Trade.bot_id == bot.id).order_by(Trade.created_at.desc()).first()
+                    current_price = latest_trade.price if latest_trade else None
+                
+                if not current_price:
+                    continue  # Skip this bot if we can't get price
                 
                 # Get performance analysis with current price
                 performance_analysis = position_service.analyze_position_performance(bot.id, current_price)
@@ -1087,9 +1110,19 @@ def get_bot_dashboard_analytics(
         position_service = PositionService(db)
         trading_service = TradingService(db)
         
-        # Get current price from latest trade or use fallback
-        latest_trade = db.query(Trade).filter(Trade.bot_id == bot_id).order_by(Trade.created_at.desc()).first()
-        current_price = latest_trade.price if latest_trade else 50000.0
+        # Get current price from Coinbase or latest trade
+        current_price = None
+        try:
+            coinbase_service = CoinbaseService()
+            market_data = coinbase_service.get_ticker(bot.pair)
+            current_price = float(market_data.get('price', 0))
+        except Exception:
+            # Fallback to latest trade price
+            latest_trade = db.query(Trade).filter(Trade.bot_id == bot_id).order_by(Trade.created_at.desc()).first()
+            current_price = latest_trade.price if latest_trade else None
+        
+        if not current_price:
+            raise HTTPException(status_code=503, detail="Unable to get current market price for analytics")
         
         # Core analytics
         position_summary = position_service.get_position_summary(bot_id)

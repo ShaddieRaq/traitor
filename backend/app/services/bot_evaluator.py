@@ -686,7 +686,12 @@ class BotSignalEvaluator:
             logger.debug(f"Bot {bot.id} action '{action}' - no automatic trade needed")
             return False
         
-        # Check trade cooldown
+        # Check for existing pending orders FIRST (critical fix)
+        if not self._check_no_pending_orders(bot):
+            logger.debug(f"Bot {bot.id} has pending orders - no automatic trade")
+            return False
+        
+        # Check trade cooldown (now based on filled_at)
         if not self._check_trade_cooldown(bot):
             logger.debug(f"Bot {bot.id} in cooldown period - no automatic trade")
             return False
@@ -728,9 +733,11 @@ class BotSignalEvaluator:
                 logger.debug(f"Bot {bot.id} has no previous trades - cooldown check passed")
                 return True
             
-            # Calculate time since last trade
+            # Calculate time since last FILLED trade (not just placed)
             now = datetime.utcnow()
-            time_since_trade = (now - last_trade.created_at).total_seconds() / 60  # minutes
+            # Use filled_at if available, otherwise fall back to created_at for legacy trades
+            last_trade_time = last_trade.filled_at if last_trade.filled_at else last_trade.created_at
+            time_since_trade = (now - last_trade_time).total_seconds() / 60  # minutes
             
             # Get cooldown period (default 15 minutes)
             cooldown_minutes = getattr(bot, 'cooldown_minutes', None) or 15
@@ -747,6 +754,42 @@ class BotSignalEvaluator:
             logger.error(f"Error checking trade cooldown for bot {bot.id}: {str(e)}")
             # On error, allow trade (fail open for safety)
             return True
+    
+    def _check_no_pending_orders(self, bot: Bot) -> bool:
+        """
+        Check that bot has no pending orders before placing a new one.
+        Critical fix to prevent multiple open orders for same bot.
+        
+        Args:
+            bot: Bot instance
+            
+        Returns:
+            bool: True if no pending orders exist
+        """
+        try:
+            # Import here to avoid circular dependency
+            from ..models.models import Trade
+            
+            # Check for any pending orders for this bot
+            pending_orders = (
+                self.db.query(Trade)
+                .filter(Trade.bot_id == bot.id)
+                .filter(Trade.status.in_(["pending", "open", "active"]))
+                .filter(Trade.order_id.isnot(None))  # Only real orders with order_ids
+                .count()
+            )
+            
+            if pending_orders > 0:
+                logger.warning(f"Bot {bot.id} has {pending_orders} pending orders - blocking new trade")
+                return False
+            
+            logger.debug(f"Bot {bot.id} has no pending orders - can place new trade")
+            return True
+                
+        except Exception as e:
+            logger.error(f"Error checking pending orders for bot {bot.id}: {str(e)}")
+            # On error, block trade (fail safe)
+            return False
     
     def _check_balance_for_automatic_trade(self, bot: Bot, action: str) -> bool:
         """

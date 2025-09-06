@@ -3,10 +3,9 @@ import MarketTicker from '../components/Market/MarketTicker';
 import { useBotsStatus, useEnhancedBotsStatus } from '../hooks/useBots';
 import { useSystemStatus, getSystemHealthColor, getServiceStatusText } from '../hooks/useSystemStatus';
 import { DataFreshnessIndicator, PollingStatusIndicator } from '../components/DataFreshnessIndicators';
-import EnhancedBotCard from '../components/Trading/EnhancedBotCard';
+import ConsolidatedBotCard from '../components/Trading/ConsolidatedBotCard';
 import EnhancedTradingActivitySection from '../components/Trading/EnhancedTradingActivitySection';
 import BalanceStatusIndicator from '../components/Trading/BalanceStatusIndicator';
-import TradingIntentDisplay from '../components/Trading/TradingIntentDisplay';
 import { TradeExecutionFeed } from '../components/Trading/TradeExecutionFeed';
 import { TradeProgressIndicator } from '../components/Trading/TradeProgressIndicator';
 import { useTradeExecutionToasts } from '../hooks/useTradeExecutionToasts';
@@ -147,16 +146,13 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
           
-          {/* Enhanced Bot Status Cards with Trading Visibility */}
+          {/* Consolidated Bot Status Cards - Clean, No Redundancy */}
           <div className="mt-6 space-y-4">
             {enhancedBotsStatus?.map((bot) => (
-              <div key={`enhanced-bot-${bot.id}-${bot.current_combined_score}`} className="space-y-4">
-                <TradingIntentDisplay bot={bot} />
-                <EnhancedBotCard 
-                  bot={bot}
-                  className="shadow-sm"
-                />
-              </div>
+              <ConsolidatedBotCard 
+                key={`consolidated-bot-${bot.id}-${bot.current_combined_score}`}
+                bot={bot}
+              />
             )) || displayBots?.map((bot) => (
               <div key={`bot-${bot.id}-${bot.current_combined_score}`} className="p-4 bg-gray-50 rounded-lg border-2 border-gray-200">
                 <div className="flex items-center justify-between">

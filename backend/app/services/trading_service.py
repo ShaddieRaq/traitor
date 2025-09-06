@@ -386,7 +386,7 @@ class TradingService:
                 size=size_usd,  # Store USD size for simplicity in Phase 4.1.2
                 price=price,
                 order_id=order_result["order_id"],
-                status=order_result.get("status", "pending"),
+                status=order_result.get("status", "pending"),  # Start as pending
                 combined_signal_score=bot.current_combined_score,
                 signal_scores=json.dumps(signal_scores),
                 # Phase 4.1.3: Enhanced position fields
@@ -396,7 +396,9 @@ class TradingService:
                 position_tranches=position_tranches_json,
                 position_status="BUILDING",  # Will be updated by position service
 
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
+                # filled_at will be set when order actually fills (not immediately)
+                filled_at=None
             )
             
             self.db.add(trade)
@@ -492,11 +494,10 @@ class TradingService:
             
             for trade in pending_trades:
                 if not trade.order_id:
-                    # No order ID means this was a mock trade or failed order
-                    trade.status = "completed"  # Assume mock trades complete immediately
+                    # No order ID means trade failed to place - mark as failed
+                    trade.status = "failed"
                     trade.filled_at = datetime.utcnow()
                     updated_count += 1
-                    completed_count += 1
                     continue
                     
                 # Check order status with Coinbase
@@ -509,13 +510,18 @@ class TradingService:
                     # Map Coinbase statuses to our statuses
                     if new_status.lower() in ["filled", "done", "settled"]:
                         trade.status = "completed"
-                        trade.filled_at = datetime.utcnow()
+                        # CRITICAL: Only set filled_at when order actually fills
+                        if not trade.filled_at:  # Don't overwrite if already set
+                            trade.filled_at = datetime.utcnow()
                         completed_count += 1
                     elif new_status.lower() in ["cancelled", "rejected"]:
                         trade.status = "failed"
-                        trade.filled_at = datetime.utcnow()
+                        # Don't set filled_at for failed orders - they weren't filled
+                        trade.filled_at = None
                     elif new_status.lower() in ["open", "active", "pending"]:
                         trade.status = "pending"
+                        # Keep filled_at as None for pending orders
+                        trade.filled_at = None
                     else:
                         trade.status = new_status.lower()
                     
@@ -558,8 +564,8 @@ class TradingService:
             position_summary = self.position_service.get_position_summary(bot.id)
             
             # Base size from position service (optimal tranche sizing)
-            # Get current market price for calculation
-            current_price = 50000.0  # Default price for testing
+            # Get current market price for calculation - FIXED: Use real market price
+            current_price = self._get_current_price(bot.pair)
             optimal_tranche_result = self.position_service.calculate_optimal_tranche_size(
                 bot.id, 
                 current_price

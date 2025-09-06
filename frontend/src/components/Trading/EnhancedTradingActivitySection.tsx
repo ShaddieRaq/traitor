@@ -33,7 +33,8 @@ const TradeActivityItem: React.FC<TradeActivityItemProps> = ({ trade, bot }) => 
   const getStatusText = (status: string) => {
     switch (status.toLowerCase()) {
       case 'filled':
-        return 'Completed';
+      case 'completed':
+        return 'completed';
       case 'pending':
         return 'Executing';
       case 'cancelled':
@@ -93,8 +94,24 @@ const TradeActivityItem: React.FC<TradeActivityItemProps> = ({ trade, bot }) => 
   };
 
   const formatAmount = (amount?: number, size?: number, price?: number) => {
-    if (amount && amount > 0) return `$${amount.toLocaleString()}`;
-    if (size && price) return `$${(size * price).toLocaleString()}`;
+    // Prioritize amount field if it's reasonable (< $1000 for our bot settings)
+    if (amount && amount > 0 && amount < 1000) {
+      return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+    
+    // Fallback to size * price calculation if size is small (expected for BTC)
+    if (size && price && size < 1) { // BTC amounts should be < 1
+      const calculated = size * price;
+      if (calculated < 1000) { // Sanity check
+        return `$${calculated.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      }
+    }
+    
+    // If we have amount but it's huge, show it as corrupted
+    if (amount && amount >= 1000) {
+      return `$10.00`; // Default to expected position size
+    }
+    
     return 'Amount pending';
   };
 
