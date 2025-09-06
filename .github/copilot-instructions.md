@@ -11,14 +11,14 @@ curl -s http://localhost:8000/api/v1/bots/status/summary | python3 -m json.tool 
 
 ### **Current System Status (September 5, 2025)**
 - ✅ **Trading System Operational**: 2,870 trades executed (92.7% success rate)
-- ✅ **Two Production Bots**: BTC Continuous Trader (FROZEN 🧊), ETH Continuous Trader (FROZEN 🧊) 
-- ✅ **Test Suite**: 82/82 tests (80 passing, 2 failing - documented issues)
+- ✅ **Two Production Bots**: BTC Continuous Trader (HOT 🔥), ETH Continuous Trader (HOT 🔥) - Strong signals but blocked
+- ✅ **Test Suite**: 82 total tests (80 passing, 2 failing - documented issues)
 - ✅ **Service Health**: All services operational (Redis, Backend, Frontend, Celery)
 - ✅ **Performance**: Sub-100ms API response times, 0.4% memory usage
 - ✅ **Enhanced Status API**: `/api/v1/bots/status/enhanced` with trading_intent, confirmation, trade_readiness
-- ⚠️ **BALANCE ISSUE**: Both bots blocked by insufficient funds ($2.25 available, $10 required)
-- ⚠️ **INFORMATION FEEDBACK**: Trade data pipeline improvements needed for user confidence
-- 🎯 **CURRENT FOCUS**: Dashboard visibility enhancements and balance management UX
+- ⚠️ **CRITICAL ISSUE**: Both bots blocked by insufficient funds ($2.25 available, $10 required)
+- ⚠️ **INFORMATION FEEDBACK**: Trade data pipeline broken - missing action fields, $0.00 amounts
+- 🎯 **CURRENT FOCUS**: Information feedback pipeline fix → Dashboard UX enhancement → Balance management
 
 ## 🎯 **ARCHITECTURE ESSENTIALS**
 
@@ -70,7 +70,7 @@ Real Orders: Actual buy/sell orders placed on Coinbase Pro
 curl -s "http://localhost:8000/api/v1/bots/status/enhanced" | python3 -m json.tool
 
 # Expected: Enhanced data with trading_intent, confirmation, trade_readiness fields
-# Current status: Both bots FROZEN 🧊 due to insufficient balance
+# Current status: Both bots HOT 🔥 but blocked by insufficient balance
 
 # Verify trade statistics and system performance
 curl -s "http://localhost:8000/api/v1/trades/stats" | python3 -m json.tool
@@ -131,7 +131,7 @@ open http://localhost:3000  # Values should change every 5 seconds
 - **Database**: SQLite (`backend/trader.db`) - single file, no setup needed
 - **Redis**: Docker container managed by `docker-compose.yml`
 - **Process Management**: All services run as background processes with PID tracking
-- **Test Suite**: 82 tests with <8 second execution time (includes Phase 4 trading tests)
+- **Test Suite**: 82 tests with ~14 second execution time (includes Phase 4 trading tests)
 
 ### **Real-Time Architecture Patterns**
 - **Polling > WebSocket**: Simple 5-second polling more reliable than complex WebSocket
@@ -372,7 +372,7 @@ def recommend_exit_strategy(self, bot_id: int, current_price: float) -> Dict:
 
 ### **Test Execution**
 ```bash
-./scripts/test.sh              # Run all 82 tests
+./scripts/test.sh              # Run all 82 tests (80 passing, 2 failing - documented)
 ./scripts/test.sh --unit       # Signal processing only  
 ./scripts/test.sh --integration # API and database tests
 ```
@@ -388,7 +388,7 @@ def recommend_exit_strategy(self, bot_id: int, current_price: float) -> Dict:
 ### **Test Quality Principles**
 - **Live API Testing**: Uses real Coinbase API endpoints
 - **Automatic Cleanup**: Test bots removed after each run
-- **Performance**: <8 seconds for full 82-test suite
+- **Performance**: ~14 seconds for full 82-test suite
 - **Real Data**: Tests use actual market conditions
 - **Comprehensive Coverage**: All Phase 4 features tested
 - **Integration Focus**: Real-world usage patterns validated
