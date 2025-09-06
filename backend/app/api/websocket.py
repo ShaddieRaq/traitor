@@ -63,10 +63,56 @@ class ConnectionManager:
         # Clean up failed connections
         for connection in disconnect_list:
             self.disconnect(connection)
+    
+    async def broadcast_trade_update(self, trade_update: dict):
+        """Broadcast trade execution updates to all connected clients."""
+        message = {
+            "type": "trade_execution_update",
+            "data": trade_update,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        await self.broadcast(message)
 
 
 # Global connection manager
 manager = ConnectionManager()
+
+
+@router.websocket("/trade-execution")
+async def websocket_trade_execution(websocket: WebSocket):
+    """WebSocket endpoint for real-time trade execution updates."""
+    await manager.connect(websocket)
+    
+    try:
+        # Send initial connection confirmation
+        await manager.send_personal_message({
+            "type": "trade_connection_established",
+            "message": "Connected to trade execution updates",
+            "timestamp": datetime.utcnow().isoformat()
+        }, websocket)
+        
+        # Keep connection alive for trade updates
+        while True:
+            try:
+                data = await websocket.receive_text()
+                message = json.loads(data)
+                
+                if message.get("type") == "ping":
+                    await manager.send_personal_message({
+                        "type": "pong",
+                        "timestamp": datetime.utcnow().isoformat()
+                    }, websocket)
+                    
+            except WebSocketDisconnect:
+                break
+            except Exception as e:
+                logger.error(f"Error in trade execution WebSocket: {e}")
+                break
+                
+    except WebSocketDisconnect:
+        pass
+    finally:
+        manager.disconnect(websocket)
 
 
 @router.websocket("/bot-status")

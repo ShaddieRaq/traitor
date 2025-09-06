@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
+import { ToastProvider } from './components/ui/Toast';
 import Dashboard from './pages/Dashboard';
 import Signals from './pages/Signals';
 import Trades from './pages/Trades';
@@ -12,9 +13,10 @@ const queryClient = new QueryClient();
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router>
-        <div className="min-h-screen bg-gray-50">
-          <Toaster position="top-right" />
+      <ToastProvider>
+        <Router>
+          <div className="min-h-screen bg-gray-50">
+            <Toaster position="top-right" />
           
           {/* Navigation */}
           <nav className="bg-white shadow-sm border-b">
@@ -73,6 +75,7 @@ function App() {
           </main>
         </div>
       </Router>
+      </ToastProvider>
     </QueryClientProvider>
   );
 }

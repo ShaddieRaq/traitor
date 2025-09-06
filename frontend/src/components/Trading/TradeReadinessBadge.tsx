@@ -7,7 +7,17 @@ interface TradeReadinessBadgeProps {
 }
 
 const TradeReadinessBadge: React.FC<TradeReadinessBadgeProps> = ({ readiness, className = '' }) => {
-  const getStatusConfig = (status: string, canTrade: boolean) => {
+  const getStatusConfig = (status: string, canTrade: boolean, blockingReason?: string) => {
+    // Priority: Check for critical balance issues first
+    if (!canTrade && blockingReason?.includes('insufficient_balance')) {
+      return {
+        color: 'bg-red-100 text-red-800 border-red-300',
+        icon: '💰',
+        text: 'Insufficient Balance',
+        critical: true
+      };
+    }
+    
     if (canTrade && status === 'ready') {
       return {
         color: 'bg-green-100 text-green-800 border-green-200',
@@ -85,7 +95,7 @@ const TradeReadinessBadge: React.FC<TradeReadinessBadgeProps> = ({ readiness, cl
     }
   };
 
-  const config = getStatusConfig(readiness.status, readiness.can_trade);
+  const config = getStatusConfig(readiness.status, readiness.can_trade, readiness.blocking_reason);
   const blockingText = getBlockingReasonText(readiness.blocking_reason);
 
   return (

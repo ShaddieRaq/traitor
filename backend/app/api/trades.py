@@ -19,14 +19,37 @@ def get_trades(
     limit: int = 100,
     db: Session = Depends(get_db)
 ):
-    """Get trade history."""
+    """Get trade history with enhanced information feedback."""
     query = db.query(Trade)
     
     if product_id:
         query = query.filter(Trade.product_id == product_id)
     
     trades = query.order_by(Trade.created_at.desc()).limit(limit).all()
-    return trades
+    
+    # Enhance trades with computed fields for information feedback
+    enhanced_trades = []
+    for trade in trades:
+        trade_dict = {
+            "id": trade.id,
+            "bot_id": trade.bot_id,
+            "product_id": trade.product_id,
+            "side": trade.side,
+            "size": trade.size,
+            "price": trade.price,
+            "fee": trade.fee,
+            "order_id": trade.order_id,
+            "status": trade.status,
+            "combined_signal_score": trade.combined_signal_score,
+            "created_at": trade.created_at,
+            "filled_at": trade.filled_at,
+            # Enhanced information feedback fields
+            "action": trade.side.upper() if trade.side else None,  # BUY/SELL from side
+            "amount": float(trade.size) * float(trade.price) if trade.size and trade.price else 0.0  # USD value
+        }
+        enhanced_trades.append(TradeResponse(**trade_dict))
+    
+    return enhanced_trades
 
 
 @router.get("/stats")

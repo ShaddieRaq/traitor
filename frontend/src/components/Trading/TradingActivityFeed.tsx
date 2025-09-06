@@ -1,5 +1,6 @@
 import React from 'react';
 import { EnhancedBotStatus } from '../../types';
+import { useTrades } from '../../hooks/useTrades';
 
 interface TradingActivityFeedProps {
   bots: EnhancedBotStatus[];
@@ -7,7 +8,10 @@ interface TradingActivityFeedProps {
 }
 
 const TradingActivityFeed: React.FC<TradingActivityFeedProps> = ({ bots, className = '' }) => {
-  // Generate activity items from bot data
+  // Fetch actual trade data
+  const { data: trades, isLoading: tradesLoading } = useTrades(10);
+
+  // Generate activity items from bot data and actual trades
   const generateActivityItems = () => {
     const activities: Array<{
       id: string;
@@ -54,20 +58,6 @@ const TradingActivityFeed: React.FC<TradingActivityFeedProps> = ({ bots, classNa
         });
       }
 
-      // Recent trades
-      if (botData.last_trade) {
-        activities.push({
-          id: `trade-${bot.id}`,
-          type: 'trade',
-          botName: bot.name,
-          message: `${botData.last_trade.side?.toUpperCase()} $${botData.last_trade.size?.toFixed(2) || '0.00'}`,
-          timestamp: new Date(botData.last_trade.created_at || Date.now()),
-          status: 'completed',
-          color: botData.last_trade.side === 'buy' ? 'bg-green-500' : 'bg-red-500',
-          action: botData.last_trade.side
-        });
-      }
-
       // Signal strength alerts (for strong signals)
       if (botData.trading_intent?.signal_strength >= 0.8) {
         activities.push({
@@ -83,8 +73,25 @@ const TradingActivityFeed: React.FC<TradingActivityFeedProps> = ({ bots, classNa
       }
     });
 
+    // Add actual trade data from enhanced API
+    if (trades && !tradesLoading) {
+      trades.slice(0, 5).forEach((trade) => {
+        const botName = bots.find(b => b.id === trade.bot_id)?.name || `Bot ${trade.bot_id}`;
+        activities.push({
+          id: `actual-trade-${trade.id}`,
+          type: 'trade',
+          botName,
+          message: `${trade.action || trade.side?.toUpperCase()} $${trade.amount?.toFixed(2) || (trade.size * trade.price).toFixed(2)}`,
+          timestamp: new Date(trade.created_at),
+          status: trade.status === 'filled' ? 'completed' : trade.status === 'pending' ? 'active' : 'completed',
+          color: (trade.action === 'BUY' || trade.side === 'buy') ? 'bg-green-500' : 'bg-red-500',
+          action: trade.action?.toLowerCase() || trade.side
+        });
+      });
+    }
+
     // Sort by timestamp, most recent first
-    return activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, 10);
+    return activities.sort((a: any, b: any) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, 10);
   };
 
   const activities = generateActivityItems();

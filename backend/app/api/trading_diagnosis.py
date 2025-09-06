@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.core.database import get_db
-from app.models.models import Bot, Trade
-from app.services.bot_evaluator import BotSignalEvaluator
-from app.services.coinbase_service import CoinbaseService
-from app.services.trading_safety import TradingSafetyService
+from ..core.database import get_db
+from ..models.models import Bot, Trade
+from ..services.bot_evaluator import BotSignalEvaluator
+from ..services.coinbase_service import CoinbaseService
+from ..services.trading_safety import TradingSafetyService
 from typing import Dict, Any, List
 import os
 from datetime import datetime, timedelta

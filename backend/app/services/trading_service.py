@@ -91,12 +91,30 @@ class TradingService:
             # 8. PHASE 4.1.3: PRE-EXECUTION ANALYTICS 📊
             pre_execution_analytics = self._generate_pre_execution_analytics(bot, side, size_usd, market_price, current_temperature)
             
-            # 9. Execute the order on Coinbase
-            order_result = self._place_order(bot.pair, side, base_size)
+            # 9. Execute the order on Coinbase with real-time updates
+            self._emit_trade_update({
+                "stage": "trade_starting",
+                "bot_id": bot_id,
+                "bot_name": bot.name,
+                "side": side,
+                "size_usd": size_usd,
+                "status": "starting",
+                "message": f"Starting {side} trade for ${size_usd:.2f}..."
+            })
+            
+            order_result = self._place_order(bot.pair, side, base_size, bot_id)
             if not order_result:
                 raise TradeExecutionError("Failed to place order on Coinbase")
             
             # 10. Record trade with enhanced analytics
+            self._emit_trade_update({
+                "stage": "recording_trade",
+                "bot_id": bot_id,
+                "order_id": order_result.get('order_id'),
+                "status": "recording",
+                "message": "Recording trade in database..."
+            })
+            
             trade_record = self._record_trade(bot, side, size_usd, market_price, order_result, current_temperature)
             
             # 11. Update bot position (if this was a successful order)
@@ -105,6 +123,22 @@ class TradingService:
             # 12. PHASE 4.1.3: POST-EXECUTION ANALYTICS & POSITION SUMMARY 🎯
             position_summary = self.position_service.get_position_summary(bot.id)
             post_execution_analytics = self._generate_post_execution_analytics(bot, trade_record, position_summary)
+            
+            # Phase 2: Emit successful completion
+            self._emit_trade_update({
+                "stage": "trade_completed",
+                "bot_id": bot_id,
+                "trade_id": trade_record.id,
+                "order_id": order_result.get('order_id'),
+                "status": "completed",
+                "message": f"✅ Trade completed successfully! {side} ${size_usd:.2f}",
+                "execution_details": {
+                    "side": side,
+                    "amount": size_usd,
+                    "price": market_price,
+                    "order_id": order_result.get('order_id')
+                }
+            })
             
             success_result = {
                 "success": True,
@@ -261,9 +295,37 @@ class TradingService:
         
         return round(base_size, 8)  # Round to 8 decimal places for crypto precision
     
-    def _place_order(self, product_id: str, side: str, base_size: float) -> Optional[Dict[str, Any]]:
-        """Place the actual order on Coinbase."""
+    def _emit_trade_update(self, update_data: dict):
+        """Emit real-time trade execution updates via WebSocket (Phase 2)."""
         try:
+            # Import here to avoid circular imports
+            from ..api.websocket import manager
+            import asyncio
+            
+            # Emit update in background (non-blocking)
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(manager.broadcast_trade_update(update_data))
+            loop.close()
+        except Exception as e:
+            logger.warning(f"Failed to emit trade update: {e}")
+            # Don't fail the trade if WebSocket emission fails
+    
+    def _place_order(self, product_id: str, side: str, base_size: float, bot_id: int = None) -> Optional[Dict[str, Any]]:
+        """Place the actual order on Coinbase with real-time WebSocket updates."""
+        try:
+            # Phase 2: Emit trade execution start
+            if bot_id:
+                self._emit_trade_update({
+                    "stage": "order_placing",
+                    "bot_id": bot_id,
+                    "product_id": product_id,
+                    "side": side,
+                    "size": base_size,
+                    "status": "placing_order",
+                    "message": f"Placing {side} order for {base_size} {product_id}..."
+                })
+            
             order_result = self.coinbase_service.place_market_order(
                 product_id=product_id,
                 side=side,
@@ -271,12 +333,38 @@ class TradingService:
             )
             
             if not order_result:
+                if bot_id:
+                    self._emit_trade_update({
+                        "stage": "order_failed",
+                        "bot_id": bot_id,
+                        "status": "failed",
+                        "message": "Order placement returned no result"
+                    })
                 raise TradeExecutionError("Coinbase order placement returned None")
+            
+            # Phase 2: Emit successful order placement
+            if bot_id:
+                self._emit_trade_update({
+                    "stage": "order_placed",
+                    "bot_id": bot_id,
+                    "order_id": order_result.get('order_id'),
+                    "status": "order_placed",
+                    "message": f"Order placed successfully: {order_result.get('order_id')}"
+                })
             
             logger.info(f"📋 Order placed: {order_result.get('order_id')} - {side} {base_size} {product_id}")
             return order_result
             
         except Exception as e:
+            # Phase 2: Emit error update
+            if bot_id:
+                self._emit_trade_update({
+                    "stage": "order_failed",
+                    "bot_id": bot_id,
+                    "status": "failed",
+                    "error": str(e),
+                    "message": f"Order placement failed: {e}"
+                })
             raise TradeExecutionError(f"Order placement failed: {e}")
     
     def _record_trade(self, bot: Bot, side: str, size_usd: float, price: float, 

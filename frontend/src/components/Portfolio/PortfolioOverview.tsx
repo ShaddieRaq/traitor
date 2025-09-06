@@ -1,6 +1,5 @@
 import React from 'react';
 import { useAccounts, useProducts } from '../../hooks/useMarket';
-import { Account } from '../../types';
 
 interface PortfolioProps {
   // Production trading system - all data is live

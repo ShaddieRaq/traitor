@@ -14,9 +14,27 @@ const TradeBlockingDiagnosis: React.FC<TradeBlockingDiagnosisProps> = ({ bot, cl
   const nextAction = botData.trading_intent?.next_action || 'hold';
   const signalStrength = Math.round((botData.trading_intent?.signal_strength || 0) * 100);
   const canTrade = botData.trade_readiness?.can_trade;
+  const blockingReason = botData.trade_readiness?.blocking_reason || '';
 
-  // Simple status explanations
+  // Simple status explanations with enhanced balance warnings
   const getStatusInfo = () => {
+    // Priority 1: Check for balance issues first (most critical)
+    if (blockingReason.includes('insufficient_balance')) {
+      const balanceMatch = blockingReason.match(/\$([0-9.]+) available, \$([0-9.]+) required/);
+      const available = balanceMatch ? parseFloat(balanceMatch[1]) : 0;
+      const required = balanceMatch ? parseFloat(balanceMatch[2]) : 10;
+      const shortfall = required - available;
+      
+      return {
+        title: '⚠️ Insufficient Balance',
+        message: `Need $${shortfall.toFixed(2)} more to trade. Available: $${available.toFixed(2)}, Required: $${required.toFixed(2)}`,
+        color: 'bg-red-100 text-red-700 border-red-300',
+        icon: '💰',
+        actionable: true,
+        actionText: 'Add Funds to Continue Trading'
+      };
+    }
+
     switch (status) {
       case 'no_signal':
         return {
@@ -78,8 +96,19 @@ const TradeBlockingDiagnosis: React.FC<TradeBlockingDiagnosisProps> = ({ bot, cl
           <div className="text-sm font-medium mb-1">{statusInfo.title}</div>
           <div className="text-xs opacity-90">{statusInfo.message}</div>
           
+          {/* Enhanced actionable feedback for balance issues */}
+          {(statusInfo as any).actionable && (
+            <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs">
+              <div className="font-medium text-red-800 mb-1">Action Required:</div>
+              <div className="text-red-700">{(statusInfo as any).actionText}</div>
+              <div className="mt-1 text-red-600">
+                💡 <strong>Bot shows {bot.temperature} 🔥 but can't trade without funds</strong>
+              </div>
+            </div>
+          )}
+          
           {/* Show next action clearly */}
-          {nextAction !== 'hold' && (
+          {nextAction !== 'hold' && !(statusInfo as any).actionable && (
             <div className="mt-2 text-xs font-medium">
               Next Action: <span className={`${nextAction === 'buy' ? 'text-green-600' : 'text-red-600'}`}>
                 {nextAction.toUpperCase()}

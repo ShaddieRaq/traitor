@@ -258,6 +258,10 @@ class TradeResponse(BaseModel):
     created_at: datetime
     filled_at: Optional[datetime] = None
     
+    # Enhanced fields for information feedback
+    action: Optional[str] = None  # Computed from side (BUY/SELL)
+    amount: Optional[float] = None  # Computed as size * price (USD value)
+    
     model_config = ConfigDict(from_attributes=True)
 
 

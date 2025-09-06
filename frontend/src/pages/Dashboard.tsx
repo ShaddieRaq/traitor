@@ -5,11 +5,17 @@ import { useSystemStatus, getSystemHealthColor, getServiceStatusText } from '../
 import { DataFreshnessIndicator, PollingStatusIndicator } from '../components/DataFreshnessIndicators';
 import EnhancedBotCard from '../components/Trading/EnhancedBotCard';
 import TradingActivitySection from '../components/Trading/TradingActivitySection';
+import { TradeExecutionFeed } from '../components/Trading/TradeExecutionFeed';
+import { TradeProgressIndicator } from '../components/Trading/TradeProgressIndicator';
+import { useTradeExecutionToasts } from '../hooks/useTradeExecutionToasts';
 
 const Dashboard: React.FC = () => {
   const { data: botsStatus } = useBotsStatus();
   const { data: enhancedBotsStatus, isLoading, dataUpdatedAt, isFetching } = useEnhancedBotsStatus();
   const { data: systemStatus } = useSystemStatus();
+  
+  // Real-time trade execution updates
+  const { updates: tradeUpdates, isExecuting, isConnected: wsConnected } = useTradeExecutionToasts();
   
   // Use enhanced data when available, fall back to basic data
   const displayBots = enhancedBotsStatus || botsStatus || [];
@@ -81,6 +87,25 @@ const Dashboard: React.FC = () => {
 
       {/* Market Ticker */}
       <MarketTicker />
+
+      {/* Real-time Trade Execution Status */}
+      {(isExecuting || tradeUpdates.length > 0) && (
+        <div className="space-y-4">
+          <TradeProgressIndicator updates={tradeUpdates} isExecuting={isExecuting} />
+          <div className="bg-white shadow rounded-lg p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900">Real-time Trade Activity</h3>
+              <div className="flex items-center space-x-2">
+                <div className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                <span className="text-sm text-gray-500">
+                  {wsConnected ? 'Connected' : 'Disconnected'}
+                </span>
+              </div>
+            </div>
+            <TradeExecutionFeed />
+          </div>
+        </div>
+      )}
 
       {/* Real-time Bot Temperature Monitor - With Data Flow Indicators */}
       <div className="bg-white overflow-hidden shadow rounded-lg">
