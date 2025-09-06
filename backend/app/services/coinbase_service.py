@@ -368,6 +368,44 @@ class CoinbaseService:
         except Exception as e:
             logger.error(f"Error placing {side} order for {product_id}: {e}")
             return None
+
+    def get_order_status(self, order_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Check the status of a specific order.
+        
+        Args:
+            order_id: The order ID to check
+            
+        Returns:
+            Dict with order status information or None if not found
+        """
+        if not self.client or not order_id:
+            return None
+            
+        try:
+            # Get the order from Coinbase
+            response = self.client.get_order(order_id)
+            
+            if response and hasattr(response, 'order'):
+                order = response.order
+                return {
+                    "order_id": getattr(order, 'order_id', order_id),
+                    "status": getattr(order, 'status', 'unknown'),
+                    "filled_size": float(getattr(order, 'filled_size', 0)),
+                    "remaining_size": float(getattr(order, 'remaining_size', 0)),
+                    "average_filled_price": float(getattr(order, 'average_filled_price', 0)),
+                    "product_id": getattr(order, 'product_id', ''),
+                    "side": getattr(order, 'side', ''),
+                    "created_time": getattr(order, 'created_time', None),
+                    "completion_percentage": getattr(order, 'completion_percentage', '0')
+                }
+            else:
+                logger.warning(f"No order found for ID: {order_id}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error checking order status for {order_id}: {e}")
+            return None
     
     def get_accounts(self) -> List[dict]:
         """Get account information using portfolio breakdown (includes USD fiat accounts)."""

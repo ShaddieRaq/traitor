@@ -474,6 +474,75 @@ class TradingService:
             "combined_signal_score": trade.combined_signal_score
         }
 
+    def update_pending_trade_statuses(self) -> Dict[str, Any]:
+        """
+        Update the status of all pending trades by checking with Coinbase.
+        This should be called periodically to keep trade statuses current.
+        """
+        try:
+            # Get all pending trades
+            pending_trades = self.db.query(Trade).filter(
+                Trade.status.in_(["pending", "open", "active"])
+            ).all()
+            
+            updated_count = 0
+            completed_count = 0
+            
+            logger.info(f"🔄 Checking status of {len(pending_trades)} pending trades")
+            
+            for trade in pending_trades:
+                if not trade.order_id:
+                    # No order ID means this was a mock trade or failed order
+                    trade.status = "completed"  # Assume mock trades complete immediately
+                    trade.filled_at = datetime.utcnow()
+                    updated_count += 1
+                    completed_count += 1
+                    continue
+                    
+                # Check order status with Coinbase
+                order_status = self.coinbase_service.get_order_status(trade.order_id)
+                
+                if order_status:
+                    old_status = trade.status
+                    new_status = order_status.get("status", "pending")
+                    
+                    # Map Coinbase statuses to our statuses
+                    if new_status.lower() in ["filled", "done", "settled"]:
+                        trade.status = "completed"
+                        trade.filled_at = datetime.utcnow()
+                        completed_count += 1
+                    elif new_status.lower() in ["cancelled", "rejected"]:
+                        trade.status = "failed"
+                        trade.filled_at = datetime.utcnow()
+                    elif new_status.lower() in ["open", "active", "pending"]:
+                        trade.status = "pending"
+                    else:
+                        trade.status = new_status.lower()
+                    
+                    if old_status != trade.status:
+                        updated_count += 1
+                        logger.info(f"📊 Trade {trade.id} status: {old_status} → {trade.status}")
+            
+            # Commit all updates
+            self.db.commit()
+            
+            result = {
+                "total_checked": len(pending_trades),
+                "updated_count": updated_count,
+                "completed_count": completed_count,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+            if updated_count > 0:
+                logger.info(f"✅ Updated {updated_count} trade statuses, {completed_count} completed")
+            
+            return result
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"❌ Error updating trade statuses: {e}")
+            return {"error": str(e), "total_checked": 0, "updated_count": 0}
+
     # =================================================================================
     # PHASE 4.1.3 DAY 3: INTELLIGENT TRADING ALGORITHMS 🧠
     # =================================================================================

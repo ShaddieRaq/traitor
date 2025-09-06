@@ -187,6 +187,30 @@ def emergency_stop_all_trading(db: Session = Depends(get_db)) -> Dict[str, Any]:
     }
 
 
+@router.post("/update-statuses")
+def update_trade_statuses(db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """
+    Update the status of all pending trades by checking with Coinbase.
+    This fixes the issue where trades remain "pending" forever.
+    """
+    try:
+        trading_service = TradingService(db)
+        result = trading_service.update_pending_trade_statuses()
+        
+        return {
+            "success": True,
+            "message": f"Updated {result['updated_count']} trade statuses",
+            "details": result
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to update trade statuses"
+        }
+
+
 # Phase 4.1.2: Trade Execution Service Endpoints
 
 @router.post("/execute")

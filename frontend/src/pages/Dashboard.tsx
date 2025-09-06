@@ -4,7 +4,9 @@ import { useBotsStatus, useEnhancedBotsStatus } from '../hooks/useBots';
 import { useSystemStatus, getSystemHealthColor, getServiceStatusText } from '../hooks/useSystemStatus';
 import { DataFreshnessIndicator, PollingStatusIndicator } from '../components/DataFreshnessIndicators';
 import EnhancedBotCard from '../components/Trading/EnhancedBotCard';
-import TradingActivitySection from '../components/Trading/TradingActivitySection';
+import EnhancedTradingActivitySection from '../components/Trading/EnhancedTradingActivitySection';
+import BalanceStatusIndicator from '../components/Trading/BalanceStatusIndicator';
+import TradingIntentDisplay from '../components/Trading/TradingIntentDisplay';
 import { TradeExecutionFeed } from '../components/Trading/TradeExecutionFeed';
 import { TradeProgressIndicator } from '../components/Trading/TradeProgressIndicator';
 import { useTradeExecutionToasts } from '../hooks/useTradeExecutionToasts';
@@ -148,11 +150,13 @@ const Dashboard: React.FC = () => {
           {/* Enhanced Bot Status Cards with Trading Visibility */}
           <div className="mt-6 space-y-4">
             {enhancedBotsStatus?.map((bot) => (
-              <EnhancedBotCard 
-                key={`enhanced-bot-${bot.id}-${bot.current_combined_score}`}
-                bot={bot}
-                className="shadow-sm"
-              />
+              <div key={`enhanced-bot-${bot.id}-${bot.current_combined_score}`} className="space-y-4">
+                <TradingIntentDisplay bot={bot} />
+                <EnhancedBotCard 
+                  bot={bot}
+                  className="shadow-sm"
+                />
+              </div>
             )) || displayBots?.map((bot) => (
               <div key={`bot-${bot.id}-${bot.current_combined_score}`} className="p-4 bg-gray-50 rounded-lg border-2 border-gray-200">
                 <div className="flex items-center justify-between">
@@ -298,8 +302,11 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Trading Activity */}
-      <TradingActivitySection bots={enhancedBotsStatus || []} />
+      {/* Balance Status */}
+      <BalanceStatusIndicator bots={enhancedBotsStatus || []} />
+
+      {/* Enhanced Trading Activity */}
+      <EnhancedTradingActivitySection bots={enhancedBotsStatus || []} />
     </div>
   );
 };

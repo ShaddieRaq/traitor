@@ -24,5 +24,9 @@ celery_app.conf.update(
             "task": "app.tasks.trading_tasks.fast_trading_evaluation",
             "schedule": 0.5,  # Every 500ms
         },
+        "update-trade-statuses": {
+            "task": "app.tasks.trading_tasks.update_trade_statuses",
+            "schedule": 30.0,  # Every 30 seconds
+        },
     },
 )

@@ -200,3 +200,39 @@ def evaluate_signals():
 def fetch_data(product_id: str = "BTC-USD"):
     """Legacy task name - redirects to fetch_market_data."""
     return fetch_market_data(product_id)
+
+
+@celery_app.task(name="app.tasks.trading_tasks.update_trade_statuses")
+def update_trade_statuses():
+    """
+    Periodic task to update the status of pending trades.
+    This fixes the issue where trades remain "pending" forever.
+    """
+    logger.info("🔄 Starting periodic trade status update task")
+    
+    try:
+        db = SessionLocal()
+        try:
+            # Import here to avoid circular imports
+            from ..services.trading_service import TradingService
+            
+            # Initialize trading service and update statuses
+            trading_service = TradingService(db)
+            result = trading_service.update_pending_trade_statuses()
+            
+            logger.info(f"✅ Trade status update completed: {result}")
+            return {
+                "status": "success",
+                "message": f"Updated {result['updated_count']} trade statuses",
+                "details": result
+            }
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"❌ Error in trade status update task: {str(e)}")
+        return {
+            "status": "error", 
+            "message": str(e)
+        }
