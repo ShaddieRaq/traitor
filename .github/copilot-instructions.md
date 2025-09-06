@@ -236,7 +236,7 @@ export const useBotsStatus = () => {
 - **Phase 4 Trading Integration**: 8 tests (automated trading, position management)
 
 ### **Test Quality Principles**
-- **Live API Testing**: No mocking, uses real Coinbase API
+- **Live API Testing**: Uses real Coinbase API endpoints
 - **Automatic Cleanup**: Test bots removed after each run
 - **Performance**: <8 seconds for full 82-test suite
 - **Real Data**: Tests use actual market conditions

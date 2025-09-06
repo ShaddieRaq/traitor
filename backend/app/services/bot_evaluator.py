@@ -611,13 +611,13 @@ class BotSignalEvaluator:
         
         for bot in bots:
             try:
-                # Use cached market data if available, otherwise create mock data
+                # Use cached market data if available, otherwise create fallback data
                 if market_data_cache and bot.pair in market_data_cache:
                     market_data = market_data_cache[bot.pair]
                 else:
-                    # Create minimal mock data for temperature calculation
+                    # Create minimal fallback data for temperature calculation
                     market_data = pd.DataFrame({
-                        'close': [100.0],  # Mock price
+                        'close': [100.0],  # Fallback price
                         'high': [101.0],
                         'low': [99.0],
                         'open': [100.5],

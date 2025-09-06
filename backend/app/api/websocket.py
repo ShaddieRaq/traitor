@@ -238,7 +238,7 @@ async def websocket_dashboard(websocket: WebSocket, db: Session = Depends(get_db
                 market_data_cache[pair] = coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
             except Exception as e:
                 logger.error(f"Failed to get market data for {pair}: {e}")
-                # Use mock data as fallback
+                # Use fallback data if API unavailable
                 import pandas as pd
                 market_data_cache[pair] = pd.DataFrame({
                     'close': [100.0],
@@ -287,7 +287,7 @@ async def websocket_dashboard(websocket: WebSocket, db: Session = Depends(get_db
                             market_data_cache[pair] = coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
                         except Exception as e:
                             logger.error(f"Failed to get market data for {pair}: {e}")
-                            # Use mock data as fallback
+                            # Use fallback data if API unavailable
                             import pandas as pd
                             market_data_cache[pair] = pd.DataFrame({
                                 'close': [100.0],
@@ -329,7 +329,7 @@ async def websocket_dashboard(websocket: WebSocket, db: Session = Depends(get_db
                                 market_data_cache[pair] = coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
                             except Exception as e:
                                 logger.error(f"Failed to get market data for {pair}: {e}")
-                                # Use mock data as fallback
+                                # Use fallback data if API unavailable
                                 import pandas as pd
                                 market_data_cache[pair] = pd.DataFrame({
                                     'close': [100.0],

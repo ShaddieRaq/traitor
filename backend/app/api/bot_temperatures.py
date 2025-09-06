@@ -32,7 +32,7 @@ def get_all_bot_temperatures(db: Session = Depends(get_db)):
             market_data_cache[pair] = coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
         except Exception as e:
             logger.warning(f"Failed to get market data for {pair}: {e}")
-            # Use mock data as fallback
+            # Use fallback data if API unavailable
             market_data_cache[pair] = pd.DataFrame({
                 'close': [100.0],
                 'high': [101.0],
@@ -72,7 +72,7 @@ def get_bot_dashboard_summary(db: Session = Depends(get_db)):
             market_data_cache[pair] = coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
         except Exception as e:
             logger.warning(f"Failed to get market data for {pair}: {e}")
-            # Use mock data as fallback
+            # Use fallback data if API unavailable
             market_data_cache[pair] = pd.DataFrame({
                 'close': [100.0],
                 'high': [101.0],
@@ -118,7 +118,7 @@ def get_bot_temperature(bot_id: int, db: Session = Depends(get_db)):
         market_data = coinbase_service.get_historical_data(bot.pair, granularity=3600, limit=100)
         
         if market_data.empty:
-            # Fallback to mock data if API fails
+            # Use fallback data if API returns empty result
             market_data = pd.DataFrame({
                 'close': [100.0],
                 'high': [101.0],
@@ -127,7 +127,7 @@ def get_bot_temperature(bot_id: int, db: Session = Depends(get_db)):
                 'volume': [1000]
             })
     except Exception as e:
-        # Use mock data as fallback
+        # Use fallback data if API unavailable
         logger.warning(f"Failed to get market data for {bot.pair}: {e}")
         market_data = pd.DataFrame({
             'close': [100.0],

@@ -350,7 +350,7 @@ Signals are now configured within bots rather than as standalone entities:
 
 **Signal Evaluation:**
 - `POST /api/v1/bot-evaluation/{bot_id}/evaluate` - Evaluate bot signals with live market data
-- `GET /api/v1/bot-evaluation/test/{bot_id}` - Test bot evaluation with mock data
+- `GET /api/v1/bot-evaluation/test/{bot_id}` - Test bot evaluation with sample data
 
 **Bot Temperature (Unified System):**
 - `GET /api/v1/bot-temperatures/` - Get all running bot temperatures

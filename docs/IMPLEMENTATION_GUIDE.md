@@ -170,7 +170,7 @@ if hasattr(product, 'product_id'):
 
 ### **Live API Testing Strategy**
 ```python
-# No mocking - use real services for accurate testing
+# Use real services for accurate testing
 def test_coinbase_integration():
     service = CoinbaseService()
     products = service.get_products()
@@ -248,25 +248,7 @@ class TradingService:
         )
 ```
 
-### **Mock vs Production Trading**
-```python
-# Environment-based trading mode toggle
-class CoinbaseService:
-    def __init__(self):
-        self.trading_mode = os.getenv("TRADING_MODE", "mock")
-    
-    async def place_order(self, side: str, amount: str, product_id: str):
-        if self.trading_mode == "mock":
-            # Simulate trade with realistic response
-            return MockOrderResult(
-                order_id=f"mock_{uuid4()}",
-                status="filled",
-                filled_value=float(amount) * self._get_mock_price(product_id)
-            )
-        else:
-            # Execute real Coinbase API call
-            return await self._place_real_order(side, amount, product_id)
-```
+
 
 ### **Trade Status Tracking**
 ```python

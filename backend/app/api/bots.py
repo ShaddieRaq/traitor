@@ -179,7 +179,7 @@ def get_bots_status_summary(db: Session = Depends(get_db)):
             market_data_cache[pair] = coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
         except Exception as e:
             logger.warning(f"Failed to get market data for {pair}: {e}")
-            # Use mock data as fallback
+            # Use fallback data if API unavailable
             market_data_cache[pair] = pd.DataFrame({
                 'close': [100.0],
                 'high': [101.0],
@@ -297,7 +297,7 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
             market_data_cache[pair] = coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
         except Exception as e:
             logger.warning(f"Failed to get market data for {pair}: {e}")
-            # Use mock data as fallback
+            # Use fallback data if API unavailable
             market_data_cache[pair] = pd.DataFrame({
                 'close': [100.0],
                 'high': [101.0],

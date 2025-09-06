@@ -3,7 +3,7 @@ import { useAccounts, useProducts } from '../../hooks/useMarket';
 import { Account } from '../../types';
 
 interface PortfolioProps {
-  // ALL DATA IS REAL - NO MORE MOCK
+  // Production trading system - all data is live
 }
 
 const PortfolioOverview: React.FC<PortfolioProps> = () => {
