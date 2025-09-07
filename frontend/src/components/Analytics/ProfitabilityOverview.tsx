@@ -1,11 +1,10 @@
 import React from 'react';
-import { TrendingUp, TrendingDown, DollarSign, Activity, BarChart3, Target } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Activity, BarChart3 } from 'lucide-react';
 
 interface ProfitabilityData {
   total_trades: number;
   total_volume_usd: number;
   net_pnl: number;
-  success_rate: number;
   roi_percentage: number;
   daily_pnl?: number;
   weekly_pnl?: number;
@@ -121,20 +120,6 @@ const ProfitabilityOverview: React.FC<ProfitabilityOverviewProps> = ({
             </div>
             <div className="text-sm text-gray-500">
               Cash: {formatCurrency(data.current_balance_usd)}
-            </div>
-          </div>
-
-          {/* Success Rate */}
-          <div className="text-center">
-            <div className="flex items-center justify-center mb-2">
-              <Target className="h-5 w-5 text-green-600" />
-            </div>
-            <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Success Rate</div>
-            <div className="text-2xl font-bold text-gray-900">
-              {data.success_rate.toFixed(1)}%
-            </div>
-            <div className="text-sm text-gray-500">
-              {data.total_trades} trades
             </div>
           </div>
 

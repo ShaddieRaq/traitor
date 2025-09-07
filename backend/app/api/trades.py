@@ -142,14 +142,21 @@ def calculate_profitability_data(db: Session):
         
         # Time-based P&L (simplified for recent activity)
         trade_created = trade.created_at
-        if trade_created and isinstance(trade_created, str):
+        if trade_created:
             try:
-                trade_date = datetime.fromisoformat(trade_created.replace('Z', '+00:00')).replace(tzinfo=None)
+                # Handle both datetime objects and strings
+                if isinstance(trade_created, str):
+                    trade_date = datetime.fromisoformat(trade_created.replace('Z', '+00:00')).replace(tzinfo=None)
+                else:
+                    # Already a datetime object from SQLAlchemy
+                    trade_date = trade_created.replace(tzinfo=None) if trade_created.tzinfo else trade_created
+                
                 if trade_date >= daily_cutoff:
                     daily_pnl += trade_value if side_lower == 'sell' else -trade_value
                 if trade_date >= weekly_cutoff:
                     weekly_pnl += trade_value if side_lower == 'sell' else -trade_value
-            except:
+            except Exception as e:
+                logger.warning(f"Error parsing trade date {trade_created}: {e}")
                 pass
     
     # Calculate net P&L (total received - total spent)
@@ -183,7 +190,6 @@ def calculate_profitability_data(db: Session):
         "total_trades": len(authentic_trades),
         "total_volume_usd": total_volume,
         "net_pnl": net_pnl,
-        "success_rate": 100.0,  # All trades were executed (not profit rate - just execution success)
         "roi_percentage": roi_percentage,
         "current_balance_usd": current_balance_usd,
         "active_positions_value": active_positions_value,
