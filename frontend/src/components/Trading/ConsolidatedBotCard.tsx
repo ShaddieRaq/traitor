@@ -1,5 +1,7 @@
 import React from 'react';
 import { EnhancedBotStatus } from '../../types';
+import { useBotPerformance } from '../../hooks/useProductPerformance';
+import BotPerformanceSection from './BotPerformanceSection';
 
 interface ConsolidatedBotCardProps {
   bot: EnhancedBotStatus;
@@ -11,6 +13,9 @@ const ConsolidatedBotCard: React.FC<ConsolidatedBotCardProps> = ({ bot, classNam
   const tradingIntent = bot.trading_intent;
   const confirmation = bot.confirmation;
   const readiness = bot.trade_readiness;
+  
+  // Get performance data based on bot's trading pair
+  const { performance, isLoading: performanceLoading, hasData } = useBotPerformance(bot.pair);
   
   // Determine primary action and strength
   const action = tradingIntent?.next_action?.toUpperCase() || 'HOLD';
@@ -150,6 +155,15 @@ const ConsolidatedBotCard: React.FC<ConsolidatedBotCardProps> = ({ bot, classNam
             ></div>
           </div>
         </div>
+      )}
+
+      {/* BOT PERFORMANCE: Product-based P&L tracking */}
+      {(hasData || performanceLoading) && (
+        <BotPerformanceSection 
+          performance={performance!}
+          isLoading={performanceLoading}
+          compact={false}
+        />
       )}
 
       {/* SECONDARY INFO: Expandable Technical Details */}

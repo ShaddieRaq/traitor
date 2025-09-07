@@ -210,6 +210,86 @@ def get_profitability_analysis(db: Session = Depends(get_db)):
     return calculate_profitability_data(db)
 
 
+@router.get("/performance/by-product")
+def get_performance_by_product(db: Session = Depends(get_db)):
+    """
+    Get performance metrics by trading pair - survives database wipes.
+    This approach is resilient to bot ID changes during sync operations.
+    """
+    try:
+        query = text("""
+        SELECT 
+            product_id,
+            COUNT(*) as trade_count,
+            SUM(CASE WHEN side = 'BUY' THEN 
+                COALESCE(size_usd, size * price) + COALESCE(fee, 0) 
+                ELSE 0 END) as total_spent,
+            SUM(CASE WHEN side = 'SELL' THEN 
+                COALESCE(size_usd, size * price) - COALESCE(fee, 0) 
+                ELSE 0 END) as total_received,
+            SUM(COALESCE(fee, 0)) as total_fees,
+            SUM(CASE WHEN side = 'BUY' THEN 1 ELSE 0 END) as buy_count,
+            SUM(CASE WHEN side = 'SELL' THEN 1 ELSE 0 END) as sell_count,
+            MIN(created_at) as first_trade,
+            MAX(created_at) as last_trade,
+            AVG(COALESCE(size_usd, size * price)) as avg_trade_size
+        FROM trades 
+        WHERE order_id IS NOT NULL AND order_id != ''
+        GROUP BY product_id
+        ORDER BY trade_count DESC
+        """)
+        
+        result = db.execute(query)
+        products = []
+        
+        for row in result:
+            total_spent = float(row.total_spent or 0)
+            total_received = float(row.total_received or 0)
+            net_pnl = total_received - total_spent
+            roi_pct = (net_pnl / total_spent * 100) if total_spent > 0 else 0
+            
+            # Calculate active trading days
+            active_days = 1
+            if row.first_trade and row.last_trade:
+                try:
+                    if isinstance(row.first_trade, str):
+                        first = datetime.fromisoformat(row.first_trade.replace('Z', '+00:00'))
+                        last = datetime.fromisoformat(row.last_trade.replace('Z', '+00:00'))
+                    else:
+                        first = row.first_trade
+                        last = row.last_trade
+                    active_days = max((last - first).days + 1, 1)
+                except:
+                    active_days = 1
+            
+            products.append({
+                "product_id": row.product_id,
+                "trade_count": row.trade_count,
+                "total_spent": total_spent,
+                "total_received": total_received,
+                "net_pnl": net_pnl,
+                "roi_percentage": roi_pct,
+                "total_fees": float(row.total_fees or 0),
+                "buy_count": row.buy_count,
+                "sell_count": row.sell_count,
+                "avg_trade_size": float(row.avg_trade_size or 0),
+                "first_trade": row.first_trade,
+                "last_trade": row.last_trade,
+                "active_days": active_days,
+                "trades_per_day": round(row.trade_count / active_days, 2)
+            })
+        
+        return {
+            "products": products,
+            "generated_at": datetime.utcnow(),
+            "note": "Performance by trading pair - resilient to bot ID changes"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error calculating product performance: {e}")
+        raise HTTPException(status_code=500, detail=f"Error calculating performance: {str(e)}")
+
+
 @router.get("/validate-data")
 def validate_pnl_data(db: Session = Depends(get_db)):
     """Validate P&L data accuracy by comparing calculation methods."""
