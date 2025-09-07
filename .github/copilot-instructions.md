@@ -53,6 +53,27 @@ curl -X POST "http://localhost:8000/api/v1/coinbase-sync/sync-coinbase-trades?da
 - ✅ **Pending Order Prevention**: Added _check_no_pending_orders() to prevent multiple simultaneous orders per bot
 - ✅ **Trading Period**: 2,817 real trades from July 27 - September 6, 2025 (41 days of authentic data)
 
+### **🚨 CRITICAL P&L CALCULATION ISSUE RESOLVED (September 7, 2025)**
+**SEVERITY**: Production-Critical - P&L calculations were off by 1000x+ due to data interpretation errors
+
+#### **Problem Identified**
+- **False P&L Reporting**: System showed -$116,564 loss when actual loss was -$31
+- **Calculation Error**: Using `size * price` instead of correct `size_usd` field
+- **Root Cause**: Coinbase API `size_in_quote` flag determines if size is in USD or crypto units
+- **User Impact**: Completely inaccurate financial reporting, loss of system confidence
+
+#### **Technical Resolution**
+- ✅ **P&L Calculation Fixed**: Modified `/api/v1/trades/profitability` to use `size_usd` field
+- ✅ **Data Interpretation Corrected**: Proper handling of Coinbase `size_in_quote` field
+- ✅ **Validation Process**: User-reported $600 deposit vs system-calculated totals
+- ✅ **Code Location**: `backend/app/api/trades.py` - calculate_profitability_data() function
+
+#### **Key Lessons Learned**
+- **Always validate financial calculations against known user deposits/withdrawals**
+- **Coinbase API complexity**: `size` field means different things based on `size_in_quote`
+- **P&L calculation must use `size_usd` field, never `size * price`**
+- **User feedback is critical for catching systematic calculation errors**
+
 ### **Phase 2 COMPLETE - Real-time Trade Execution Feedback (September 6, 2025)**
 - ✅ **Trade Execution WebSocket**: Real-time progress updates during trade execution
 - ✅ **Frontend Real-time Components**: TradeExecutionFeed, ToastNotifications, ProgressIndicators

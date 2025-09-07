@@ -2,6 +2,56 @@
 
 Comprehensive debugging guide with proven solutions for common issues encountered during development.
 
+## 💰 **CRITICAL: P&L Calculation Issues**
+
+### **Problem: Massively Inflated P&L Values**
+**Symptoms**: P&L shows losses in tens of thousands when user deposited much less
+
+#### **Root Cause: size * price vs size_usd Field**
+**Critical Issue**: Using `size * price` ignores Coinbase's `size_in_quote` flag
+
+```python
+# ❌ WRONG: Always multiplying size by price
+trade_value = trade.size * trade.price  # Ignores size_in_quote flag!
+
+# Example error:
+# User deposits $600 → System shows $121,605 spent (200x inflation!)
+```
+
+#### **Immediate Fix**
+```python
+# ✅ CORRECT: Use size_usd field for P&L calculations
+if hasattr(trade, 'size_usd') and trade.size_usd is not None:
+    trade_value = float(trade.size_usd)  # Always correct USD amount
+else:
+    trade_value = trade.size * trade.price  # Fallback only
+```
+
+#### **Validation Pattern**
+```python
+# ✅ VALIDATION: Always check against known deposits
+def validate_pnl(calculated_spent, known_deposits):
+    ratio = calculated_spent / known_deposits
+    if ratio > 2.0:  # More than 2x deposits is suspicious
+        raise ValueError(f"P&L error: ${calculated_spent} vs ${known_deposits} deposited")
+```
+
+#### **Database Investigation Commands**
+```bash
+# Check for data interpretation errors
+sqlite3 backend/trader.db "
+SELECT 
+    side, COUNT(*) as trades,
+    ROUND(SUM(size * price), 2) as wrong_calculation,
+    ROUND(SUM(size_usd), 2) as correct_calculation,
+    ROUND(SUM(size * price) - SUM(size_usd), 2) as error_amount
+FROM trades WHERE order_id IS NOT NULL 
+GROUP BY side;
+"
+
+# Expected: Large error_amount indicates size*price calculation is wrong
+```
+
 ## 🔄 **Real-Time Update Issues**
 
 ### **Problem: UI Values Not Updating Automatically**

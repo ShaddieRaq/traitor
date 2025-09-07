@@ -270,6 +270,95 @@ async def get_trade_status(trade_id: int, db: Session = Depends(get_db)):
     }
 ```
 
+## 💰 **CRITICAL: P&L Calculation Patterns (September 7, 2025)**
+
+### **✅ CORRECT P&L Calculation - Use size_usd Field**
+```python
+# ✅ CORRECT: P&L calculation using size_usd field
+def calculate_profitability_data(trades):
+    total_spent = 0.0
+    total_received = 0.0
+    
+    for trade in trades:
+        # Use size_usd if available (correct USD value), fallback to size * price
+        if hasattr(trade, 'size_usd') and trade.size_usd is not None:
+            trade_value = float(trade.size_usd)  # ✅ CORRECT
+        else:
+            trade_value = trade.size * trade.price  # Fallback only
+        
+        if trade.side.lower() == 'buy':
+            total_spent += trade_value + trade.fee
+        elif trade.side.lower() == 'sell':
+            total_received += trade_value - trade.fee
+    
+    net_pnl = total_received - total_spent
+    return {"net_pnl": net_pnl, "total_spent": total_spent, "total_received": total_received}
+```
+
+### **❌ WRONG P&L Calculation - Never Use size * price**
+```python
+# ❌ WRONG: P&L calculation using size * price (off by 1000x+)
+def calculate_profitability_WRONG(trades):
+    total_spent = 0.0
+    for trade in trades:
+        trade_value = trade.size * trade.price  # ❌ WRONG! Ignores size_in_quote flag
+        if trade.side.lower() == 'buy':
+            total_spent += trade_value
+    # Result: Shows $121,605 spent when user only deposited $600
+```
+
+### **Coinbase size_in_quote Field Handling**
+```python
+# Coinbase API complexity: size field interpretation
+# From coinbase_service.py sync process:
+if processed_fill['size_in_quote']:
+    processed_fill['size_usd'] = processed_fill['size']  # Size already in USD
+else:
+    processed_fill['size_usd'] = processed_fill['size'] * processed_fill['price']  # Convert to USD
+
+# Key insight: size field means different things based on size_in_quote flag
+# - size_in_quote = True: size is in USD (fiat)
+# - size_in_quote = False: size is in crypto units, multiply by price for USD
+```
+
+### **P&L Validation Best Practices**
+```python
+# ✅ CRITICAL: Always validate P&L against known deposits
+def validate_pnl_calculation(calculated_total_spent, user_reported_deposits):
+    """
+    Validate P&L calculations against known user deposits
+    Critical for catching systematic calculation errors
+    """
+    ratio = calculated_total_spent / user_reported_deposits
+    
+    if ratio > 2.0:  # More than 2x reported deposits
+        raise ValueError(f"P&L calculation error: Calculated ${calculated_total_spent:.2f} "
+                        f"but user only deposited ${user_reported_deposits:.2f} "
+                        f"(ratio: {ratio:.1f}x)")
+    
+    return True
+
+# Example usage:
+# User reports $600 deposited
+# System calculates $5,072 spent
+# Ratio: 8.5x - indicates systematic error in calculation
+```
+
+### **Database Field Usage Guidelines**
+```python
+# Trade model fields and their correct usage:
+class Trade(Base):
+    size = Column(Float)        # ❌ Don't use for P&L - crypto units or USD depending on size_in_quote
+    price = Column(Float)       # ❌ Don't use size*price for P&L - ignores size_in_quote
+    size_usd = Column(Float)    # ✅ Use this for P&L - always correct USD amount
+    fee = Column(Float)         # ✅ Use for fee calculations - always in USD
+    
+# P&L calculation priority:
+# 1. size_usd (most accurate)
+# 2. size * price (fallback only, may be wrong)
+# 3. Always validate against user deposits
+```
+
 ## 🎨 **Frontend Implementation Patterns**
 
 ### **Data Merging Pattern**
