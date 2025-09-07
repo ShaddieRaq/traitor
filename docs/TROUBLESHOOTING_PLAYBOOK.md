@@ -279,7 +279,60 @@ grep -r "from.*import.*Signal" backend/app/
 grep -r "from.*import.*Bot" backend/app/
 ```
 
-## 📋 **Quick Diagnostic Commands**
+## � **CRITICAL: Database Integrity Issues (September 6, 2025)**
+
+### **Problem: Mock Data Contamination**
+**Symptoms**: Profitability analysis shows inflated profits, trades without Coinbase order_ids
+
+#### **Emergency Diagnosis**
+```bash
+# Check for data contamination
+sqlite3 backend/trader.db "
+SELECT 
+    COUNT(*) as total_trades,
+    COUNT(CASE WHEN order_id IS NOT NULL AND order_id != '' THEN 1 END) as with_order_id,
+    COUNT(CASE WHEN order_id IS NULL OR order_id = '' THEN 1 END) as without_order_id,
+    CAST(COUNT(CASE WHEN order_id IS NOT NULL AND order_id != '' THEN 1 END) AS FLOAT) / COUNT(*) * 100 as integrity_percentage
+FROM trades;"
+
+# Expected: 100% trades should have order_ids for clean data
+# If <100%, you have mock data contamination
+```
+
+#### **Emergency Database Cleanup**
+```bash
+# 1. CRITICAL: Backup before any changes
+timestamp=$(date +%Y%m%d_%H%M%S)
+cp backend/trader.db "backend/trader_backup_${timestamp}.db"
+echo "Backup created: trader_backup_${timestamp}.db"
+
+# 2. Wipe contaminated data
+sqlite3 backend/trader.db "DELETE FROM trades;"
+
+# 3. Resync authentic trades from Coinbase
+curl -X POST "http://localhost:8000/api/v1/coinbase-sync/sync-coinbase-trades?days_back=30"
+
+# 4. Verify cleanup success
+sqlite3 backend/trader.db "SELECT COUNT(*) FROM trades WHERE order_id IS NOT NULL;"
+```
+
+### **Problem: Multiple Pending Orders**
+**Symptoms**: Bot places multiple orders before previous orders fill
+
+#### **Diagnosis & Fix**
+```bash
+# Check for multiple pending orders per bot
+sqlite3 backend/trader.db "
+SELECT bot_id, COUNT(*) as pending_count 
+FROM trades 
+WHERE status = 'pending' 
+GROUP BY bot_id 
+HAVING COUNT(*) > 1;"
+
+# Should return no results. If results exist, you have the race condition bug.
+```
+
+## �📋 **Quick Diagnostic Commands**
 
 ### **System Health Check**
 ```bash
@@ -290,8 +343,11 @@ grep -r "from.*import.*Bot" backend/app/
 curl -s http://localhost:8000/health
 curl -s http://localhost:8000/api/v1/bots/
 
-# Check database
-cd backend && python -c "from app.models.models import Bot; print('DB accessible')"
+# CRITICAL: Check database integrity
+sqlite3 backend/trader.db "SELECT COUNT(*) FROM trades WHERE order_id IS NOT NULL"
+
+# Check for pending order issues
+sqlite3 backend/trader.db "SELECT bot_id, COUNT(*) FROM trades WHERE status='pending' GROUP BY bot_id"
 
 # Verify test suite
 ./scripts/test.sh --unit

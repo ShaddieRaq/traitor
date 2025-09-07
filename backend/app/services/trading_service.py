@@ -612,8 +612,10 @@ class TradingService:
             else:
                 reasoning = f"Temp:{current_temperature}({temp_multiplier:.1f}x) × Signal:{signal_strength:.2f}({signal_multiplier:.1f}x) × Progress:{tranche_count}tx({progression_multiplier:.1f}x)"
             
-            # Final safety bounds (Phase 4.1.2 limits)
-            intelligent_size = max(10.0, min(intelligent_size, 100.0))
+            # Final safety bounds - use bot's configured minimum, not hard-coded $10
+            min_size = max(bot.position_size_usd * 0.1, 1.0)  # At least 10% of bot's position size, minimum $1
+            max_size = bot.position_size_usd * 10.0  # Maximum 10x bot's position size
+            intelligent_size = max(min_size, min(intelligent_size, max_size))
             
             return {
                 "recommended_size": round(intelligent_size, 2),

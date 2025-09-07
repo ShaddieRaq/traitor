@@ -45,7 +45,7 @@ class PositionService:
     """Service for managing enhanced single positions with tranche support."""
     
     MAX_TRANCHES_PER_POSITION = 3  # Maximum tranches per position
-    MIN_TRANCHE_SIZE_USD = 10.0  # Minimum tranche size
+    # Removed hard-coded MIN_TRANCHE_SIZE_USD - now calculated based on bot configuration
     
     def __init__(self, db: Session):
         self.db = db
@@ -205,8 +205,9 @@ class PositionService:
                             target_size = base_position_size * 0.3
                             reasoning = f"Adaptive strategy: {price_decline:.1%} decline, moderate add (30%)"
             
-            # Apply constraints
-            target_size = max(target_size, self.MIN_TRANCHE_SIZE_USD)
+            # Apply constraints - use bot-relative minimums instead of hard-coded values
+            min_tranche_size = max(base_position_size * 0.1, 1.0)  # At least 10% of position size, minimum $1
+            target_size = max(target_size, min_tranche_size)
             target_size = min(target_size, base_position_size)  # Never exceed base position size
             
             return round(target_size, 2), reasoning

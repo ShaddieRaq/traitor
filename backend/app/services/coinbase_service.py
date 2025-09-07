@@ -345,9 +345,12 @@ class CoinbaseService:
             if hasattr(response, 'success') and response.success and hasattr(response, 'success_response'):
                 success_resp = response.success_response
                 logger.info(f"🔍 Success response type: {type(success_resp)}")
-                logger.info(f"🔍 Success response attributes: {dir(success_resp)}")
+                logger.info(f"🔍 Success response content: {success_resp}")
                 
-                if hasattr(success_resp, 'order_id'):
+                # The response is a dictionary, so access order_id as a key
+                if isinstance(success_resp, dict) and 'order_id' in success_resp:
+                    order_id = success_resp['order_id']
+                elif hasattr(success_resp, 'order_id'):
                     order_id = success_resp.order_id
                 elif hasattr(success_resp, 'id'):
                     order_id = success_resp.id

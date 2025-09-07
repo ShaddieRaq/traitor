@@ -15,6 +15,10 @@
 ./scripts/status.sh   # Check if system is running (all should be ✅)
 ./scripts/start.sh    # Start all services if needed
 curl -s http://localhost:8000/api/v1/bots/status/summary | python3 -m json.tool  # View live bot status
+
+# Database integrity checks (post-cleanup)
+sqlite3 backend/trader.db "SELECT COUNT(*) FROM trades WHERE order_id IS NOT NULL"  # Should be 2,817
+curl -X POST "http://localhost:8000/api/v1/coinbase-sync/sync-coinbase-trades?days_back=7"  # Resync if needed
 ```
 
 ### **Current System Status (September 6, 2025)**
@@ -39,6 +43,15 @@ curl -s http://localhost:8000/api/v1/bots/status/summary | python3 -m json.tool 
 - ✅ **Background Status Updates**: Celery task running every 30 seconds to sync trade statuses automatically
 - ✅ **Mock Trade Handling**: Automatic status updates for development mode trades
 - ✅ **Status Update API**: Manual trigger endpoint `/api/v1/trades/update-statuses` for immediate sync
+
+### **✅ CRITICAL DATABASE CLEANUP COMPLETE (September 6, 2025)**
+- ✅ **Mock Data Elimination**: Removed all 254 mock/test trades that lacked Coinbase order_ids
+- ✅ **Database Purification**: Wiped and resynced with 2,817 real Coinbase trades (100% have order_ids)
+- ✅ **Accurate Profitability**: Real trading performance revealed: -$521.06 realized loss on $5,055.50 invested (10.3% loss)
+- ✅ **Clean Foundation**: Database now contains only authentic Coinbase trades for reliable analysis
+- ✅ **Order Management Architecture**: Fixed cooldown timing to use filled_at instead of created_at timestamps
+- ✅ **Pending Order Prevention**: Added _check_no_pending_orders() to prevent multiple simultaneous orders per bot
+- ✅ **Trading Period**: 2,817 real trades from July 27 - September 6, 2025 (41 days of authentic data)
 
 ### **Phase 2 COMPLETE - Real-time Trade Execution Feedback (September 6, 2025)**
 - ✅ **Trade Execution WebSocket**: Real-time progress updates during trade execution
@@ -76,7 +89,24 @@ curl -s http://localhost:8000/api/v1/bots/status/summary | python3 -m json.tool 
 - **Design Pattern**: Primary Section (essential) → Expandable Technical Details (on-demand)
 - **Status**: ✅ **COMPLETE** - Clean consolidated dashboard operational
 
-### **⚠️ CRITICAL LESSON: Development During Live Trading (September 6, 2025)**
+### **⚠️ CRITICAL LESSONS: Database Integrity & Order Management (September 6, 2025)**
+
+#### **Database Integrity Crisis Resolved**
+**Issue Identified**: 254 trades (8.7%) in database lacked Coinbase order_ids, contaminating profitability analysis
+- **Mock Data Contamination**: Test trades mixed with real trades showing inflated profits (+$23,354 vs actual -$521)
+- **Order ID Tracking**: Recent trades showed NULL order_ids despite "completed" status
+- **Solution**: Complete database wipe and Coinbase resync importing only authentic trades with order_ids
+- **Best Practice**: Regular database audits to ensure data integrity and separate test/production data
+
+#### **Order Management Architecture Fixes**
+**Critical Flaw Discovered**: Cooldown timing based on order placement instead of order fills
+- **Problem**: Bot could place new orders before previous orders filled, violating one-order-per-bot rule
+- **Race Condition**: Multiple pending orders possible due to timing gap between placement and fill
+- **Solution**: Modified cooldown logic to use `filled_at` timestamp instead of `created_at`
+- **Prevention**: Added `_check_no_pending_orders()` method to block new orders when existing orders pending
+- **Best Practice**: Always base trading logic on order execution, not order placement
+
+#### **Development During Live Trading (September 6, 2025)**
 **Issue Identified**: Making frontend/backend changes while bot actively trades can cause:
 - **Race Conditions**: Multiple evaluation processes competing for database locks
 - **Duplicate Trades**: 1-second apart trades violating 3-minute cooldown (e.g., 09:24:48 and 09:24:47)

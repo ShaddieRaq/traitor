@@ -24,7 +24,7 @@ class TradingSafetyLimits:
     
     # Position limits  
     MAX_POSITION_SIZE_USD = 100.00   # Maximum single trade size (increased from 25)
-    MIN_POSITION_SIZE_USD = 5.00     # Minimum trade size (avoid dust trades)
+    MIN_POSITION_SIZE_USD = 1.00     # Minimum trade size (lowered for small position bots)
     
     # Bot limits
     MAX_ACTIVE_POSITIONS = 100       # Maximum concurrent positions across all bots (increased from 20)
