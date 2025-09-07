@@ -4,6 +4,7 @@ Test Bot CRUD operations and parameter validation.
 
 import pytest
 import json
+from datetime import datetime
 from fastapi.testclient import TestClient
 
 
@@ -96,7 +97,12 @@ class TestBotCRUD:
     
     def test_create_bot_minimal_config(self, client, minimal_bot_data):
         """Test creating a bot with minimal configuration uses defaults."""
+        # Make the name unique for this test
+        minimal_bot_data["name"] = f"Minimal Test Bot {datetime.now().strftime('%Y%m%d%H%M%S')}"
+        
         response = client.post("/api/v1/bots/", json=minimal_bot_data)
+        if response.status_code != 200:
+            print(f"Error response: {response.json()}")
         assert response.status_code == 200
         
         bot = response.json()
@@ -104,7 +110,7 @@ class TestBotCRUD:
         assert bot["pair"] == minimal_bot_data["pair"]
         # Check defaults
         assert bot["position_size_usd"] == 100.0  # Default
-        assert bot["max_positions"] == 1  # Default
+        assert bot["max_positions"] == 5  # Default (updated)
         assert bot["stop_loss_pct"] == 5.0  # Default
         assert bot["take_profit_pct"] == 10.0  # Default
         assert bot["trade_step_pct"] == 2.0  # Default

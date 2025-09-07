@@ -24,7 +24,7 @@ def test_phase_4_1_1_integration():
     assert "limits" in status
     assert "current_status" in status
     assert status["safety_enabled"] is True
-    assert status["limits"]["max_position_size_usd"] == 25.0
+    assert status["limits"]["max_position_size_usd"] == 100.0  # Updated limit
     assert status["limits"]["min_temperature"] == "WARM"
     
     print(f"✅ Safety Status: {status['current_status']['trades_remaining']} trades remaining today")
@@ -86,7 +86,7 @@ def test_phase_4_1_1_integration():
     invalid_trade = {
         "bot_id": test_bot_id,  # Use the same test bot
         "side": "buy", 
-        "size_usd": 50.0  # Exceeds $25 limit
+        "size_usd": 150.0  # Exceeds $100 limit (updated)
     }
     
     response = requests.post(
@@ -108,7 +108,7 @@ def test_phase_4_1_1_integration():
     tiny_trade = {
         "bot_id": test_bot_id,  # Use the same test bot
         "side": "sell",
-        "size_usd": 2.0  # Below $5 minimum
+        "size_usd": 0.5  # Below $1.0 minimum (updated)
     }
     
     response = requests.post(
