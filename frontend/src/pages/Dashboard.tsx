@@ -9,6 +9,8 @@ import BalanceStatusIndicator from '../components/Trading/BalanceStatusIndicator
 import { TradeExecutionFeed } from '../components/Trading/TradeExecutionFeed';
 import { TradeProgressIndicator } from '../components/Trading/TradeProgressIndicator';
 import { useTradeExecutionToasts } from '../hooks/useTradeExecutionToasts';
+import ProfitabilityOverview from '../components/Analytics/ProfitabilityOverview';
+import { useProfitabilityData } from '../hooks/useProfitability';
 
 const Dashboard: React.FC = () => {
   const { data: botsStatus } = useBotsStatus();
@@ -17,6 +19,9 @@ const Dashboard: React.FC = () => {
   
   // Real-time trade execution updates
   const { updates: tradeUpdates, isExecuting, isConnected: wsConnected } = useTradeExecutionToasts();
+  
+  // P&L and profitability data
+  const { data: profitabilityData, isLoading: pnlLoading } = useProfitabilityData();
   
   // Use enhanced data when available, fall back to basic data
   const displayBots = enhancedBotsStatus || botsStatus || [];
@@ -88,6 +93,12 @@ const Dashboard: React.FC = () => {
 
       {/* Market Ticker */}
       <MarketTicker />
+
+      {/* Profitability Overview */}
+      <ProfitabilityOverview 
+        data={profitabilityData} 
+        isLoading={pnlLoading} 
+      />
 
       {/* Real-time Trade Execution Status */}
       {(isExecuting || tradeUpdates.length > 0) && (

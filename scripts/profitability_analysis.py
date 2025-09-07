@@ -23,28 +23,110 @@ from datetime import datetime, timedelta
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
 
 def get_real_trades():
-    """Get all real trades with order IDs from the API."""
+    """Get all real trades (with order_ids) from the API or database."""
     try:
-        response = requests.get('http://localhost:8000/api/v1/trades/')
-        response.raise_for_status()
-        all_trades = response.json()
-        
-        # Filter for real trades only (have order_id)
-        real_trades = [t for t in all_trades if t.get('order_id')]
-        return real_trades
+        response = requests.get('http://localhost:8000/api/v1/trades/?limit=5000', timeout=5)
+        if response.status_code == 200:
+            all_trades = response.json()
+            
+            # Filter for real trades only (those with order_ids)
+            real_trades = [
+                trade for trade in all_trades 
+                if trade.get('order_id') is not None and trade.get('order_id') != ''
+            ]
+            
+            print(f'✅ Found {len(real_trades)} real trades out of {len(all_trades)} total')
+            return real_trades
+            
     except Exception as e:
-        print(f"❌ Error fetching trades: {e}")
+        print(f'⚠️  Could not fetch trades from API (timeout/error): {e}')
+        print('📂 Attempting direct database access...')
+        
+        # Fallback to direct database access
+        try:
+            import sqlite3
+            import os
+            
+            db_path = os.path.join(os.path.dirname(__file__), '..', 'backend', 'trader.db')
+            if os.path.exists(db_path):
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    SELECT id, bot_id, product_id, side, size, price, fee, order_id, status, created_at
+                    FROM trades 
+                    WHERE order_id IS NOT NULL AND order_id != ''
+                    ORDER BY created_at ASC
+                """)
+                
+                rows = cursor.fetchall()
+                conn.close()
+                
+                real_trades = []
+                for row in rows:
+                    real_trades.append({
+                        'id': row[0],
+                        'bot_id': row[1],
+                        'product_id': row[2],
+                        'side': row[3],
+                        'size': row[4],
+                        'price': row[5],
+                        'fee': row[6],
+                        'order_id': row[7],
+                        'status': row[8],
+                        'created_at': row[9]
+                    })
+                
+                print(f'✅ Found {len(real_trades)} real trades from database')
+                return real_trades
+                
+        except Exception as db_error:
+            print(f'❌ Database access also failed: {db_error}')
+            
         return []
 
 def get_account_balances():
-    """Get current account balances from Coinbase."""
+    """Get current account balances from API (or fallback to known values)."""
     try:
-        response = requests.get('http://localhost:8000/api/v1/market/accounts')
-        response.raise_for_status()
-        return response.json()
+        response = requests.get('http://localhost:8000/api/v1/market/accounts', timeout=3)
+        if response.status_code == 200:
+            accounts = response.json()
+            
+            balance_summary = {}
+            total_value = 0
+            
+            for account in accounts:
+                currency = account['currency']
+                balance = account['available_balance']
+                is_cash = account.get('is_cash', False)
+                
+                if balance > 0:
+                    balance_summary[currency] = {
+                        'balance': balance,
+                        'is_cash': is_cash
+                    }
+                    
+                    if currency == 'USD' or is_cash:
+                        total_value += balance
+                    else:
+                        # For simplicity, we'll estimate crypto value at $1 each for this summary
+                        # In a real implementation, you'd fetch current prices
+                        total_value += balance * 1000 if currency in ['BTC'] else balance * 100
+            
+            balance_summary['_total_estimated'] = total_value
+            return balance_summary
+            
     except Exception as e:
-        print(f"❌ Error fetching balances: {e}")
-        return []
+        print(f'⚠️  Could not fetch current balances (API timeout/error): {e}')
+        # Return known balances from previous status check
+        return {
+            'USD': {'balance': 499.67, 'is_cash': True},
+            'BTC': {'balance': 0.000054, 'is_cash': False},
+            'ETH': {'balance': 0.000173, 'is_cash': False},
+            'USDC': {'balance': 0.98, 'is_cash': False},
+            '_total_estimated': 504.65,
+            '_note': 'Using cached balances due to API unavailability'
+        }
 
 def parse_trade_time(time_str):
     """Parse trade timestamp."""
@@ -94,7 +176,7 @@ def calculate_profitability(trades):
     for trade in trades:
         size = float(trade.get('size', 0))
         price = float(trade.get('price', 0))
-        fee = float(trade.get('fee', 0))
+        fee = float(trade.get('fee') or 0)  # Handle None fees
         side = trade.get('side', '').lower()
         product_id = trade.get('product_id', '')
         
@@ -190,22 +272,39 @@ def print_current_balances():
     print('💼 CURRENT ACCOUNT BALANCES:')
     total_value_estimate = 0
     
-    for account in balances:
-        currency = account.get('currency')
-        balance = float(account.get('available_balance', 0))
+    # Handle the dictionary format returned by get_account_balances
+    for currency, account_info in balances.items():
+        if currency.startswith('_'):  # Skip metadata keys like '_total_estimated'
+            if currency == '_note':
+                print(f'ℹ️  Note: {account_info}')
+            continue
+            
+        if isinstance(account_info, dict):
+            balance = float(account_info.get('balance', 0))
+            is_cash = account_info.get('is_cash', False)
+        else:
+            balance = float(account_info)
+            is_cash = (currency == 'USD')
         
         if balance > 0 and currency in ['USD', 'BTC', 'ETH', 'USDC', 'LTC', 'BCH']:
-            print(f'  {currency}: {balance:.6f}')
-            
-            # Rough USD value estimates
-            if currency == 'USD' or currency == 'USDC':
+            if is_cash:
+                print(f'  {currency}: ${balance:.2f} (cash)')
                 total_value_estimate += balance
-            elif currency == 'BTC':
-                total_value_estimate += balance * 65000  # Rough estimate
-            elif currency == 'ETH':
-                total_value_estimate += balance * 2600   # Rough estimate
+            else:
+                print(f'  {currency}: {balance:.6f}')
+                # Rough USD value estimates
+                if currency == 'BTC':
+                    total_value_estimate += balance * 43000  # Rough BTC price
+                elif currency == 'ETH':
+                    total_value_estimate += balance * 2500   # Rough ETH price
+                elif currency == 'USDC':
+                    total_value_estimate += balance
     
-    print(f'  Estimated Total Value: ${total_value_estimate:.2f}')
+    # Use cached total if available
+    if '_total_estimated' in balances:
+        total_value_estimate = balances['_total_estimated']
+    
+    print(f'💰 Estimated Total Value: ${total_value_estimate:.2f}')
     print()
 
 def main():

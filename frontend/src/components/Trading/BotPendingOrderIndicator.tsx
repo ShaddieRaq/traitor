@@ -1,5 +1,5 @@
 import React from 'react';
-import { useBotPendingOrders } from '../hooks/useBotPendingOrders';
+import { useBotPendingOrders } from '../../hooks/useBotPendingOrders';
 
 interface BotPendingOrderIndicatorProps {
   botId: number;
@@ -7,8 +7,7 @@ interface BotPendingOrderIndicatorProps {
 }
 
 export const BotPendingOrderIndicator: React.FC<BotPendingOrderIndicatorProps> = ({ 
-  botId, 
-  botName = `Bot ${botId}` 
+  botId 
 }) => {
   const { data: pendingOrderStatus, isLoading } = useBotPendingOrders(botId);
 
