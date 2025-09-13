@@ -91,6 +91,12 @@ const TradeReadinessBadge: React.FC<TradeReadinessBadgeProps> = ({ readiness, cl
       case 'balance_check_error':
         return '⚠️ Balance check failed';
       default:
+        // Handle price step blocking reason
+        if (reason && reason.includes('Price step requirement not met')) {
+          const percentMatch = reason.match(/\(([0-9.]+)%\)/);
+          const requiredPercent = percentMatch ? percentMatch[1] : '2.0';
+          return `📊 Waiting for ${requiredPercent}% price movement`;
+        }
         return reason; // Show the raw reason if it's not in our predefined list
     }
   };

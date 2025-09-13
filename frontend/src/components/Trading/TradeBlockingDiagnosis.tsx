@@ -69,6 +69,18 @@ const TradeBlockingDiagnosis: React.FC<TradeBlockingDiagnosisProps> = ({ bot, cl
         };
       
       default:
+        // Check for price step blocking specifically
+        if (blockingReason && blockingReason.includes('Price step requirement not met')) {
+          const percentMatch = blockingReason.match(/\(([0-9.]+)%\)/);
+          const requiredPercent = percentMatch ? percentMatch[1] : '2.0';
+          return {
+            title: 'Waiting for Price Movement',
+            message: `Price must move ${requiredPercent}% from last trade before next order. Strong ${nextAction.toUpperCase()} signal confirmed.`,
+            color: 'bg-blue-100 text-blue-700 border-blue-200',
+            icon: '📊'
+          };
+        }
+        
         if (canTrade && signalStrength >= 50) {
           return {
             title: 'Ready to Trade',

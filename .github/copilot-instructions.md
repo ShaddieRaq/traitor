@@ -12,21 +12,23 @@
 
 **DO NOT RESUME LIVE TRADING** until data integrity verified.
 
+📅 **SCHEDULED CLEANUP**: September 20, 2025 - Remove all decommissioned state references from codebase and documentation
+
 ---
 
-**Purpose**: Enable immediate, safe productivity in this FastAPI + React autonomous trading system. Keep changes small, test thoroughly, never break existing functionality.
+## Core Architecture: Bot-Centric Trading Pipeline
 
-### 1. Core Architecture: Bot-Centric Trading Pipeline
 **Mental Model**: One bot per trading pair. Pipeline: `Market Data → Signal Calculation (RSI/MA/MACD) → Weighted Aggregation → Temperature Classification → Action Intent → Safety Checks → Trade Execution`
 
 **Key Principles**:
 - **Always recompute**: Never trust `bot.current_combined_score` from DB - recalculate from fresh market data
-- **Temperature system**: FROZEN/COOL/WARM/HOT thresholds drive UI indicators and trade readiness  
+- **Temperature system**: FROZEN/COOL/WARM/HOT thresholds (see `app/utils/temperature.py`)
 - **Weight constraints**: Signal weights must sum ≤ 1.0 or system rejects configuration
-- **Status sync**: All trade state changes broadcast via WebSocket to maintain real-time UI consistency
-- **Error visibility**: Code errors now automatically reported to user-visible system via ErrorIndicator and SystemHealthPanel
+- **Status sync**: All trade state changes broadcast via WebSocket
+- **Error visibility**: Automatic error reporting via SystemHealthPanel
 
-### 2. Essential Developer Workflow - Scripts Are Mandatory
+## Essential Developer Workflow - Scripts Are Mandatory
+
 **NEVER bypass these scripts** - they prevent data corruption and service conflicts:
 
 ```bash
@@ -34,19 +36,17 @@
 ./scripts/status.sh              
 
 # Development cycle
-./scripts/start.sh              # Boot all services if needed
+./scripts/start.sh               # Boot all services if needed
 # ... make code changes ...
-./scripts/test.sh               # Must pass 100% before commit
-./scripts/restart.sh            # If runtime services need reload
-
-# Comprehensive validation after changes
-./scripts/test-workflow.sh      # Full testing pipeline
+./scripts/test.sh                # Must pass 100% before commit
+./scripts/restart.sh             # If runtime services need reload
 
 # Database safety before major changes
 cp backend/trader.db backend/trader_backup_$(date +%Y%m%d_%H%M%S).db
 ```
 
-### 3. Critical Data Patterns - Get These Wrong = Bugs
+## Critical Data Patterns - Get These Wrong = Bugs
+
 **Trade Size**: ALWAYS use `trade.size_usd` - never calculate `size * price` (quote/base currency ambiguity)
 
 **Cooldown Logic**: Based on `filled_at` timestamp, NOT `created_at` (only after order actually fills)
@@ -81,7 +81,8 @@ result = evaluator.calculate_bot_temperature(bot, data)
 refetchInterval: 5000, staleTime: 0, refetchIntervalInBackground: true
 ```
 
-### 4. Key Files & Service Architecture
+## Key Files & Service Architecture
+
 **Backend Services** (`backend/app/services/`):
 - `bot_evaluator.py` - Core signal aggregation + auto-trade trigger logic
 - `trading_service.py` - Trade execution, safety checks, status broadcasting  
@@ -102,6 +103,136 @@ refetchInterval: 5000, staleTime: 0, refetchIntervalInBackground: true
 - `Bot`: Signal config JSON field, temperature, scores
 - `Trade`: Include `size_usd`, `filled_at` for cooldown logic  
 - `BotSignalHistory`: Timestamped evaluations for debugging
+
+## Key API Endpoints
+
+**Enhanced Bot Status** (authoritative runtime data):
+```bash
+GET /api/v1/bots/status/enhanced  # Real-time trading_intent, confirmation, readiness
+POST /api/v1/bot-evaluation/{id}/evaluate  # Force fresh evaluation + potential auto-trade
+```
+
+**Trade Management**:
+```bash
+POST /api/v1/trades/update-statuses  # Batch order status sync with Coinbase
+GET /api/v1/market/accounts          # USD balance via portfolio breakdown
+```
+
+**WebSocket Streams**:
+```bash
+WS /api/v1/ws/trade-execution       # Real-time trade progress updates
+POST /api/v1/ws/start-streaming/{bot_id}  # Enable market data streaming
+```
+
+## React Frontend Patterns
+
+**TanStack Query Configuration** (critical for real-time updates):
+```typescript
+export const useEnhancedBotsStatus = () => {
+  return useQuery({
+    queryKey: ['bots', 'enhanced-status'],
+    queryFn: fetchEnhancedBotsStatus,
+    refetchInterval: 5000,                // Poll every 5 seconds
+    refetchIntervalInBackground: true,    // Continue when tab inactive
+    refetchOnWindowFocus: true,           // Refresh when tab focused
+    staleTime: 0,                         // Always consider data stale
+  });
+};
+```
+
+**Reactive Component Keys** (include changing data to force re-renders):
+```typescript
+<ConsolidatedBotCard 
+  key={`bot-${bot.id}-${bot.current_combined_score}`}
+  bot={bot}
+/>
+```
+
+## Testing & Data Safety
+
+**Test Cleanup Pattern** (prevents DB pollution):
+```python
+def test_bot_creation(self, client):
+    created_bot_ids = []
+    try:
+        # Test logic that creates bots
+        if response.status_code == 201:
+            created_bot_ids.append(response.json()["id"])
+    finally:
+        # Always clean up test bots
+        for bot_id in created_bot_ids:
+            client.delete(f"/api/v1/bots/{bot_id}")
+```
+
+**Automated Cleanup**:
+```bash
+./scripts/cleanup.sh --dry-run     # Preview test data cleanup
+./scripts/cleanup.sh               # Remove test bots and orphaned data
+```
+
+## Common Pitfalls to Avoid
+
+- **Temperature enum mismatch**: Frontend uses "COOL", backend has "COLD" - always use COOL
+- **Stale DB data**: Never use `bot.current_combined_score` without fresh calculation
+- **Size calculation bugs**: Always use `trade.size_usd`, never `size * price`
+- **Weight validation bypassed**: Must validate at BOTH frontend AND backend levels
+- **Test pollution**: Always cleanup created bots in tests (prevents analytics corruption)
+- **Blocking UI**: Include reactive keys with changing values (scores, timestamps)
+- **WebSocket complexity**: Reuse existing streaming endpoints, don't rebuild
+- **JSON config parsing**: Handle both string and object formats: `json.loads(bot.signal_config) if isinstance(bot.signal_config, str) else bot.signal_config`
+
+## Fast Diagnostics
+
+```bash
+# System health
+./scripts/status.sh
+curl -s localhost:8000/health
+
+# Runtime state check
+curl -s localhost:8000/api/v1/bots/status/enhanced | jq '.[0] | {id,temperature,trading_intent,trade_readiness}'
+
+# Check for stuck trades
+sqlite3 backend/trader.db "SELECT id,side,status,created_at FROM trades WHERE status='pending'"
+```
+
+## Database Patterns
+
+**SQLAlchemy Models** (`backend/app/models/models.py`):
+- `Bot`: Main entity with `signal_config` JSON field
+- `Trade`: Always include `size_usd`, `filled_at` for cooldown logic
+- `BotSignalHistory`: Timestamped signal evaluations for debugging
+
+**Database Connection**:
+```python
+from app.core.database import get_db, SessionLocal
+# Use get_db() for FastAPI dependencies
+# Use SessionLocal() for scripts and services
+```
+
+## Configuration Management
+
+**Settings** (`backend/app/core/config.py`):
+- Environment file: `/Users/lazy_genius/Projects/trader/.env`
+- Database: SQLite at `backend/trader.db`
+- Redis: `redis://localhost:6379/0` for Celery
+- Always production mode - no mock trading
+
+**Signal Configuration JSON Schema**:
+```json
+{
+  "RSI": {"enabled": true, "weight": 0.4, "period": 14, "buy_threshold": 35, "sell_threshold": 65},
+  "moving_average": {"enabled": true, "weight": 0.4, "fast_period": 12, "slow_period": 26},
+  "macd": {"enabled": true, "weight": 0.2, "fast_period": 12, "slow_period": 26, "signal_period": 9}
+}
+```
+
+## Reference Documentation
+
+**Deep Dives**: `docs/IMPLEMENTATION_GUIDE.md` (patterns) • `docs/TROUBLESHOOTING_PLAYBOOK.md` (fixes) • `docs/PHASE_HISTORY.md` (evolution) • `PROJECT_STATUS.md` (current state)
+
+**System Architecture**: FastAPI backend + React frontend + SQLite + Redis/Celery + Coinbase API integration with real-time polling and WebSocket broadcasting
+
+Last Updated: 2025-09-13 (Streamlined post-decommission guide)
 
 ### 5. Key API Endpoints
 **Enhanced Bot Status** (authoritative runtime data):

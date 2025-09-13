@@ -399,8 +399,23 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
             # Determine trade readiness
             confirmation_required = confirmation_status.get('needs_confirmation', False)
             confirmation_complete = confirmation_status.get('is_confirmed', False) if confirmation_required else True
+            
+            # Check price step requirement using safety service
+            price_step_ok = True
+            price_step_blocking_reason = None
+            if next_action != "hold" and bot.status == 'RUNNING':
+                try:
+                    from ..services.trading_safety import TradingSafetyService
+                    safety_service = TradingSafetyService(db)
+                    price_step_ok = safety_service._check_price_step(bot, next_action.upper(), bot.position_size_usd)
+                    if not price_step_ok:
+                        price_step_blocking_reason = f"Price step requirement not met ({bot.trade_step_pct or 2.0}%)"
+                except Exception as e:
+                    logger.warning(f"Price step check failed for bot {bot.id}: {e}")
+                    price_step_ok = True  # Allow trade if check fails
+            
             can_trade = (confirmation_complete and bot.status == 'RUNNING' and 
-                        cooldown_remaining_minutes == 0 and has_sufficient_balance)
+                        cooldown_remaining_minutes == 0 and has_sufficient_balance and price_step_ok)
             blocking_reason = None
             readiness_status = "no_signal"
             
@@ -413,6 +428,9 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                 elif not has_sufficient_balance:
                     readiness_status = "blocked"
                     blocking_reason = balance_blocking_reason
+                elif not price_step_ok:
+                    readiness_status = "blocked"
+                    blocking_reason = price_step_blocking_reason
                 elif can_trade:
                     readiness_status = "ready"
                 else:
@@ -428,6 +446,8 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                     blocking_reason = "cooldown"
                 elif not has_sufficient_balance:
                     blocking_reason = balance_blocking_reason
+                elif not price_step_ok:
+                    blocking_reason = price_step_blocking_reason
             
             trade_readiness = TradeReadiness(
                 status=readiness_status,
