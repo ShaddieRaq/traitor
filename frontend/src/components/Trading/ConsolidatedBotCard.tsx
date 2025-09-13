@@ -2,6 +2,8 @@ import React from 'react';
 import { EnhancedBotStatus } from '../../types';
 import BotPerformanceSection from './BotPerformanceSection';
 import SignalStrengthMeter from './SignalStrengthMeter';
+import SignalConfidenceMeter from './SignalConfidenceMeter';
+import CircularConfirmationTimer from './CircularConfirmationTimer';
 import { useBotPerformanceByPair } from '../../hooks/useBotPerformance';
 
 interface ConsolidatedBotCardProps {
@@ -21,7 +23,6 @@ const ConsolidatedBotCard: React.FC<ConsolidatedBotCardProps> = ({ bot, classNam
   // Determine primary action and strength
   const action = tradingIntent?.next_action?.toUpperCase() || 'HOLD';
   const signalStrength = tradingIntent?.signal_strength || 0;
-  const confidence = tradingIntent?.confidence || 0;
   
   // Calculate position value (coins * current price)
   const positionValue = performance ? performance.current_position * performance.current_price : 0;
@@ -151,17 +152,21 @@ const ConsolidatedBotCard: React.FC<ConsolidatedBotCardProps> = ({ bot, classNam
         </div>
       </div>
 
-      {/* SIGNAL STRENGTH: Single Consolidated Bar */}
+      {/* SIGNAL ANALYSIS: Three Circles - Strength, Confidence, Confirmation */}
       {signalStrength > 0 && (
         <div className="mb-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-4">
               <SignalStrengthMeter 
                 intent={bot.trading_intent}
               />
-              <div className="text-sm text-gray-600">
-                <span>{(signalStrength * 100).toFixed(0)}% • {(confidence * 100).toFixed(0)}% confidence</span>
-              </div>
+              <SignalConfidenceMeter 
+                intent={bot.trading_intent}
+              />
+              <CircularConfirmationTimer 
+                confirmation={bot.confirmation} 
+                tradingIntent={bot.trading_intent}
+              />
             </div>
           </div>
         </div>

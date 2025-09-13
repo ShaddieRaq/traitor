@@ -1,7 +1,6 @@
 import React from 'react';
 import { EnhancedBotStatus } from '../../types';
 import { useBotPerformanceByPair } from '../../hooks/useBotPerformance';
-import ConfirmationTimer from './ConfirmationTimer';
 import SignalStrengthMeter from './SignalStrengthMeter';
 import TradeReadinessBadge from './TradeReadinessBadge';
 import TradeBlockingDiagnosis from './TradeBlockingDiagnosis';
@@ -85,17 +84,19 @@ const EnhancedBotCard: React.FC<EnhancedBotCardProps> = ({ bot, className = '' }
         </div>
       </div>
 
-      {/* Signal Strength Meter */}
-      <div className="mb-3">
-        <SignalStrengthMeter intent={bot.trading_intent} />
-      </div>
-
-      {/* Confirmation Timer */}
-      {bot.confirmation.is_active && (
-        <div className="mb-3">
-          <ConfirmationTimer confirmation={bot.confirmation} />
+      {/* Signal Strength & Confirmation Status - Side by Side */}
+      <div className="mb-3 space-y-3">
+        <div className="flex items-center space-x-4">
+          <div className="flex-1">
+            <SignalStrengthMeter intent={bot.trading_intent} />
+          </div>
+          <div className="flex-1">
+            <div className="bg-red-200 p-2 rounded text-xs">
+              DEBUG: Confirmation Timer Should Be Here
+            </div>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Cooldown Timer - Always visible when active */}
       {bot.trade_readiness.cooldown_remaining_minutes > 0 && (

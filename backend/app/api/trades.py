@@ -5,7 +5,8 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 import logging
 from ..core.database import get_db
-from ..models.models import Trade, Bot
+from ..models.models import Bot  # Trade model removed - using raw_trades
+# from ..models.models import Trade, Bot  # DEPRECATED: Trade model disabled
 from .schemas import TradeResponse
 from ..services.trading_safety import TradingSafetyService
 from ..services.trading_service import TradingService, TradeExecutionError
@@ -192,22 +193,22 @@ def calculate_profitability_data(db: Session):
 
 @router.get("/bot/{bot_id}/performance")
 def get_bot_performance(bot_id: int, db: Session = Depends(get_db)):
-    """Get comprehensive P&L performance for a specific bot including unrealized gains."""
+    """Get comprehensive P&L performance for a specific bot using clean raw_trades data."""
     from datetime import datetime
     from ..services.coinbase_service import CoinbaseService
+    from ..models.models import RawTrade
     
     # Verify bot exists
     bot = db.query(Bot).filter(Bot.id == bot_id).first()
     if not bot:
         raise HTTPException(status_code=404, detail="Bot not found")
     
-    # Get all trades for this bot
-    trades = db.query(Trade).filter(
-        Trade.bot_id == bot_id,
-        Trade.order_id.isnot(None),
-        Trade.order_id != '',
-        Trade.status == 'completed'
-    ).order_by(Trade.created_at.desc()).all()
+    # Get all raw trades for this bot's product_id (more accurate than bot_id)
+    trades = db.query(RawTrade).filter(
+        RawTrade.product_id == bot.pair,
+        RawTrade.order_id.isnot(None),
+        RawTrade.order_id != ''
+    ).order_by(RawTrade.created_at.desc()).all()
     
     if not trades:
         return {
@@ -229,7 +230,7 @@ def get_bot_performance(bot_id: int, db: Session = Depends(get_db)):
             "sell_count": 0
         }
     
-    # Calculate realized P&L
+    # Calculate realized P&L using raw trade data
     total_spent = 0.0
     total_received = 0.0
     total_fees = 0.0
@@ -240,47 +241,75 @@ def get_bot_performance(bot_id: int, db: Session = Depends(get_db)):
     total_buy_cost = 0.0  # Total USD spent on buys
     
     for trade in trades:
-        trade_value = get_trade_usd_value(trade)
-        fee = float(trade.commission) if trade.commission else (float(trade.fee) if trade.fee else 0.0)
+        # Calculate USD value from raw trade
+        size = float(trade.size) if trade.size else 0.0
+        price = float(trade.price) if trade.price else 0.0
+        
+        # For size_in_quote trades, size is already in USD
+        if trade.size_in_quote:
+            trade_value = size
+        else:
+            trade_value = size * price
+        
+        # Use commission from raw trade (more accurate)
+        fee = float(trade.commission) if trade.commission else 0.0
         total_fees += fee
         
         if trade.side.upper() == 'BUY':
             total_spent += trade_value + fee
-            total_bought += trade.size
+            # For position tracking: size_in_quote True means size is USD, False means size is coins
+            total_bought += (size / price) if trade.size_in_quote else size
             total_buy_cost += trade_value  # USD cost without fees for average price calc
             buy_count += 1
         elif trade.side.upper() == 'SELL':
             total_received += trade_value - fee
-            total_sold += trade.size
+            # For position tracking: size_in_quote True means size is USD, False means size is coins  
+            total_sold += (size / price) if trade.size_in_quote else size
             sell_count += 1
     
-    # Calculate P&L correctly using FIFO accounting
-    from ..utils.pnl_calculator import calculate_correct_pnl
+    # Calculate current position (net crypto holdings)
+    current_position = total_bought - total_sold
+    
+    # Calculate average entry price
+    average_entry_price = (total_buy_cost / total_bought) if total_bought > 0 else 0.0
+    
+    # Calculate proper P&L for crypto positions
+    # For open positions: realized P&L should only include completed round-trips (buy->sell)
+    # Since we only track net position, we'll calculate based on what's been sold
+    sold_value = total_received  # USD received from sales
+    sold_cost_basis = total_sold * average_entry_price if total_sold > 0 and average_entry_price > 0 else 0
+    realized_pnl = sold_value - sold_cost_basis  # P&L only on sold portions
     
     # Get current market price
     current_price = 0.0
     try:
         coinbase_service = CoinbaseService()
-        ticker = coinbase_service.get_ticker(bot.pair)
-        current_price = float(ticker.get('price', 0))
+        ticker = coinbase_service.get_product_ticker(bot.pair)
+        current_price = float(ticker.get('price', 0)) if ticker else 0.0
     except Exception as e:
         logger.warning(f"Could not get current price for {bot.pair}: {e}")
         # Fallback to last trade price
         if trades:
             current_price = float(trades[0].price)
     
-    # Calculate correct P&L using FIFO
-    pnl_data = calculate_correct_pnl(trades, current_price)
-    realized_pnl = pnl_data['realized_pnl']
-    unrealized_pnl = pnl_data['unrealized_pnl']
-    total_pnl = pnl_data['total_pnl']
-    current_position = pnl_data['current_position']
-    average_entry_price = pnl_data['average_cost_basis']
+    # Calculate unrealized P&L (current value of holdings vs cost basis)
+    unrealized_pnl = 0.0
+    if current_position > 0 and current_price > 0:
+        current_value = current_position * current_price
+        cost_basis = current_position * average_entry_price
+        unrealized_pnl = current_value - cost_basis
     
-    # ROI calculation: Use total P&L vs total invested
+    # Total P&L
+    total_pnl = realized_pnl + unrealized_pnl
+    
+    # ROI calculation: Different logic for open vs closed positions
     if current_position > 0:
-        # For open positions, ROI = total_pnl / total_invested
-        roi_percentage = (total_pnl / total_spent * 100) if total_spent > 0 else 0.0
+        # For open positions with no sales: ROI based on unrealized P&L vs total investment
+        if total_sold == 0:
+            roi_percentage = (unrealized_pnl / total_spent * 100) if total_spent > 0 else 0.0
+        else:
+            # For partially sold positions: ROI based on total P&L vs total investment
+            roi_percentage = (total_pnl / total_spent * 100) if total_spent > 0 else 0.0
     else:
         # For closed positions, use realized P&L vs total invested
         roi_percentage = (realized_pnl / total_spent * 100) if total_spent > 0 else 0.0
@@ -302,8 +331,8 @@ def get_bot_performance(bot_id: int, db: Session = Depends(get_db)):
         "total_fees": total_fees,
         "buy_count": buy_count,
         "sell_count": sell_count,
-        "first_trade": trades[-1].created_at.isoformat() if trades else None,
-        "last_trade": trades[0].created_at.isoformat() if trades else None
+        "first_trade": trades[-1].created_at if trades else None,  # RawTrade.created_at is already a string
+        "last_trade": trades[0].created_at if trades else None     # RawTrade.created_at is already a string
     }
 
 

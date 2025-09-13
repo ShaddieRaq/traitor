@@ -1,5 +1,6 @@
 import React from 'react';
 import { TradingIntent } from '../../types';
+import Tooltip from '../ui/Tooltip';
 
 interface SignalStrengthMeterProps {
   intent: TradingIntent;
@@ -11,7 +12,7 @@ const SignalStrengthMeter: React.FC<SignalStrengthMeterProps> = ({ intent, class
     switch (action) {
       case 'buy': return { stroke: 'stroke-green-500', text: 'text-green-700', bg: 'bg-green-50' };
       case 'sell': return { stroke: 'stroke-red-500', text: 'text-red-700', bg: 'bg-red-50' };
-      default: return { stroke: 'stroke-gray-400', text: 'text-gray-700', bg: 'bg-gray-50' };
+      default: return { stroke: 'stroke-blue-500', text: 'text-blue-700', bg: 'bg-blue-50' };
     }
   };
 
@@ -25,18 +26,20 @@ const SignalStrengthMeter: React.FC<SignalStrengthMeterProps> = ({ intent, class
 
   const colors = getActionColor(intent.next_action);
   const strengthPercentage = intent.signal_strength * 100;
-  const confidencePercentage = intent.confidence * 100;
   
   // Circle progress calculations
   const radius = 20;
   const circumference = 2 * Math.PI * radius;
   const strengthOffset = circumference - (strengthPercentage / 100) * circumference;
 
+  const tooltipText = `Signal Strength: Measures how strongly the combined technical indicators (RSI, Moving Averages, MACD) are pointing toward a specific trading action. Values range from 0-100% where higher percentages indicate stronger buy/sell signals based on market momentum and price patterns.`;
+
   return (
     <div className={`flex items-center space-x-3 ${className}`}>
       {/* Circular Signal Strength */}
-      <div className="relative flex items-center">
-        <svg className="transform -rotate-90 w-12 h-12">
+      <Tooltip content={tooltipText}>
+        <div className="relative flex items-center cursor-help">
+          <svg className="transform -rotate-90 w-12 h-12">
           {/* Background circle */}
           <circle
             cx="24"
@@ -71,14 +74,15 @@ const SignalStrengthMeter: React.FC<SignalStrengthMeterProps> = ({ intent, class
           </div>
         </div>
       </div>
+      </Tooltip>
 
       {/* Compact info */}
       <div className="flex-1 min-w-0">
         <div className={`text-sm font-medium ${colors.text}`}>
-          {intent.next_action.toUpperCase()}
+          Signal Strength
         </div>
         <div className="text-xs text-gray-500">
-          {confidencePercentage.toFixed(0)}% confidence
+          {strengthPercentage.toFixed(0)}% power
         </div>
         {intent.signal_strength >= 0.8 && intent.confidence >= 0.8 && (
           <div className="text-xs text-green-600 font-medium">🚀 Strong signal</div>
