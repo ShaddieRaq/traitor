@@ -4,6 +4,7 @@ import BotPerformanceSection from './BotPerformanceSection';
 import SignalStrengthMeter from './SignalStrengthMeter';
 import SignalConfidenceMeter from './SignalConfidenceMeter';
 import CircularConfirmationTimer from './CircularConfirmationTimer';
+import ErrorIndicator from './ErrorIndicator';
 import { useBotPerformanceByPair } from '../../hooks/useBotPerformance';
 
 interface ConsolidatedBotCardProps {
@@ -126,6 +127,7 @@ const ConsolidatedBotCard: React.FC<ConsolidatedBotCardProps> = ({ bot, classNam
           <div className="flex items-center space-x-2">
             <h3 className="text-lg font-semibold text-gray-900">{bot.name}</h3>
             <span className="text-2xl">{tempConfig.emoji}</span>
+            <ErrorIndicator botId={bot.id} botName={bot.name} />
           </div>
           
           {/* Primary Action Indicator */}
@@ -178,43 +180,15 @@ const ConsolidatedBotCard: React.FC<ConsolidatedBotCardProps> = ({ bot, classNam
         compact={false}
       />
 
-      {/* SECONDARY INFO: Expandable Technical Details */}
-      <details className="group">
-        <summary className="cursor-pointer text-xs text-gray-500 hover:text-gray-700 select-none">
-          <span className="inline-flex items-center">
-            Technical Details
-            <svg className="w-3 h-3 ml-1 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </span>
-        </summary>
-        
-        <div className="mt-3 pt-3 border-t border-gray-200 grid grid-cols-2 gap-4 text-xs">
-          <div>
-            <span className="text-gray-500">Score:</span>
-            <div className={`font-mono font-medium ${
-              bot.current_combined_score > 0 ? 'text-red-600' : 
-              bot.current_combined_score < 0 ? 'text-green-600' : 'text-gray-600'
-            }`}>
-              {bot.current_combined_score.toFixed(3)}
-            </div>
+      {/* BLOCKING REASON: Only show if there's a blocking reason */}
+      {readiness?.blocking_reason && (
+        <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded text-xs">
+          <span className="text-red-700 font-medium">⚠️ Trading Blocked:</span>
+          <div className="text-red-600 mt-1">
+            {readiness.blocking_reason}
           </div>
-          <div>
-            <span className="text-gray-500">Distance:</span>
-            <div className="font-mono text-gray-700">
-              {bot.distance_to_signal.toFixed(3)}
-            </div>
-          </div>
-          {readiness?.blocking_reason && (
-            <div className="col-span-2">
-              <span className="text-gray-500">Blocking Reason:</span>
-              <div className="text-red-600 text-xs mt-1">
-                {readiness.blocking_reason}
-              </div>
-            </div>
-          )}
         </div>
-      </details>
+      )}
     </div>
   );
 };

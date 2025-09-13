@@ -3,6 +3,7 @@ import PortfolioOverview from '../components/Trading/PortfolioOverview';
 import MarketTicker from '../components/Market/MarketTicker';
 import MarketAnalysis from '../components/MarketAnalysis';
 import AutoBotCreator from '../components/Trading/AutoBotCreator';
+import SystemHealthPanel from '../components/Trading/SystemHealthPanel';
 import { useBotsStatus, useEnhancedBotsStatus } from '../hooks/useBots';
 import { useSystemStatus, getSystemHealthColor, getServiceStatusText } from '../hooks/useSystemStatus';
 import { DataFreshnessIndicator, PollingStatusIndicator } from '../components/DataFreshnessIndicators';
@@ -43,6 +44,9 @@ const Dashboard: React.FC = () => {
           <div className="space-y-6">
             {/* Portfolio Overview - Position Tracking */}
             <PortfolioOverview />
+
+            {/* System Health Panel - Error Tracking */}
+            <SystemHealthPanel />
 
             {/* Auto Bot Creator */}
             <AutoBotCreator />

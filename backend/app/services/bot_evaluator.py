@@ -14,6 +14,7 @@ from ..models.models import Bot, BotSignalHistory
 from ..services.signals.base import create_signal_instance
 from ..core.database import get_db
 from ..utils.temperature import calculate_bot_temperature, get_temperature_emoji
+from ..utils.error_reporting import report_bot_error, ErrorType
 
 logger = logging.getLogger(__name__)
 
@@ -49,10 +50,10 @@ class BotSignalEvaluator:
         try:
             signal_config = json.loads(bot.signal_config) if isinstance(bot.signal_config, str) else bot.signal_config
         except (json.JSONDecodeError, TypeError):
-            return self._error_result("Invalid signal configuration")
+            return self._error_result("Invalid signal configuration", bot)
         
         if not signal_config:
-            return self._error_result("No signal configuration found")
+            return self._error_result("No signal configuration found", bot)
         
         # Evaluate individual signals
         signal_results = {}
@@ -64,29 +65,46 @@ class BotSignalEvaluator:
             if not config or not config.get('enabled', False):
                 continue
                 
-            # Create signal instance
-            signal_instance = self._create_signal_instance(signal_name, config)
-            if not signal_instance:
+            try:
+                # Create signal instance
+                signal_instance = self._create_signal_instance(signal_name, config)
+                if not signal_instance:
+                    continue
+                
+                # Calculate signal
+                signal_result = signal_instance.calculate(market_data)
+                if signal_result['action'] == 'hold' and signal_result['score'] == 0:
+                    # Skip signals that couldn't calculate (insufficient data, etc.)
+                    continue
+                
+                # Store individual result
+                signal_results[signal_name] = signal_result
+                
+                # Aggregate weighted score
+                weight = config.get('weight', 0)
+                total_weight += weight
+                weighted_score_sum += signal_result['score'] * weight
+                confidence_values.append(signal_result['confidence'])
+                
+            except Exception as e:
+                # Report signal calculation error
+                report_bot_error(
+                    error_type=ErrorType.SIGNAL_CALCULATION,
+                    message=f"Error calculating {signal_name} signal: {str(e)}",
+                    bot_id=bot.id,
+                    bot_name=bot.name,
+                    details={
+                        "signal_name": signal_name,
+                        "signal_config": config,
+                        "error_type": type(e).__name__
+                    }
+                )
+                logger.warning(f"Error calculating {signal_name} for bot {bot.id}: {e}")
                 continue
-            
-            # Calculate signal
-            signal_result = signal_instance.calculate(market_data)
-            if signal_result['action'] == 'hold' and signal_result['score'] == 0:
-                # Skip signals that couldn't calculate (insufficient data, etc.)
-                continue
-            
-            # Store individual result
-            signal_results[signal_name] = signal_result
-            
-            # Aggregate weighted score
-            weight = config.get('weight', 0)
-            total_weight += weight
-            weighted_score_sum += signal_result['score'] * weight
-            confidence_values.append(signal_result['confidence'])
         
         # Calculate aggregated results
         if total_weight == 0:
-            return self._error_result("No enabled signals with valid weights")
+            return self._error_result("No enabled signals with valid weights", bot)
         
         overall_score = weighted_score_sum / total_weight
         overall_confidence = sum(confidence_values) / len(confidence_values) if confidence_values else 0
@@ -285,8 +303,22 @@ class BotSignalEvaluator:
         else:
             return 'hold'
     
-    def _error_result(self, error_message: str) -> Dict[str, Any]:
-        """Return standardized error result."""
+    def _error_result(self, error_message: str, bot: Bot = None) -> Dict[str, Any]:
+        """Return standardized error result and report to error tracking."""
+        # Report the error to our tracking system
+        if bot:
+            report_bot_error(
+                error_type=ErrorType.CONFIGURATION,
+                message=error_message,
+                bot_id=bot.id,
+                bot_name=bot.name,
+                details={
+                    "signal_config": bot.signal_config,
+                    "trading_pair": bot.trading_pair,
+                    "evaluation_timestamp": pd.Timestamp.now().isoformat()
+                }
+            )
+        
         return {
             'overall_score': 0,
             'action': 'hold',

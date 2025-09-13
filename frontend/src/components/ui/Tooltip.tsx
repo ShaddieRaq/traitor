@@ -17,13 +17,15 @@ const Tooltip: React.FC<TooltipProps> = ({ content, children, className = '' }) 
       const tooltipWidth = 256; // w-64 = 256px
       const screenWidth = window.innerWidth;
       
-      // Check if centered tooltip would go off-screen
+      // Check if centered tooltip would go off-screen OR past container boundaries
       const centerLeft = rect.left + rect.width / 2 - tooltipWidth / 2;
       const centerRight = centerLeft + tooltipWidth;
       
-      if (centerLeft < 10) {
+      // Very aggressive left boundary detection - if element is close to left, use left positioning
+      // This accounts for the fact that signal meter is the first element in a flex container
+      if (rect.left < 150 || centerLeft < 50) { // Much more aggressive detection
         setPosition('left');
-      } else if (centerRight > screenWidth - 10) {
+      } else if (centerRight > screenWidth - 20) {
         setPosition('right');
       } else {
         setPosition('center');
@@ -36,10 +38,13 @@ const Tooltip: React.FC<TooltipProps> = ({ content, children, className = '' }) 
     
     switch (position) {
       case 'left':
+        // Position tooltip to start at the left edge of the trigger element
         return `${baseClasses} left-0`;
       case 'right':
+        // Position tooltip to end at the right edge of the trigger element
         return `${baseClasses} right-0`;
       default:
+        // Center the tooltip on the trigger element
         return `${baseClasses} left-1/2 transform -translate-x-1/2`;
     }
   };
@@ -49,9 +54,10 @@ const Tooltip: React.FC<TooltipProps> = ({ content, children, className = '' }) 
     
     switch (position) {
       case 'left':
-        return `${baseArrowClasses} left-6`;
+        // Position arrow to point to the center of the trigger element
+        return `${baseArrowClasses} left-8`; // Adjusted from left-6 to left-8 for better centering
       case 'right':
-        return `${baseArrowClasses} right-6`;
+        return `${baseArrowClasses} right-8`; // Adjusted from right-6 to right-8 for better centering
       default:
         return `${baseArrowClasses} left-1/2 transform -translate-x-1/2`;
     }

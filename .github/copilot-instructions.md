@@ -6,7 +6,7 @@
 
 **Status**: System suspended until manual verification resolves data source discrepancy.
 
-**Last Known State**: All calculation bugs fixed, but fundamental data validation required.
+**Last Known State**: All calculation bugs fixed, error visibility system implemented.
 
 **Documentation**: See `docs/SYSTEM_DECOMMISSION_REPORT.md` for full details.
 
@@ -24,6 +24,7 @@
 - **Temperature system**: FROZEN/COOL/WARM/HOT thresholds drive UI indicators and trade readiness  
 - **Weight constraints**: Signal weights must sum ≤ 1.0 or system rejects configuration
 - **Status sync**: All trade state changes broadcast via WebSocket to maintain real-time UI consistency
+- **Error visibility**: Code errors now automatically reported to user-visible system via ErrorIndicator and SystemHealthPanel
 
 ### 2. Essential Developer Workflow - Scripts Are Mandatory
 **NEVER bypass these scripts** - they prevent data corruption and service conflicts:
@@ -174,6 +175,9 @@ def test_bot_creation(self, client):
 - **Blocking UI**: Include reactive keys with changing values (scores, timestamps)
 - **WebSocket complexity**: Reuse existing streaming endpoints, don't rebuild
 - **JSON config parsing**: Handle both string and object formats: `json.loads(bot.signal_config) if isinstance(bot.signal_config, str) else bot.signal_config`
+- **Tooltip boundary clipping**: Use adaptive positioning for elements near container edges
+- **Information architecture**: Avoid burying critical info (like blocking reasons) in expandable sections
+- **Technical details clutter**: Remove duplicated info and low-value metrics from UI cards
 
 ### 9. Enhanced Diagnostics & Troubleshooting
 **System Health Commands**:
@@ -671,4 +675,4 @@ Pending trades: inspect `trades` where status='pending' (should be transient).
 ### 10. Deep Dives
 See: docs/IMPLEMENTATION_GUIDE.md (patterns) • docs/TROUBLESHOOTING_PLAYBOOK.md (fixes) • docs/PHASE_HISTORY.md (evolution) • PROJECT_STATUS.md (current state).
 
-Last Updated: 2025-09-07  (Condensed agent guide)
+Last Updated: 2025-09-13 (Enhanced guide with comprehensive diagnostics and validation patterns)
