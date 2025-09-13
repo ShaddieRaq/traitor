@@ -8,42 +8,19 @@ interface TradeActivityItemProps {
 }
 
 const TradeActivityItem: React.FC<TradeActivityItemProps> = ({ trade, bot }) => {
-  const getTradeIcon = (action: string, status: string) => {
-    if (status === 'pending') return '⏳';
-    if (action === 'BUY') return '📈';
-    if (action === 'SELL') return '📉';
+  const getTradeIcon = (side: string) => {
+    if (side === 'BUY') return '📈';
+    if (side === 'SELL') return '📉';
     return '💱';
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'filled':
-      case 'completed':
-        return 'bg-green-500';
-      case 'pending':
-        return 'bg-yellow-500 animate-pulse';
-      case 'cancelled':
-      case 'failed':
-        return 'bg-red-500';
-      default:
-        return 'bg-gray-400';
-    }
+  // Clean data is always completed fills - no status needed
+  const getStatusColor = () => {
+    return 'bg-green-500'; // All raw trades are completed fills
   };
 
-  const getStatusText = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'filled':
-      case 'completed':
-        return 'completed';
-      case 'pending':
-        return 'Executing';
-      case 'cancelled':
-        return 'Cancelled';
-      case 'failed':
-        return 'Failed';
-      default:
-        return status;
-    }
+  const getStatusText = () => {
+    return 'Completed'; // All raw trades are completed fills
   };
 
   const formatTime = (timestamp: string) => {
@@ -93,23 +70,15 @@ const TradeActivityItem: React.FC<TradeActivityItemProps> = ({ trade, bot }) => 
     }
   };
 
-  const formatAmount = (amount?: number, size?: number, price?: number) => {
-    // Prioritize amount field if it's reasonable (< $1000 for our bot settings)
-    if (amount && amount > 0 && amount < 1000) {
-      return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const formatAmount = (size: number, price: number, usd_value: number) => {
+    // For clean data, we have usd_value directly
+    if (usd_value && usd_value > 0) {
+      return `$${usd_value.toFixed(2)}`;
     }
     
-    // Fallback to size * price calculation if size is small (expected for BTC)
-    if (size && price && size < 1) { // BTC amounts should be < 1
-      const calculated = size * price;
-      if (calculated < 1000) { // Sanity check
-        return `$${calculated.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-      }
-    }
-    
-    // If we have amount but it's huge, show it as corrupted
-    if (amount && amount >= 1000) {
-      return `$10.00`; // Default to expected position size
+    // Fallback calculation if needed
+    if (size && price) {
+      return `$${(size * price).toFixed(2)}`;
     }
     
     return 'Amount pending';
@@ -118,17 +87,17 @@ const TradeActivityItem: React.FC<TradeActivityItemProps> = ({ trade, bot }) => 
   return (
     <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
       <div className="flex items-center">
-        <div className={`w-3 h-3 rounded-full mr-3 ${getStatusColor(trade.status)}`}></div>
+        <div className={`w-3 h-3 rounded-full mr-3 ${getStatusColor()}`}></div>
         <div>
           <div className="text-sm text-gray-900">
-            <span className="font-medium">{bot?.name || `Bot ${trade.bot_id}`}</span>
+            <span className="font-medium">{bot?.name || `${trade.product_id} Trade`}</span>
             {' '}
             <span className="text-gray-600">
-              {trade.action || trade.side} {formatAmount(trade.amount, trade.size, trade.price)}
+              {trade.side} {formatAmount(trade.size, trade.price, trade.usd_value)}
             </span>
           </div>
           <div className="text-xs text-gray-500 mt-0.5">
-            {getTradeIcon(trade.action || trade.side, trade.status)} {getStatusText(trade.status)}
+            {getTradeIcon(trade.side)} {getStatusText()}
             {trade.order_id && (
               <span className="ml-2 text-gray-400">#{trade.order_id.slice(-8)}</span>
             )}
@@ -145,9 +114,6 @@ const TradeActivityItem: React.FC<TradeActivityItemProps> = ({ trade, bot }) => 
         <div className="text-xs text-gray-400 mt-0.5">
           {formatTimeOnly(trade.created_at)}
         </div>
-        {trade.status === 'pending' && (
-          <div className="text-xs text-yellow-600 font-medium">In Progress</div>
-        )}
       </div>
     </div>
   );
@@ -160,8 +126,8 @@ interface EnhancedTradingActivitySectionProps {
 const EnhancedTradingActivitySection: React.FC<EnhancedTradingActivitySectionProps> = ({ bots }) => {
   const { data: trades, isLoading, error, dataUpdatedAt } = useTrades(10);
   
-  // Create a map of bot ID to bot data for quick lookup
-  const botMap = new Map(bots.map(bot => [bot.id, bot]));
+  // Create a map of trading pair to bot data for clean trades lookup
+  const botMap = new Map(bots.map(bot => [bot.pair, bot]));
 
   if (error) {
     return (
@@ -212,7 +178,7 @@ const EnhancedTradingActivitySection: React.FC<EnhancedTradingActivitySectionPro
               <TradeActivityItem 
                 key={trade.id} 
                 trade={trade} 
-                bot={botMap.get(trade.bot_id)}
+                bot={botMap.get(trade.product_id)}
               />
             ))}
           </div>

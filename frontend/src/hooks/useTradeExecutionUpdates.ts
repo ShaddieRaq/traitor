@@ -40,8 +40,8 @@ export const useTradeExecutionUpdates = () => {
 
   const connect = () => {
     try {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws/trade-execution`;
+      // Use the backend port for WebSocket connection
+      const wsUrl = `ws://localhost:8000/api/v1/ws/trade-execution`;
       
       wsRef.current = new WebSocket(wsUrl);
 

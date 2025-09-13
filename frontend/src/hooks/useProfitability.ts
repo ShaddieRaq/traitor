@@ -33,16 +33,24 @@ interface AccountBalance {
   is_cash: boolean;
 }
 
-// Hook for basic trade statistics
+// Hook for basic trade statistics - UPDATED to use clean data
 export const useTradeStats = () => {
   return useQuery<TradeStats>({
-    queryKey: ['trades', 'stats'],
+    queryKey: ['trades', 'stats-clean'],
     queryFn: async () => {
-      const response = await fetch('/api/v1/trades/stats');
+      const response = await fetch('/api/v1/raw-trades/stats');
       if (!response.ok) {
-        throw new Error('Failed to fetch trade statistics');
+        throw new Error('Failed to fetch clean trade statistics');
       }
-      return response.json();
+      const data = await response.json();
+      
+      // Map clean data to expected interface
+      return {
+        total_trades: data.total_trades,
+        filled_trades: data.total_trades, // All raw trades are filled by definition
+        success_rate: 100, // All raw trades represent successful executions
+        total_volume_usd: data.total_volume_usd
+      };
     },
     refetchInterval: 30000, // Refresh every 30 seconds
     staleTime: 15000, // Consider data stale after 15 seconds
@@ -65,14 +73,14 @@ export const useAccountBalances = () => {
   });
 };
 
-// Hook for recent trades
+// Hook for recent trades - UPDATED to use clean raw trades
 export const useRecentTrades = (limit: number = 10) => {
   return useQuery({
-    queryKey: ['trades', 'recent', limit],
+    queryKey: ['trades', 'recent-clean', limit],
     queryFn: async () => {
-      const response = await fetch(`/api/v1/trades/?limit=${limit}`);
+      const response = await fetch(`/api/v1/raw-trades/?limit=${limit}`);
       if (!response.ok) {
-        throw new Error('Failed to fetch recent trades');
+        throw new Error('Failed to fetch recent clean trades');
       }
       return response.json();
     },
@@ -81,16 +89,35 @@ export const useRecentTrades = (limit: number = 10) => {
   });
 };
 
-// Comprehensive profitability hook that uses the backend profitability endpoint
+// Comprehensive profitability hook - UPDATED to use clean data
 export const useProfitabilityData = () => {
   return useQuery<ProfitabilityData>({
-    queryKey: ['trades', 'profitability'],
+    queryKey: ['trades', 'profitability-clean'],
     queryFn: async () => {
-      const response = await fetch('/api/v1/trades/profitability');
-      if (!response.ok) {
-        throw new Error('Failed to fetch profitability data');
+      // Get clean stats and P&L data
+      const [statsResponse, pnlResponse] = await Promise.all([
+        fetch('/api/v1/raw-trades/stats'),
+        fetch('/api/v1/raw-trades/pnl-by-product')
+      ]);
+      
+      if (!statsResponse.ok || !pnlResponse.ok) {
+        throw new Error('Failed to fetch clean profitability data');
       }
-      return response.json();
+      
+      const stats = await statsResponse.json();
+      // Note: pnlData available if needed for future enhancements
+      
+      // Map to expected interface
+      return {
+        total_trades: stats.total_trades,
+        total_volume_usd: stats.total_volume_usd,
+        net_pnl: stats.net_pnl,
+        success_rate: 100, // All raw trades are successful by definition
+        roi_percentage: stats.total_volume_usd > 0 ? (stats.net_pnl / stats.total_volume_usd) * 100 : 0,
+        current_balance_usd: 0, // This would need to come from market/accounts
+        active_positions_value: 0, // This would need to be calculated separately
+        recent_trades: [] // Would come from raw-trades endpoint if needed
+      };
     },
     refetchInterval: 30000, // Refresh every 30 seconds
     staleTime: 15000, // Consider data stale after 15 seconds

@@ -1,6 +1,7 @@
 from typing import Optional, List, Callable, Dict, Any
 import pandas as pd
 import json
+import math
 from threading import Thread
 from coinbase.rest import RESTClient
 from coinbase.websocket import WSClient
@@ -319,20 +320,60 @@ class CoinbaseService:
             import time
             client_order_id = str(uuid.uuid4())
             
+            # Get product info to determine proper decimal precision
+            try:
+                products = self.get_products()
+                product_info = None
+                
+                # Find the specific product
+                for product in products:
+                    # Handle different response formats
+                    if hasattr(product, 'product_id'):
+                        if product.product_id == product_id:
+                            product_info = product
+                            break
+                    elif isinstance(product, dict) and product.get('product_id') == product_id:
+                        product_info = product
+                        break
+                
+                # Round size to proper decimal places based on base_increment
+                rounded_size = size
+                if product_info:
+                    # Get base_increment from the product
+                    if hasattr(product_info, 'base_increment'):
+                        base_increment = float(product_info.base_increment)
+                    elif isinstance(product_info, dict) and 'base_increment' in product_info:
+                        base_increment = float(product_info['base_increment'])
+                    else:
+                        base_increment = None
+                    
+                    if base_increment and base_increment > 0:
+                        # Calculate decimal places from base_increment (e.g., 0.000001 = 6 decimals)
+                        decimal_places = max(0, -int(round(math.log10(base_increment))))
+                        rounded_size = round(size, decimal_places)
+                        logger.info(f"🔧 Size precision: {size} → {rounded_size} ({decimal_places} decimals, base_increment: {base_increment})")
+                    else:
+                        logger.warning(f"⚠️ No base_increment found for {product_id}, using original size")
+                else:
+                    logger.warning(f"⚠️ Could not find product info for {product_id}, using original size")
+            except Exception as e:
+                logger.error(f"❌ Error getting product precision for {product_id}: {e}")
+                rounded_size = size
+            
             # REAL TRADE EXECUTION
-            logger.info(f"💰 EXECUTING REAL TRADE: {side} {size} {product_id}")
+            logger.info(f"💰 EXECUTING REAL TRADE: {side} {rounded_size} {product_id}")
             
             # Real Coinbase order execution
             if side.lower() == "buy":
                 response = self.client.market_order_buy(
                     product_id=product_id,
-                    base_size=str(size),
+                    base_size=str(rounded_size),
                     client_order_id=client_order_id
                 )
             else:
                 response = self.client.market_order_sell(
                     product_id=product_id,
-                    base_size=str(size),
+                    base_size=str(rounded_size),
                     client_order_id=client_order_id
                 )
             
@@ -341,11 +382,32 @@ class CoinbaseService:
             logger.info(f"🔍 Response success: {getattr(response, 'success', None)}")
             logger.info(f"🔍 Response success_response: {getattr(response, 'success_response', None)}")
             
+            # Check for Coinbase API errors and make them OBVIOUS
+            if hasattr(response, 'success') and not response.success:
+                error_response = getattr(response, 'error_response', None)
+                logger.error(f"🚨 COINBASE REJECTED ORDER: {product_id} {side} {rounded_size}")
+                logger.error(f"🚨 REJECTION REASON: {error_response}")
+                
+                # Try to extract specific error details
+                if error_response:
+                    if hasattr(error_response, 'message'):
+                        logger.error(f"🚨 ERROR MESSAGE: {error_response.message}")
+                    if hasattr(error_response, 'error_details'):
+                        logger.error(f"🚨 ERROR DETAILS: {error_response.error_details}")
+                    if hasattr(error_response, 'failure_reason'):
+                        logger.error(f"🚨 FAILURE REASON: {error_response.failure_reason}")
+                    
+                    # Log the full error response structure
+                    logger.error(f"🚨 FULL ERROR RESPONSE: {str(error_response)}")
+                
+                # Return None to indicate failure
+                return None
+            
             order_id = None
             if hasattr(response, 'success') and response.success and hasattr(response, 'success_response'):
                 success_resp = response.success_response
-                logger.info(f"🔍 Success response type: {type(success_resp)}")
-                logger.info(f"🔍 Success response content: {success_resp}")
+                logger.info(f"✅ Trade successful! Response type: {type(success_resp)}")
+                logger.info(f"✅ Success response content: {success_resp}")
                 
                 # The response is a dictionary, so access order_id as a key
                 if isinstance(success_resp, dict) and 'order_id' in success_resp:
@@ -357,7 +419,7 @@ class CoinbaseService:
                 elif hasattr(success_resp, 'order') and hasattr(success_resp.order, 'order_id'):
                     order_id = success_resp.order.order_id
             
-            logger.info(f"🔍 Extracted order_id: {order_id}")
+            logger.info(f"✅ Extracted order_id: {order_id}")
             
             return {
                 "order_id": order_id,
@@ -369,7 +431,11 @@ class CoinbaseService:
             }
             
         except Exception as e:
-            logger.error(f"Error placing {side} order for {product_id}: {e}")
+            logger.error(f"🚨 EXCEPTION DURING {side} ORDER FOR {product_id}: {str(e)}")
+            logger.error(f"🚨 EXCEPTION TYPE: {type(e).__name__}")
+            logger.error(f"🚨 FULL EXCEPTION: {repr(e)}")
+            import traceback
+            logger.error(f"🚨 TRACEBACK: {traceback.format_exc()}")
             return None
 
     def get_order_status(self, order_id: str) -> Optional[Dict[str, Any]]:
@@ -536,7 +602,9 @@ class CoinbaseService:
                 if account.get('currency') == currency:
                     return float(account.get('available_balance', 0))
             
-            logger.warning(f"Currency {currency} not found in accounts")
+            # For currencies not in accounts (like XRP when we have 0 balance),
+            # return 0.0 without warning - this is normal for BUY orders
+            logger.debug(f"Currency {currency} not found in accounts (balance: 0.0)")
             return 0.0
             
         except Exception as e:
@@ -618,38 +686,37 @@ class CoinbaseService:
                 'currency': 'UNKNOWN'
             }
     
-    def get_recent_fills(self, days_back: int = 1) -> List[Dict[str, Any]]:
+    def get_raw_fills(self, days_back: int = 1) -> List[Dict[str, Any]]:
         """
-        Get recent fills/trades from Coinbase API for the specified number of days.
+        Get RAW fills from Coinbase API with ZERO processing or calculations.
+        Returns the EXACT data that Coinbase sends us.
         
         Args:
             days_back: Number of days to look back for fills
         
         Returns:
-            List of fill/trade dictionaries with real Coinbase data
+            List of RAW fill dictionaries exactly as Coinbase sends them
         """
         try:
             if not self.client:
                 logger.error("Coinbase client not initialized")
                 return []
             
-            logger.info(f"🔍 Fetching ALL Coinbase fills for last {days_back} days using pagination...")
+            logger.info(f"🔍 Fetching RAW Coinbase fills for last {days_back} days...")
             
-            all_fills = []
+            raw_fills = []
             cursor = None
             page_count = 0
-            max_pages = 50  # Safety limit to prevent infinite loops
+            max_pages = 50  # Safety limit
             
-            # Use pagination to get ALL fills, not just 100
             while page_count < max_pages:
                 try:
                     # Get fills with pagination
                     if cursor:
-                        response = self.client.get_fills(limit=1000, cursor=cursor)  # Max limit
+                        response = self.client.get_fills(limit=1000, cursor=cursor)
                     else:
-                        response = self.client.get_fills(limit=1000)  # Max limit for first page
+                        response = self.client.get_fills(limit=1000)
                     
-                    # Avoid slow __getitem__ - use getattr instead
                     if not response or not hasattr(response, 'fills'):
                         logger.warning(f"No fills returned from Coinbase API on page {page_count + 1}")
                         break
@@ -661,34 +728,30 @@ class CoinbaseService:
                         logger.info("No more fills to retrieve")
                         break
                     
-                    # Convert Coinbase fills to our format
+                    # Store RAW Coinbase data - NO PROCESSING AT ALL
                     for fill in fills:
                         try:
-                            processed_fill = {
+                            raw_fill = {
                                 'order_id': getattr(fill, 'order_id', None),
-                                'trade_id': getattr(fill, 'trade_id', None),  # Unique fill ID
+                                'trade_id': getattr(fill, 'trade_id', None),
                                 'product_id': getattr(fill, 'product_id', None),
-                                'side': getattr(fill, 'side', '').upper(),
-                                'size': float(getattr(fill, 'size', 0)),
-                                'price': float(getattr(fill, 'price', 0)),
-                                'fee': float(getattr(fill, 'fee', 0)),
-                                'created_at': getattr(fill, 'trade_time', None),  # FIX: Use trade_time for actual timestamp
+                                'side': getattr(fill, 'side', None),
+                                'size': getattr(fill, 'size', None),  # RAW string from Coinbase
+                                'price': getattr(fill, 'price', None),  # RAW string from Coinbase
+                                'fee': getattr(fill, 'fee', None),  # RAW string from Coinbase
+                                'trade_time': getattr(fill, 'trade_time', None),
                                 'liquidity_indicator': getattr(fill, 'liquidity_indicator', None),
-                                'size_in_quote': getattr(fill, 'size_in_quote', False),
+                                'size_in_quote': getattr(fill, 'size_in_quote', None),  # RAW boolean from Coinbase
                                 'user_id': getattr(fill, 'user_id', None),
-                                'commission': float(getattr(fill, 'commission', 0))
+                                'commission': getattr(fill, 'commission', None),  # RAW string from Coinbase
+                                'size_usd': getattr(fill, 'size_usd', None)  # RAW USD value from Coinbase (if provided)
                             }
                             
-                            # Calculate USD size
-                            if processed_fill['size_in_quote']:
-                                processed_fill['size_usd'] = processed_fill['size']
-                            else:
-                                processed_fill['size_usd'] = processed_fill['size'] * processed_fill['price']
-                            
-                            all_fills.append(processed_fill)
+                            # NO CALCULATIONS - store exactly what Coinbase gives us
+                            raw_fills.append(raw_fill)
                             
                         except Exception as e:
-                            logger.warning(f"Failed to process fill: {e}")
+                            logger.warning(f"Failed to extract raw fill data: {e}")
                             continue
                     
                     # Check for next page
@@ -698,17 +761,17 @@ class CoinbaseService:
                         break
                     
                     page_count += 1
-                    logger.info(f"Moving to page {page_count + 1} with cursor: {cursor[:10]}...")
+                    logger.info(f"Moving to page {page_count + 1}...")
                     
                 except Exception as e:
                     logger.error(f"Error fetching page {page_count + 1}: {e}")
                     break
             
-            logger.info(f"✅ Retrieved total of {len(all_fills)} fills across {page_count + 1} pages")
-            return all_fills
+            logger.info(f"✅ Retrieved {len(raw_fills)} RAW fills across {page_count + 1} pages")
+            return raw_fills
             
         except Exception as e:
-            logger.error(f"❌ Failed to get Coinbase fills: {e}")
+            logger.error(f"❌ Failed to get raw Coinbase fills: {e}")
             return []
 
 

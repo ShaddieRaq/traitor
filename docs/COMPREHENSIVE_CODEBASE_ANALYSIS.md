@@ -4,6 +4,15 @@
 **Scope**: Complete system analysis from user workflow perspective  
 **Focus**: Contradictions, gaps, redundancies, and user expectation mismatches
 
+## 🚨 **FUNDAMENTAL ARCHITECTURAL FLAW IDENTIFIED (September 11, 2025)**
+
+### **Bot-Trade Coupling - SYSTEM REDESIGN REQUIRED**
+- **Problem**: Every trade artificially tied to a bot via `bot_id` foreign key
+- **Root Cause**: Conceptual flaw treating trades as "belonging" to bots instead of portfolio transactions
+- **Impact**: Overcomplicates P&L, creates artificial trade segmentation, contradicts user mental model
+- **Solution**: Complete redesign to portfolio-centric architecture (see `SYSTEM_REDESIGN_PLAN.md`)
+- **Status**: **SYSTEM DECOMMISSIONED** - fundamental design flaw requires rebuild
+
 ## ✅ **MAJOR ISSUES RESOLVED (September 6, 2025)**
 
 ### **Trade Status Synchronization Issue - RESOLVED**

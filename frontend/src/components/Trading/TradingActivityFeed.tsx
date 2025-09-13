@@ -73,19 +73,19 @@ const TradingActivityFeed: React.FC<TradingActivityFeedProps> = ({ bots, classNa
       }
     });
 
-    // Add actual trade data from enhanced API
+    // Add actual trade data from clean API
     if (trades && !tradesLoading) {
       trades.slice(0, 5).forEach((trade) => {
-        const botName = bots.find(b => b.id === trade.bot_id)?.name || `Bot ${trade.bot_id}`;
+        const botName = bots.find(b => b.pair === trade.product_id)?.name || `${trade.product_id} Trade`;
         activities.push({
           id: `actual-trade-${trade.id}`,
           type: 'trade',
           botName,
-          message: `${trade.action || trade.side?.toUpperCase()} $${trade.amount?.toFixed(2) || (trade.size * trade.price).toFixed(2)}`,
+          message: `${trade.side?.toUpperCase()} $${trade.usd_value.toFixed(2)}`,
           timestamp: new Date(trade.created_at),
-          status: trade.status === 'filled' ? 'completed' : trade.status === 'pending' ? 'active' : 'completed',
-          color: (trade.action === 'BUY' || trade.side === 'buy') ? 'bg-green-500' : 'bg-red-500',
-          action: trade.action?.toLowerCase() || trade.side
+          status: 'completed', // All raw trades are completed fills
+          color: trade.side === 'BUY' ? 'bg-green-500' : 'bg-red-500',
+          action: trade.side.toLowerCase()
         });
       });
     }

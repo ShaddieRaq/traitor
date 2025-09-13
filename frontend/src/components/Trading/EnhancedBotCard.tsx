@@ -1,5 +1,6 @@
 import React from 'react';
 import { EnhancedBotStatus } from '../../types';
+import { useBotPerformanceByPair } from '../../hooks/useBotPerformance';
 import ConfirmationTimer from './ConfirmationTimer';
 import SignalStrengthMeter from './SignalStrengthMeter';
 import TradeReadinessBadge from './TradeReadinessBadge';
@@ -12,6 +13,18 @@ interface EnhancedBotCardProps {
 }
 
 const EnhancedBotCard: React.FC<EnhancedBotCardProps> = ({ bot, className = '' }) => {
+  // Get performance data for position value calculation
+  const { data: performance } = useBotPerformanceByPair(bot.pair);
+  
+  // Calculate position value and formatting
+  const positionValue = performance ? performance.current_position * performance.current_price : 0;
+  const formatPositionValue = (value: number) => {
+    if (value < 0.01) return '$0.00';
+    if (value < 1000) return `$${value.toFixed(2)}`;
+    if (value < 1000000) return `$${(value / 1000).toFixed(1)}k`;
+    return `$${(value / 1000000).toFixed(1)}M`;
+  };
+  
   const getTemperatureConfig = (temperature: string) => {
     switch (temperature) {
       case 'HOT':
@@ -68,7 +81,7 @@ const EnhancedBotCard: React.FC<EnhancedBotCardProps> = ({ bot, className = '' }
           </div>
         </div>
         <div className="text-sm text-gray-500">
-          Position: ${bot.current_position_size.toFixed(2)}
+          {bot.pair} • {formatPositionValue(positionValue)}
         </div>
       </div>
 

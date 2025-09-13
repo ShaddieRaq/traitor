@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api import bots, market, trades, bot_evaluation, websocket, bot_temperatures, coinbase_sync, trading_diagnosis, validation
+from .api import bots, market, trades, bot_evaluation, websocket, bot_temperatures, coinbase_sync, trading_diagnosis, validation, market_analysis, raw_trades, positions
 from .core.config import settings
 from .core.database import engine, Base
 import logging
@@ -35,11 +35,15 @@ app.include_router(bots.router, prefix="/api/v1/bots", tags=["bots"])
 app.include_router(bot_temperatures.router, prefix="/api/v1/bot-temperatures", tags=["bot-temperatures"])
 app.include_router(market.router, prefix="/api/v1/market", tags=["market"])
 app.include_router(trades.router, prefix="/api/v1/trades", tags=["trades"])
+app.include_router(raw_trades.router, prefix="/api/v1/raw-trades", tags=["raw-trades"])
 app.include_router(bot_evaluation.router, prefix="/api/v1/bot-evaluation", tags=["bot-evaluation"])
 app.include_router(websocket.router, prefix="/api/v1/ws", tags=["websocket"])
 app.include_router(coinbase_sync.router, prefix="/api/v1/coinbase-sync", tags=["coinbase-sync"])
 app.include_router(trading_diagnosis.router, prefix="/api/v1/diagnosis", tags=["diagnosis"])
 app.include_router(validation.router, prefix="/api/v1/validation", tags=["validation"])
+app.include_router(market_analysis.router, prefix="/api/v1/market-analysis", tags=["market-analysis"])
+
+app.include_router(positions.router, prefix="/api/v1/positions", tags=["positions"])
 
 # Position Reconciliation API
 from .api import position_reconciliation

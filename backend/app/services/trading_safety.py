@@ -101,7 +101,17 @@ class TradingSafetyService:
         if not safety_checks["consecutive_loss_check"]:
             reasons.append(f"Bot has {self.limits.MAX_CONSECUTIVE_LOSSES}+ consecutive losses")
         
-        # 7. Emergency circuit breaker
+        # 7. Time-based cooldown check (CRITICAL FIX)
+        safety_checks["cooldown_check"] = self._check_trade_cooldown(bot)
+        if not safety_checks["cooldown_check"]:
+            reasons.append(f"Bot is in cooldown period ({bot.cooldown_minutes} minutes)")
+        
+        # 8. Price-based step check (CRITICAL FIX)
+        safety_checks["price_step_check"] = self._check_price_step(bot, side, size_usd)
+        if not safety_checks["price_step_check"]:
+            reasons.append(f"Price step requirement not met ({bot.trade_step_pct}%)")
+        
+        # 9. Emergency circuit breaker
         safety_checks["emergency_circuit_breaker"] = self._check_emergency_circuit_breaker(bot)
         if not safety_checks["emergency_circuit_breaker"]:
             reasons.append(f"Emergency circuit breaker triggered (>${self.limits.EMERGENCY_STOP_LOSS_USD} loss)")
@@ -248,6 +258,73 @@ class TradingSafetyService:
         
         # Emergency stop if fees alone exceed limit (conservative approach)
         return total_fees < self.limits.EMERGENCY_STOP_LOSS_USD
+    
+    def _check_trade_cooldown(self, bot: Bot) -> bool:
+        """Check if bot is outside cooldown period since last trade."""
+        # Get the most recent completed trade for this bot
+        last_trade = self.db.query(Trade).filter(
+            and_(
+                Trade.bot_id == bot.id,
+                Trade.status.in_(["filled", "completed"]),
+                Trade.filled_at.isnot(None)  # Must have fill timestamp
+            )
+        ).order_by(Trade.filled_at.desc()).first()
+        
+        if not last_trade or not last_trade.filled_at:
+            return True  # No previous trades, cooldown not applicable
+        
+        # Calculate time since last trade completion
+        time_since_last = datetime.utcnow() - last_trade.filled_at
+        cooldown_seconds = bot.cooldown_minutes * 60
+        
+        is_cooled_down = time_since_last.total_seconds() >= cooldown_seconds
+        
+        if not is_cooled_down:
+            remaining_seconds = cooldown_seconds - time_since_last.total_seconds()
+            logger.info(f"⏰ Bot {bot.id} cooldown: {remaining_seconds:.0f}s remaining")
+        
+        return is_cooled_down
+    
+    def _check_price_step(self, bot: Bot, side: str, size_usd: float) -> bool:
+        """Check if price has moved enough since last trade (trade_step_pct)."""
+        # Get the most recent completed trade for this bot
+        last_trade = self.db.query(Trade).filter(
+            and_(
+                Trade.bot_id == bot.id,
+                Trade.status.in_(["filled", "completed"]),
+                Trade.price.isnot(None)  # Must have price
+            )
+        ).order_by(Trade.created_at.desc()).first()
+        
+        if not last_trade or not last_trade.price:
+            return True  # No previous trades, price step not applicable
+        
+        # Get current market price
+        try:
+            from ..services.coinbase_service import coinbase_service
+            ticker = coinbase_service.get_product_ticker(bot.pair)
+            current_price = float(ticker.get('price', 0))
+            
+            if current_price <= 0:
+                logger.warning(f"Invalid current price for {bot.pair}, allowing trade")
+                return True
+            
+            # Calculate price change percentage
+            last_price = float(last_trade.price)
+            price_change_pct = abs((current_price - last_price) / last_price) * 100
+            
+            required_step = bot.trade_step_pct or 2.0  # Default 2% if not set
+            
+            is_step_met = price_change_pct >= required_step
+            
+            if not is_step_met:
+                logger.info(f"💰 Bot {bot.id} price step: {price_change_pct:.2f}% < {required_step}%")
+            
+            return is_step_met
+            
+        except Exception as e:
+            logger.warning(f"Error checking price step for bot {bot.id}: {e}, allowing trade")
+            return True  # Allow trade if price check fails
     
     def get_safety_status(self) -> Dict[str, Any]:
         """Get current safety status and limits."""

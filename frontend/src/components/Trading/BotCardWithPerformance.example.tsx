@@ -17,11 +17,11 @@ const useProductPerformance = () => {
   useEffect(() => {
     const fetchPerformance = async () => {
       try {
-        const response = await fetch('/api/v1/trades/performance/by-product');
+        const response = await fetch('/api/v1/raw-trades/pnl-by-product');
         const data = await response.json();
         setPerformance(data.products);
       } catch (error) {
-        console.error('Error fetching product performance:', error);
+        console.error('Error fetching clean product performance:', error);
       } finally {
         setLoading(false);
       }

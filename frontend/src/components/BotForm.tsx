@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Bot, BotCreate, SignalConfiguration, RSISignalConfig, MovingAverageSignalConfig, MACDSignalConfig } from '../types';
+import { useProducts } from '../hooks/useMarket';
 
 interface BotFormProps {
   bot?: Bot | null;
@@ -9,6 +10,9 @@ interface BotFormProps {
 }
 
 const BotForm: React.FC<BotFormProps> = ({ bot, onSubmit, onCancel, isLoading = false }) => {
+  // Load available trading pairs from Coinbase
+  const { data: products, isLoading: productsLoading } = useProducts();
+  
   // Form state
   const [name, setName] = useState(bot?.name || '');
   const [description, setDescription] = useState(bot?.description || '');
@@ -165,14 +169,56 @@ const BotForm: React.FC<BotFormProps> = ({ bot, onSubmit, onCancel, isLoading = 
                   value={pair}
                   onChange={(e) => setPair(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={productsLoading}
                 >
-                  <option value="BTC-USD">BTC-USD</option>
-                  <option value="ETH-USD">ETH-USD</option>
-                  <option value="ADA-USD">ADA-USD</option>
-                  <option value="DOT-USD">DOT-USD</option>
-                  <option value="SOL-USD">SOL-USD</option>
+                  {productsLoading ? (
+                    <option value="">Loading trading pairs...</option>
+                  ) : products ? (
+                    <>
+                      {/* Popular pairs first */}
+                      {['BTC-USD', 'ETH-USD', 'XRP-USD', 'SOL-USD', 'ADA-USD', 'DOT-USD', 'LTC-USD'].map(popularPair => {
+                        const product = products.find((p: any) => 
+                          p.product_id === popularPair && 
+                          p.quote_currency_id === 'USD' && 
+                          p.status === 'online' && 
+                          !p.trading_disabled && 
+                          !p.is_disabled
+                        );
+                        return product ? (
+                          <option key={popularPair} value={popularPair}>
+                            {popularPair} - ${parseFloat(product.price).toLocaleString()} ({product.base_name})
+                          </option>
+                        ) : null;
+                      })}
+                      
+                      {/* Separator */}
+                      <option disabled>──────────</option>
+                      
+                      {/* All other USD pairs */}
+                      {products
+                        .filter((product: any) => 
+                          product.quote_currency_id === 'USD' && 
+                          product.status === 'online' && 
+                          !product.trading_disabled && 
+                          !product.is_disabled &&
+                          !['BTC-USD', 'ETH-USD', 'XRP-USD', 'SOL-USD', 'ADA-USD', 'DOT-USD', 'LTC-USD'].includes(product.product_id)
+                        )
+                        .sort((a: any, b: any) => parseFloat(b.approximate_quote_24h_volume || '0') - parseFloat(a.approximate_quote_24h_volume || '0'))
+                        .map((product: any) => (
+                          <option key={product.product_id} value={product.product_id}>
+                            {product.product_id} - ${parseFloat(product.price).toLocaleString()} ({product.base_name})
+                          </option>
+                        ))
+                      }
+                    </>
+                  ) : (
+                    <option value="BTC-USD">BTC-USD (Fallback)</option>
+                  )}
                 </select>
                 {errors.pair && <p className="mt-1 text-sm text-red-600">{errors.pair}</p>}
+                {productsLoading && (
+                  <p className="mt-1 text-xs text-gray-500">Loading available trading pairs from Coinbase...</p>
+                )}
               </div>
             </div>
 

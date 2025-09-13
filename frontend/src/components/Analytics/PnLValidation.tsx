@@ -3,9 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 
 const PnLValidation: React.FC = () => {
   const { data: profitabilityData } = useQuery({
-    queryKey: ['profitability'],
+    queryKey: ['profitability-clean'],
     queryFn: async () => {
-      const response = await fetch('/api/v1/trades/profitability');
+      const response = await fetch('/api/v1/raw-trades/stats');
       return response.json();
     },
     refetchInterval: 30000,

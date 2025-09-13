@@ -113,19 +113,26 @@ class CoinbaseSyncService:
             # Determine bot_id if this trade was made by one of our bots
             bot_id = self._find_matching_bot(fill.get('product_id'))
             
+            # Use raw Coinbase data - don't recalculate anything
+            size = float(fill.get('size', 0))
+            price = float(fill.get('price', 0))
+            size_in_quote = fill.get('size_in_quote', False)
+            size_usd_from_coinbase = float(fill.get('size_usd', 0))  # Use raw Coinbase value
+            
             trade = Trade(
                 bot_id=bot_id,  # Link to bot if this product has an active bot
                 product_id=fill.get('product_id'),
                 side=fill.get('side', '').upper(),
-                size=float(fill.get('size', 0)),
-                price=float(fill.get('price', 0)),
+                size=size,  # Crypto quantity
+                price=price,
                 fee=float(fill.get('fee', 0)),
+                commission=float(fill.get('commission', 0)),  # Actual Coinbase trading fee
                 order_id=unique_id,  # Use trade_id for uniqueness
                 status="filled",  # Coinbase fills are already executed
-
+                size_in_quote=size_in_quote,  # Store the interpretation flag
                 combined_signal_score=0.0,  # Real trade - might not have signal
                 signal_scores="{}",  # Real trade - might not have signals
-                size_usd=float(fill.get('size_usd', 0)),
+                size_usd=size_usd_from_coinbase,  # Use the correctly calculated USD amount from coinbase_service
                 created_at=created_at,
                 filled_at=created_at
             )

@@ -1,4 +1,26 @@
-# 🚀 Trading System Status - September 7, 2025
+# 🚀 Trading System Status ## Current Status (September 11, 2025)
+
+### ⚠️ CRITICAL DATA INTEGRITY ISSUE - REQUIRES INVESTIGATION
+**Status**: SYSTEM SUSPENDED - Data source discrepancy needs resolution
+
+### Recent Critical Issue
+- **Coinbase Sync Problem**: Sync pulling trades user claims they never made
+- **Data Volume Mismatch**: Expected 3 DOGE trades, system shows 110
+- **Scope Issue**: User wants July 25+ trades only, but discrepancies in that range
+- **Calculation Fixes Applied**: Fixed size_usd double-calculation bug
+- **Core Issue**: Data source validation required before system can be trusted
+
+### ✅ Technical Fixes Completed (September 11, 2025)
+- **Size Calculation Bug**: Fixed double-calculation in coinbase_sync_service.py
+- **Enhanced Status API**: Now calculates positions from actual trade data  
+- **P&L Calculations**: Include all valid trade statuses, removed restrictive filters
+- **Position Tracking**: Accurate real-time position calculation from trades
+
+### ⚠️ Outstanding Issues Requiring Manual Investigation
+- **Trade Source Validation**: Verify which Coinbase trades are actually user's
+- **Account Verification**: Ensure sync using correct Coinbase account/credentials
+- **Data Filtering**: Determine if certain trade types should be excluded
+- **Date Range Validation**: Confirm actual trading activity timelinember 7, 2025
 
 ## **🎯 PRODUCTION READY - Comprehensive Test Validation Complete**
 

@@ -1,7 +1,8 @@
 import React from 'react';
 import { EnhancedBotStatus } from '../../types';
-import { useBotPerformance } from '../../hooks/useProductPerformance';
 import BotPerformanceSection from './BotPerformanceSection';
+import SignalStrengthMeter from './SignalStrengthMeter';
+import { useBotPerformanceByPair } from '../../hooks/useBotPerformance';
 
 interface ConsolidatedBotCardProps {
   bot: EnhancedBotStatus;
@@ -9,18 +10,27 @@ interface ConsolidatedBotCardProps {
 }
 
 const ConsolidatedBotCard: React.FC<ConsolidatedBotCardProps> = ({ bot, className = '' }) => {
+  // Get performance data for position value calculation
+  const { data: performance } = useBotPerformanceByPair(bot.pair);
+  
   // Get primary display data
   const tradingIntent = bot.trading_intent;
   const confirmation = bot.confirmation;
   const readiness = bot.trade_readiness;
   
-  // Get performance data based on bot's trading pair
-  const { performance, isLoading: performanceLoading, hasData } = useBotPerformance(bot.pair);
-  
   // Determine primary action and strength
   const action = tradingIntent?.next_action?.toUpperCase() || 'HOLD';
   const signalStrength = tradingIntent?.signal_strength || 0;
   const confidence = tradingIntent?.confidence || 0;
+  
+  // Calculate position value (coins * current price)
+  const positionValue = performance ? performance.current_position * performance.current_price : 0;
+  const formatPositionValue = (value: number) => {
+    if (value < 0.01) return '$0.00';
+    if (value < 1000) return `$${value.toFixed(2)}`;
+    if (value < 1000000) return `$${(value / 1000).toFixed(1)}k`;
+    return `$${(value / 1000000).toFixed(1)}M`;
+  };
   
   // Get temperature config
   const getTemperatureConfig = (temperature: string) => {
@@ -136,7 +146,7 @@ const ConsolidatedBotCard: React.FC<ConsolidatedBotCardProps> = ({ bot, classNam
             {statusInfo.text}
           </div>
           <div className="text-xs text-gray-500 mt-1">
-            {bot.pair} • ${bot.current_position_size.toFixed(2)}
+            {bot.pair} • {formatPositionValue(positionValue)}
           </div>
         </div>
       </div>
@@ -144,27 +154,24 @@ const ConsolidatedBotCard: React.FC<ConsolidatedBotCardProps> = ({ bot, classNam
       {/* SIGNAL STRENGTH: Single Consolidated Bar */}
       {signalStrength > 0 && (
         <div className="mb-4">
-          <div className="flex justify-between text-sm text-gray-600 mb-2">
-            <span>Signal Strength</span>
-            <span>{(signalStrength * 100).toFixed(0)}% • {(confidence * 100).toFixed(0)}% confidence</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-3">
-            <div 
-              className={`h-3 rounded-full transition-all duration-500 ${actionConfig.barColor}`}
-              style={{ width: `${signalStrength * 100}%` }}
-            ></div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <SignalStrengthMeter 
+                intent={bot.trading_intent}
+              />
+              <div className="text-sm text-gray-600">
+                <span>{(signalStrength * 100).toFixed(0)}% • {(confidence * 100).toFixed(0)}% confidence</span>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* BOT PERFORMANCE: Product-based P&L tracking */}
-      {(hasData || performanceLoading) && (
-        <BotPerformanceSection 
-          performance={performance!}
-          isLoading={performanceLoading}
-          compact={false}
-        />
-      )}
+      {/* BOT PERFORMANCE: Position-based P&L tracking */}
+      <BotPerformanceSection 
+        productId={bot.pair}
+        compact={false}
+      />
 
       {/* SECONDARY INFO: Expandable Technical Details */}
       <details className="group">

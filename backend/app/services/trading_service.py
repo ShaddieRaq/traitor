@@ -7,6 +7,7 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 import logging
 import json
+import redis
 from sqlalchemy.orm import Session
 
 from ..models.models import Bot, Trade
@@ -14,6 +15,7 @@ from ..services.coinbase_service import CoinbaseService
 from ..services.trading_safety import TradingSafetyService
 from ..services.bot_evaluator import BotSignalEvaluator
 from ..services.position_service import PositionService
+from ..services.raw_trade_service import RawTradeService
 from ..core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -36,6 +38,7 @@ class TradingService:
         self.safety_service = TradingSafetyService(db)
         self.bot_evaluator = BotSignalEvaluator(db)
         self.position_service = PositionService(db)  # Phase 4.1.3: Enhanced position management
+        self.raw_trade_service = RawTradeService(db)  # Clean data tracking
     
     def execute_trade(self, bot_id: int, side: str, size_usd: float = None, 
                      current_temperature: str = None, auto_size: bool = True) -> Dict[str, Any]:
@@ -58,9 +61,17 @@ class TradingService:
         """
         logger.info(f"🚀 INTELLIGENT TRADE EXECUTION: Bot {bot_id} - {side} (auto_size: {auto_size})")
         
+        # Redis lock management
+        redis_lock_key = f"bot_trade_lock:{bot_id}"
+        redis_client = None
+        
         try:
-            # 1. Get bot information
-            bot = self._get_bot(bot_id)
+            # 1. Get bot information with exclusive lock to prevent race conditions
+            bot = self._get_bot_with_trade_lock(bot_id)
+            
+            # Store Redis client for cleanup
+            from ..core.config import settings
+            redis_client = redis.from_url(settings.redis_url)
             
             # 2. Get current temperature if not provided
             if current_temperature is None:
@@ -115,7 +126,7 @@ class TradingService:
                 "message": "Recording trade in database..."
             })
             
-            trade_record = self._record_trade(bot, side, size_usd, market_price, order_result, current_temperature)
+            trade_record = self._record_trade(bot, side, size_usd, base_size, market_price, order_result, current_temperature)
             
             # 11. Update bot position (if this was a successful order)
             self._update_bot_position(bot, side, size_usd)
@@ -170,6 +181,12 @@ class TradingService:
             }
             
             logger.info(f"✅ INTELLIGENT TRADE COMPLETED: {order_result['order_id']} (Tranche #{trade_record.tranche_number})")
+            
+            # Release Redis lock on success
+            if redis_client:
+                redis_client.delete(redis_lock_key)
+                logger.info(f"🔓 Bot {bot_id} Redis trade lock released (success)")
+            
             return success_result
             
         except TradeExecutionError as e:
@@ -187,6 +204,12 @@ class TradingService:
                 },
                 "failed_at": datetime.utcnow().isoformat() + "Z"
             }
+            
+            # Release Redis lock on error
+            if redis_client:
+                redis_client.delete(redis_lock_key)
+                logger.info(f"🔓 Bot {bot_id} Redis trade lock released (error)")
+            
             return error_result
             
         except Exception as e:
@@ -204,6 +227,12 @@ class TradingService:
                 },
                 "failed_at": datetime.utcnow().isoformat() + "Z"
             }
+            
+            # Release Redis lock on unexpected error
+            if redis_client:
+                redis_client.delete(redis_lock_key)
+                logger.info(f"🔓 Bot {bot_id} Redis trade lock released (unexpected error)")
+            
             return error_result
     
     def _get_bot(self, bot_id: int) -> Bot:
@@ -216,6 +245,64 @@ class TradingService:
             raise TradeExecutionError(f"Bot {bot.name} is not running (status: {bot.status})")
         
         return bot
+    
+    def _get_bot_with_trade_lock(self, bot_id: int) -> Bot:
+        """
+        Get bot with Redis-based distributed lock for trade execution to prevent race conditions.
+        
+        SQLite doesn't support true SELECT...FOR UPDATE locking, so we use Redis
+        for distributed locking across multiple processes/workers.
+        """
+        import time
+        from ..models.models import Trade
+        
+        # Get bot with validation first
+        bot = self._get_bot(bot_id)
+        
+        # Redis-based distributed lock using existing configuration
+        from ..core.config import settings
+        redis_client = redis.from_url(settings.redis_url)
+        lock_key = f"bot_trade_lock:{bot_id}"
+        lock_timeout = 30  # 30 seconds max lock time
+        
+        # Try to acquire lock with timeout
+        lock_acquired = redis_client.set(lock_key, "locked", nx=True, ex=lock_timeout)
+        
+        if not lock_acquired:
+            logger.warning(f"❌ Bot {bot_id} trade blocked: Another trade in progress")
+            raise TradeExecutionError("Another trade is currently in progress for this bot")
+        
+        try:
+            logger.info(f"🔒 Bot {bot_id} Redis trade lock acquired")
+            
+            # Get the most recent trade for cooldown validation
+            last_trade = (
+                self.db.query(Trade)
+                .filter(Trade.bot_id == bot_id)
+                .order_by(Trade.created_at.desc())
+                .first()
+            )
+            
+            # Validate cooldown while holding the distributed lock
+            if last_trade:
+                now = datetime.utcnow()
+                last_trade_time = last_trade.filled_at if last_trade.filled_at else last_trade.created_at
+                time_since_trade = (now - last_trade_time).total_seconds() / 60  # minutes
+                cooldown_minutes = getattr(bot, 'cooldown_minutes', None) or 15
+                
+                if time_since_trade < cooldown_minutes:
+                    remaining_cooldown = cooldown_minutes - time_since_trade
+                    redis_client.delete(lock_key)  # Release lock before failing
+                    logger.warning(f"❌ Bot {bot_id} trade blocked: {remaining_cooldown:.1f}m cooldown remaining")
+                    raise TradeExecutionError(f"Bot is in cooldown period: {remaining_cooldown:.1f} minutes remaining")
+            
+            logger.info(f"✅ Bot {bot_id} cooldown validation passed - trade approved")
+            return bot
+            
+        except Exception as e:
+            # Always release lock on error
+            redis_client.delete(lock_key)
+            raise
     
     def _get_bot_temperature(self, bot: Bot) -> str:
         """Get current bot temperature from evaluator using fresh market data."""
@@ -367,7 +454,7 @@ class TradingService:
                 })
             raise TradeExecutionError(f"Order placement failed: {e}")
     
-    def _record_trade(self, bot: Bot, side: str, size_usd: float, price: float, 
+    def _record_trade(self, bot: Bot, side: str, size_usd: float, base_size: float, price: float, 
                      order_result: Dict[str, Any], current_temperature: str) -> Trade:
         """Record the trade in the database with enhanced position management."""
         try:
@@ -383,7 +470,7 @@ class TradingService:
                 bot_id=bot.id,
                 product_id=bot.pair,
                 side=side,
-                size=size_usd,  # Store USD size for simplicity in Phase 4.1.2
+                size=base_size,  # Store crypto quantity (FIXED: was size_usd)
                 price=price,
                 order_id=order_result["order_id"],
                 status=order_result.get("status", "pending"),  # Start as pending
@@ -514,6 +601,13 @@ class TradingService:
                         if not trade.filled_at:  # Don't overwrite if already set
                             trade.filled_at = datetime.utcnow()
                         completed_count += 1
+                        
+                        # Sync completed trade to raw_trades table using clean Coinbase data
+                        try:
+                            self._sync_completed_trade_to_raw_table(trade)
+                        except Exception as sync_error:
+                            logger.warning(f"Failed to sync trade {trade.id} to raw_trades: {sync_error}")
+                            
                     elif new_status.lower() in ["cancelled", "rejected"]:
                         trade.status = "failed"
                         # Don't set filled_at for failed orders - they weren't filled
@@ -548,6 +642,40 @@ class TradingService:
             self.db.rollback()
             logger.error(f"❌ Error updating trade statuses: {e}")
             return {"error": str(e), "total_checked": 0, "updated_count": 0}
+    
+    def _sync_completed_trade_to_raw_table(self, trade: Trade):
+        """
+        Sync a completed trade to the raw_trades table using clean Coinbase data.
+        This ensures we have clean, unprocessed data for accurate analysis.
+        """
+        try:
+            if not trade.order_id:
+                logger.warning(f"Cannot sync trade {trade.id} - no order_id")
+                return
+            
+            # Get the actual fill data from Coinbase for this order
+            fills = self.coinbase_service.get_raw_fills(days_back=7)  # Get recent fills
+            
+            # Find fills matching this order_id
+            order_fills = [
+                fill for fill in fills 
+                if fill.get('order_id') == trade.order_id
+            ]
+            
+            if not order_fills:
+                logger.warning(f"No Coinbase fills found for order {trade.order_id}")
+                return
+            
+            # Store each fill as a raw trade record
+            for fill in order_fills:
+                try:
+                    self.raw_trade_service.store_raw_trade(fill)
+                    logger.info(f"✅ Synced fill {fill.get('trade_id')} to raw_trades table")
+                except Exception as fill_error:
+                    logger.error(f"Failed to store raw fill {fill.get('trade_id')}: {fill_error}")
+            
+        except Exception as e:
+            logger.error(f"Error syncing trade {trade.id} to raw_trades: {e}")
 
     # =================================================================================
     # PHASE 4.1.3 DAY 3: INTELLIGENT TRADING ALGORITHMS 🧠

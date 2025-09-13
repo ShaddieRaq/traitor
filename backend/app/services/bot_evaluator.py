@@ -691,10 +691,8 @@ class BotSignalEvaluator:
             logger.debug(f"Bot {bot.id} has pending orders - no automatic trade")
             return False
         
-        # Check trade cooldown (now based on filled_at)
-        if not self._check_trade_cooldown(bot):
-            logger.debug(f"Bot {bot.id} in cooldown period - no automatic trade")
-            return False
+        # NOTE: Cooldown check moved to TradingService for atomic transaction handling
+        # This prevents race conditions where multiple requests bypass cooldown simultaneously
         
         # Check balance validation before attempting trade
         if not self._check_balance_for_automatic_trade(bot, action):
@@ -704,56 +702,18 @@ class BotSignalEvaluator:
         logger.info(f"Bot {bot.id} ready for automatic {action} trade")
         return True
     
+    # DEPRECATED: Cooldown check moved to TradingService for atomic transaction handling
+    # This prevents race conditions where multiple requests bypass cooldown simultaneously
     def _check_trade_cooldown(self, bot: Bot) -> bool:
         """
-        Check if bot is outside cooldown period since last trade.
-        Uses database row locking to prevent race conditions during rapid checks.
+        DEPRECATED: Cooldown validation moved to TradingService._get_bot_with_trade_lock()
         
-        Args:
-            bot: Bot instance
-            
-        Returns:
-            bool: True if cooldown period has passed
+        This method is kept for backward compatibility but always returns True.
+        The actual cooldown validation is now done atomically within the trading
+        service transaction to prevent race conditions.
         """
-        try:
-            # Import here to avoid circular dependency
-            from ..models.models import Trade
-            
-            # Get last trade for this bot with row-level locking to prevent race conditions
-            # This ensures multiple Celery tasks don't bypass cooldown simultaneously
-            last_trade = (
-                self.db.query(Trade)
-                .filter(Trade.bot_id == bot.id)
-                .order_by(desc(Trade.created_at))
-                .with_for_update()  # Row-level lock to prevent race conditions
-                .first()
-            )
-            
-            if not last_trade:
-                logger.debug(f"Bot {bot.id} has no previous trades - cooldown check passed")
-                return True
-            
-            # Calculate time since last FILLED trade (not just placed)
-            now = datetime.utcnow()
-            # Use filled_at if available, otherwise fall back to created_at for legacy trades
-            last_trade_time = last_trade.filled_at if last_trade.filled_at else last_trade.created_at
-            time_since_trade = (now - last_trade_time).total_seconds() / 60  # minutes
-            
-            # Get cooldown period (default 15 minutes)
-            cooldown_minutes = getattr(bot, 'cooldown_minutes', None) or 15
-            
-            if time_since_trade >= cooldown_minutes:
-                logger.debug(f"Bot {bot.id} cooldown passed: {time_since_trade:.1f}m >= {cooldown_minutes}m")
-                return True
-            else:
-                remaining_cooldown = cooldown_minutes - time_since_trade
-                logger.debug(f"Bot {bot.id} in cooldown: {remaining_cooldown:.1f}m remaining")
-                return False
-                
-        except Exception as e:
-            logger.error(f"Error checking trade cooldown for bot {bot.id}: {str(e)}")
-            # On error, allow trade (fail open for safety)
-            return True
+        logger.debug(f"Bot {bot.id} cooldown check delegated to TradingService")
+        return True
     
     def _check_no_pending_orders(self, bot: Bot) -> bool:
         """

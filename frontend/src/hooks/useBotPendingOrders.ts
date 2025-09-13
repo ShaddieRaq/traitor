@@ -13,56 +13,41 @@ export interface BotPendingOrderStatus {
   };
 }
 
+// NOTE: This hook is deprecated in the clean system since we don't track bot-specific trades
+// Raw trades don't have bot_id associations and represent only completed/filled orders
 const fetchBotPendingOrders = async (botId: number): Promise<BotPendingOrderStatus> => {
-  // Get recent trades for this bot
-  const response = await fetch(`/api/v1/trades/recent/${botId}?limit=10`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch recent trades for bot ${botId}`);
-  }
-  
-  const trades = await response.json();
-  
-  // Filter for pending/open orders
-  const pendingTrades = trades.filter((trade: any) => 
-    trade.status === 'pending' || 
-    trade.status === 'open' || 
-    trade.status === 'active'
-  );
+  // In the clean system, all raw_trades are completed by definition
+  // Pending orders would need to be tracked separately if needed
+  console.warn('useBotPendingOrders is deprecated in clean system - raw trades are always completed');
   
   return {
     botId,
-    hasPendingOrder: pendingTrades.length > 0,
-    pendingOrderCount: pendingTrades.length,
-    mostRecentPendingOrder: pendingTrades[0] || undefined
+    hasPendingOrder: false,
+    pendingOrderCount: 0,
+    mostRecentPendingOrder: undefined
   };
 };
 
 export const useBotPendingOrders = (botId: number) => {
   return useQuery({
-    queryKey: ['bot-pending-orders', botId],
+    queryKey: ['bot-pending-orders-deprecated', botId],
     queryFn: () => fetchBotPendingOrders(botId),
-    refetchInterval: 5000, // Check every 5 seconds
-    refetchIntervalInBackground: true,
-    refetchOnWindowFocus: true,
-    staleTime: 2000, // Consider data stale after 2 seconds
+    refetchInterval: 30000, // Reduced frequency since it's deprecated
     enabled: !!botId, // Only run if botId is provided
   });
 };
 
-// Hook to check all bots for pending orders
+// Hook to check all bots for pending orders - DEPRECATED
 export const useAllBotsPendingOrders = (botIds: number[]) => {
   return useQuery({
-    queryKey: ['all-bots-pending-orders', botIds],
+    queryKey: ['all-bots-pending-orders-deprecated', botIds],
     queryFn: async () => {
       const results = await Promise.all(
         botIds.map(botId => fetchBotPendingOrders(botId))
       );
       return results;
     },
-    refetchInterval: 5000,
-    refetchIntervalInBackground: true,
-    refetchOnWindowFocus: true,
-    staleTime: 2000,
+    refetchInterval: 30000,
     enabled: botIds.length > 0,
   });
 };

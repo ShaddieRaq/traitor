@@ -81,7 +81,8 @@ class Trade(Base):
     side = Column(String(10))  # "buy" or "sell"
     size = Column(Float)
     price = Column(Float)
-    fee = Column(Float)
+    fee = Column(Float)  # Legacy fee field (usually 0 from Coinbase)
+    commission = Column(Float)  # Actual trading commission from Coinbase
     order_id = Column(String(100), unique=True)  # Coinbase order ID
     status = Column(String(20))  # "pending", "filled", "cancelled"
     combined_signal_score = Column(Float)  # Combined signal score that triggered this trade
@@ -93,12 +94,40 @@ class Trade(Base):
     tranche_number = Column(Integer, default=1)  # Sequential tranche tracking (1, 2, 3...)
     position_status = Column(String(20), default="CLOSED")  # CLOSED, BUILDING, OPEN, REDUCING
     size_usd = Column(Float)  # Trade size in USD
+    size_in_quote = Column(Boolean, default=False)  # Coinbase flag: True if size is in USD, False if crypto units
 
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     filled_at = Column(DateTime(timezone=True))
     
     bot = relationship("Bot", back_populates="trades")
+
+
+class RawTrade(Base):
+    """Raw trade data from Coinbase API - stored exactly as received."""
+    __tablename__ = "raw_trades"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Coinbase fill payload data (ACTUAL VALUES)
+    fill_id = Column(String(100), unique=True, nullable=False, index=True)  # Coinbase fill ID
+    order_id = Column(String(100), nullable=False, index=True)  # Coinbase order ID
+    product_id = Column(String(20), nullable=False, index=True)  # e.g. "BTC-USD"
+    side = Column(String(10), nullable=False)  # "BUY" or "SELL"
+    
+    # Actual numeric values from Coinbase
+    size = Column(Float, nullable=False)  # Actual size number
+    size_in_quote = Column(Boolean, nullable=False)  # Coinbase's boolean flag
+    price = Column(Float, nullable=False)  # Actual price number
+    
+    # Actual fee value
+    commission = Column(Float)  # Actual commission number
+    
+    # Timestamp
+    created_at = Column(String(50), nullable=False)  # ISO timestamp from Coinbase
+    
+    # Metadata
+    synced_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 # Add back references

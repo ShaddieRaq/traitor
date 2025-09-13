@@ -436,6 +436,10 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                 cooldown_remaining_minutes=int(cooldown_remaining_minutes)
             )
             
+            # Calculate actual position from trades (fix for stale bot.current_position_size)
+            trades = db.query(Trade).filter(Trade.bot_id == bot.id).all()
+            actual_position = sum(trade.size if trade.side == 'BUY' else -trade.size for trade in trades)
+            
             # Get last trade info
             last_trade_query = db.query(Trade).filter(Trade.bot_id == bot.id).order_by(Trade.created_at.desc()).first()
             last_trade = None
@@ -456,7 +460,7 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                 pair=bot.pair,
                 status=bot.status,
                 current_combined_score=fresh_score,
-                current_position_size=bot.current_position_size,
+                current_position_size=actual_position,
                 temperature=temperature,
                 distance_to_signal=distance_to_signal,
                 trading_intent=trading_intent,

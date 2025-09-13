@@ -9,6 +9,8 @@ import logging
 from datetime import datetime, timedelta
 
 from ..core.database import get_db
+from ..models.models import Trade
+from ..utils.trade_utils import get_trade_usd_value
 from ..services.coinbase_service import CoinbaseService
 from ..models.models import Trade
 
@@ -23,15 +25,15 @@ async def validate_pnl_calculations(db: Session = Depends(get_db)):
     try:
         coinbase_service = CoinbaseService()
         
-        # Method 1: Direct database calculation
+        # Method 1: Direct database calculation using size_usd field only
         db_query = text("""
             SELECT 
                 COUNT(*) as total_trades,
                 COUNT(CASE WHEN LOWER(side) = 'buy' THEN 1 END) as buy_trades,
                 COUNT(CASE WHEN LOWER(side) = 'sell' THEN 1 END) as sell_trades,
-                SUM(CASE WHEN LOWER(side) = 'buy' THEN size * price ELSE 0 END) as total_spent,
-                SUM(CASE WHEN LOWER(side) = 'sell' THEN size * price ELSE 0 END) as total_received,
-                SUM(CASE WHEN LOWER(side) = 'sell' THEN size * price ELSE -size * price END) as net_pnl,
+                SUM(CASE WHEN LOWER(side) = 'buy' THEN size_usd ELSE 0 END) as total_spent,
+                SUM(CASE WHEN LOWER(side) = 'sell' THEN size_usd ELSE 0 END) as total_received,
+                SUM(CASE WHEN LOWER(side) = 'sell' THEN size_usd ELSE -size_usd END) as net_pnl,
                 SUM(fee) as total_fees,
                 MIN(created_at) as first_trade,
                 MAX(created_at) as last_trade,
@@ -136,7 +138,7 @@ async def validate_recent_trades(db: Session = Depends(get_db), limit: int = 20)
         recent_trades_query = text("""
             SELECT 
                 id, bot_id, product_id, side, size, price, fee, order_id, status,
-                created_at, filled_at, size * price as trade_value
+                created_at, filled_at, COALESCE(size_usd, size * price) as trade_value
             FROM trades 
             WHERE order_id IS NOT NULL AND order_id != ''
             ORDER BY created_at DESC 
