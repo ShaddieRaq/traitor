@@ -1,20 +1,32 @@
-# 🚀 Autonomous Cryptocurrency Trading System
+# 🚀 Auto- 🔗 **API Rate Limiting Analysis**: Comprehensive analysis of REST API usage patterns and rate limiting solutions
+- 📊 **Professional Dashboard**: TradingView-style interface with live updates and professional visualizations
 
-**VALIDATED SUCCESS**: AI-driven autonomous trading system with **37,000% profit in 24 hours** ($1.36 → $504.71). Features complete BUY → SELL automation, real-time signal analysis, and comprehensive safety systems with **2,886 authenticated Coinbase trades**.
+## Next Major Improvement: WebSocket Price Migration
 
-## Features
+**Priority Fix**: Migrate from REST API price fetching to WebSocket real-time data streams to resolve rate limiting issues (429 errors). This industry-standard approach will eliminate DOGE price failures and improve overall system reliability.
 
-- 🔥 **Live Trading**: Continuous automated trading with real Coinbase order execution
+## Core Featuresus Cryptocurrency Trading System
+
+**STATUS**: Decommissioned system pending architectural review. Features comprehensive autonomous trading capabilities with advanced error handling, real-time activity monitoring, and sophisticated bot management. System achieved operational status with full WebSocket infrastructure before decommissioning due to data integrity concerns.
+
+## Latest Technical Achievements
+
+- 🔄 **Real-Time Activity Panel**: Sticky always-visible activity feed with live bot status
+- 🚨 **Enhanced Error Handling**: WebSocket error broadcasting with extended toast notifications  
+- 🤖 **Confirmation State Management**: Automatic bot state reset preventing stuck confirmation states
+- � **API Rate Limiting Analysis**: Comprehensive analysis of REST API usage patterns and rate limiting solutions
+- 📊 **Professional Dashboard**: TradingView-style interface with live updates and professional visualizations
+
+## Core Features
+
 - 🤖 **Bot-Centric Architecture**: One bot per trading pair with intelligent signal aggregation
-- ⚡ **Automatic Execution**: Signal evaluation → confirmation → live trade placement
-- 📊 **Real-Time Dashboard**: Modern React interface with 5-second live updates
-- 🏦 **Coinbase Integration**: Direct integration with Coinbase Advanced Trade API (production orders)
+- ⚡ **Signal Processing**: RSI, Moving Average, MACD with mathematical precision validation
+- 📊 **Real-Time Dashboard**: Modern React interface with 5-second live updates and sticky activity panel
+- 🏦 **Coinbase Integration**: Direct integration with Coinbase Advanced Trade API
 - 🛡️ **Production Safety**: Comprehensive safety limits, circuit breakers, emergency controls
-- 📈 **Advanced Signals**: Enhanced RSI, Moving Average with continuous market evaluation
 - 🎯 **Risk Management**: Position sizing, cooldown periods, temperature-based controls
-- ✅ **Zero Confirmation**: Aggressive trading settings for maximum activity
 - 🌡️ **Bot Temperature**: Hot 🔥/warm 🌡️/cool ❄️/frozen 🧊 indicators with live market responsiveness
-- 🚀 **Production Ready**: 185 tests passing, clean codebase, stable operations
+- 🚀 **WebSocket Infrastructure**: Real-time error broadcasting and trade status updates
 
 ## Tech Stack
 
