@@ -35,17 +35,26 @@ export const useTradeExecutionToasts = () => {
         break;
 
       case 'failed':
+        // Determine if this is a price step error for longer display
+        const isPriceStepError = error?.includes('Price step requirement') || message?.includes('Price step requirement');
+        const duration = isPriceStepError ? 15000 : 10000; // 15 seconds for price step errors, 10 for others
+        
         addToast({
           type: 'error',
-          title: 'Trade Failed ❌',
+          title: isPriceStepError ? 'Trade Blocked - Price Movement Required ⚠️' : 'Trade Failed ❌',
           message: error || message || `Bot ${bot_id}${bot_name ? ` (${bot_name})` : ''}: Trade execution failed`,
-          duration: 10000, // Show longer for errors
+          duration: duration,
           actions: [
             {
-              label: 'Retry',
+              label: isPriceStepError ? 'Check Price Movement' : 'Retry',
               action: () => {
-                // Could trigger retry logic
-                console.log('Retry trade for bot', bot_id);
+                if (isPriceStepError) {
+                  console.log('Check price movement for bot', bot_id);
+                  // Could show price step requirements or market data
+                } else {
+                  console.log('Retry trade for bot', bot_id);
+                  // Could trigger retry logic
+                }
               },
               style: 'primary'
             },

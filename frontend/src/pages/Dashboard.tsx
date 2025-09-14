@@ -10,6 +10,7 @@ import { DataFreshnessIndicator, PollingStatusIndicator } from '../components/Da
 import ConsolidatedBotCard from '../components/Trading/ConsolidatedBotCard';
 import EnhancedTradingActivitySection from '../components/Trading/EnhancedTradingActivitySection';
 import BalanceStatusIndicator from '../components/Trading/BalanceStatusIndicator';
+import StickyActivityPanel from '../components/Trading/StickyActivityPanel';
 import { TradeExecutionFeed } from '../components/Trading/TradeExecutionFeed';
 import { TradeProgressIndicator } from '../components/Trading/TradeProgressIndicator';
 import { useTradeExecutionToasts } from '../hooks/useTradeExecutionToasts';
@@ -173,6 +174,9 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Sticky Activity Panel */}
+      <StickyActivityPanel bots={enhancedBotsStatus || []} />
+      
       {/* Global System Status Bar */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
         <div className="flex items-center justify-between">

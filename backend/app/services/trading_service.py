@@ -191,6 +191,19 @@ class TradingService:
             
         except TradeExecutionError as e:
             logger.error(f"❌ Trade execution failed: {e}")
+            
+            # Broadcast trade failure via WebSocket
+            self._emit_trade_update({
+                "stage": "trade_failed",
+                "bot_id": bot_id,
+                "bot_name": bot.name if 'bot' in locals() else f"Bot {bot_id}",
+                "side": side,
+                "size_usd": size_usd,
+                "status": "failed",
+                "error": str(e),
+                "message": f"Trade failed: {str(e)}"
+            })
+            
             error_result = {
                 "success": False,
                 "error": str(e),
@@ -214,6 +227,19 @@ class TradingService:
             
         except Exception as e:
             logger.error(f"💥 Unexpected error during trade execution: {e}")
+            
+            # Broadcast system error via WebSocket  
+            self._emit_trade_update({
+                "stage": "system_error",
+                "bot_id": bot_id,
+                "bot_name": bot.name if 'bot' in locals() else f"Bot {bot_id}",
+                "side": side,
+                "size_usd": size_usd,
+                "status": "failed",
+                "error": f"System error: {str(e)}",
+                "message": f"System error during trade execution: {str(e)}"
+            })
+            
             error_result = {
                 "success": False,
                 "error": f"Unexpected error: {str(e)}",

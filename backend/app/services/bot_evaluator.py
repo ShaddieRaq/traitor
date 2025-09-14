@@ -153,6 +153,13 @@ class BotSignalEvaluator:
         if self._should_execute_automatic_trade(bot, evaluation_result):
             automatic_trade_result = self._execute_automatic_trade(bot, evaluation_result)
             evaluation_result['automatic_trade'] = automatic_trade_result
+            
+            # CRITICAL: Reset confirmation state after trade execution (success or failure)
+            # This prevents bots from getting stuck in confirmation state
+            logger.info(f"🔄 Resetting confirmation state for bot {bot.id} after trade execution")
+            bot.signal_confirmation_start = None
+            self.db.commit()
+            
         else:
             evaluation_result['automatic_trade'] = None
         
