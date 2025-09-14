@@ -82,10 +82,22 @@ class CoinbaseService:
     def _handle_ws_message(self, message):
         """Handle incoming WebSocket messages and trigger bot evaluations."""
         try:
+            logger.info(f"📥 Received WebSocket message: {type(message)}")
+            
+            # Log the raw message for debugging (safely)
             if isinstance(message, str):
+                try:
+                    msg_preview = message[:200] if len(message) > 200 else message
+                    logger.info(f"📨 Raw message preview: {msg_preview}")
+                except Exception as e:
+                    logger.info(f"📨 Raw message length: {len(message)} chars")
                 message = json.loads(message)
             
-            channel = message.get('channel', '')
+            if isinstance(message, dict):
+                logger.info(f"📋 Message keys: {list(message.keys())}")
+            
+            channel = message.get('channel', '') if isinstance(message, dict) else ''
+            logger.info(f"📡 Message channel: '{channel}'")
             
             # Route message to appropriate handlers
             if channel in self.message_handlers:
@@ -97,6 +109,7 @@ class CoinbaseService:
             
             # Handle ticker updates for bot evaluation
             if channel == 'ticker':
+                logger.info(f"📊 Processing ticker message")
                 events = message.get('events', [])
                 for event in events:
                     tickers = event.get('tickers', [])
@@ -104,7 +117,7 @@ class CoinbaseService:
                         product_id = ticker.get('product_id')
                         price = ticker.get('price')
                         if product_id and price:
-                            logger.debug(f"Ticker update: {product_id} @ ${price}")
+                            logger.info(f"📈 Ticker update: {product_id} @ ${price}")
                             # Trigger bot evaluation for this product
                             self._trigger_bot_evaluations(product_id, ticker)
                 
@@ -114,6 +127,8 @@ class CoinbaseService:
     def _trigger_bot_evaluations(self, product_id: str, ticker_data: dict):
         """Trigger bot evaluations for a specific product on ticker updates."""
         try:
+            logger.info(f"🤖 Triggering bot evaluations for {product_id}")
+            
             # Import here to avoid circular imports
             from ..services.streaming_bot_evaluator import StreamingBotEvaluator
             from ..core.database import SessionLocal
@@ -123,11 +138,12 @@ class CoinbaseService:
             try:
                 evaluator = StreamingBotEvaluator(db)
                 evaluator.evaluate_bots_on_ticker_update(product_id, ticker_data)
+                logger.info(f"✅ Bot evaluations completed for {product_id}")
             finally:
                 db.close()
                 
         except Exception as e:
-            logger.error(f"Error triggering bot evaluations for {product_id}: {e}")
+            logger.error(f"❌ Error triggering bot evaluations for {product_id}: {e}")
     
     def add_message_handler(self, channel: str, handler: Callable):
         """Add a handler function for WebSocket messages from a specific channel."""
@@ -158,24 +174,26 @@ class CoinbaseService:
         try:
             def ws_run():
                 try:
-                    logger.info(f"Opening WebSocket connection...")
+                    logger.info(f"🔌 Opening WebSocket connection...")
                     self.ws_client.open()
-                    logger.info("WebSocket connection opened")
+                    logger.info("✅ WebSocket connection opened")
                     
-                    logger.info(f"Starting ticker subscription for {product_ids}")
-                    # Use the specific ticker method for each product
-                    for product_id in product_ids:
-                        self.ws_client.ticker(product_id)
-                        logger.info(f"Subscribed to ticker for {product_id}")
+                    logger.info(f"🎯 Starting ticker subscription for {product_ids}")
+                    # Subscribe to all products at once instead of individually
+                    self.ws_client.ticker(product_ids)
+                    logger.info(f"✅ Subscribed to ticker for all products: {product_ids}")
                     
-                    logger.info("Starting WebSocket message loop...")
+                    logger.info("🔄 Starting WebSocket message loop...")
                     self.ws_client.run_forever_with_exception_check()
+                    logger.info("🛑 WebSocket message loop ended")
                     
                 except Exception as e:
-                    logger.error(f"WebSocket error: {e}")
+                    logger.error(f"❌ WebSocket error: {e}")
                     import traceback
-                    logger.error(f"WebSocket traceback: {traceback.format_exc()}")
+                    logger.error(f"📜 WebSocket traceback: {traceback.format_exc()}")
                     self.is_ws_running = False
+                finally:
+                    logger.info("🧹 WebSocket thread cleanup")
             
             self.ws_thread = Thread(target=ws_run, daemon=True)
             self.ws_thread.start()
@@ -191,6 +209,15 @@ class CoinbaseService:
         except Exception as e:
             logger.error(f"Failed to start WebSocket: {e}")
             return False
+    
+    def start_portfolio_streaming(self, product_ids: List[str] = None):
+        """Start WebSocket connection with portfolio/user data streaming."""
+        if product_ids is None:
+            product_ids = ["BTC-USD", "ETH-USD"]  # Default products
+            
+        # Start regular WebSocket for tickers + user data
+        channels = ['ticker', 'user']
+        return self.start_websocket(product_ids, channels)
     
     def stop_websocket(self):
         """Stop WebSocket connection."""
