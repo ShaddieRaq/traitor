@@ -349,17 +349,7 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                 distance_to_threshold=distance_to_threshold
             )
             
-            # Create confirmation status object
-            confirmation = ConfirmationStatus(
-                is_active=confirmation_status.get('needs_confirmation', False),
-                action=confirmation_status.get('action_being_confirmed'),
-                progress=confirmation_status.get('confirmation_progress', 0.0),
-                time_remaining_seconds=int(confirmation_status.get('time_remaining_minutes', 0) * 60),
-                started_at=datetime.fromisoformat(confirmation_status['confirmation_start'].replace('Z', '+00:00')) if confirmation_status.get('confirmation_start') else None,
-                required_duration_minutes=bot.confirmation_minutes
-            )
-            
-            # Calculate cooldown remaining (ANY trade - real trades may not have captured Order ID)
+            # Calculate cooldown remaining FIRST (needed for confirmation logic)
             cooldown_remaining_minutes = 0
             last_successful_trade = db.query(Trade).filter(
                 Trade.bot_id == bot.id
@@ -369,6 +359,28 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                 time_since_trade = (datetime.utcnow() - last_successful_trade.created_at).total_seconds() / 60
                 cooldown_minutes = getattr(bot, 'cooldown_minutes', None) or 15
                 cooldown_remaining_minutes = max(0, cooldown_minutes - time_since_trade)
+            
+            # Create confirmation status object - FIXED: Suspend confirmation during cooldown
+            if cooldown_remaining_minutes > 0:
+                # During cooldown, confirmation should be suspended
+                confirmation = ConfirmationStatus(
+                    is_active=False,
+                    action=None,
+                    progress=0.0,
+                    time_remaining_seconds=0,
+                    started_at=None,
+                    required_duration_minutes=bot.confirmation_minutes
+                )
+            else:
+                # Normal confirmation status when not in cooldown
+                confirmation = ConfirmationStatus(
+                    is_active=confirmation_status.get('needs_confirmation', False),
+                    action=confirmation_status.get('action_being_confirmed'),
+                    progress=confirmation_status.get('confirmation_progress', 0.0),
+                    time_remaining_seconds=int(confirmation_status.get('time_remaining_minutes', 0) * 60),
+                    started_at=datetime.fromisoformat(confirmation_status['confirmation_start'].replace('Z', '+00:00')) if confirmation_status.get('confirmation_start') else None,
+                    required_duration_minutes=bot.confirmation_minutes
+                )
             
             # Check balance validation for trade readiness
             has_sufficient_balance = True
@@ -396,7 +408,7 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                     has_sufficient_balance = False
                     balance_blocking_reason = "balance_check_error"
             
-            # Determine trade readiness
+            # Determine trade readiness - FIXED LOGIC: Cooldown takes priority over confirmation
             confirmation_required = confirmation_status.get('needs_confirmation', False)
             confirmation_complete = confirmation_status.get('is_confirmed', False) if confirmation_required else True
             
@@ -414,40 +426,45 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                     logger.warning(f"Price step check failed for bot {bot.id}: {e}")
                     price_step_ok = True  # Allow trade if check fails
             
-            can_trade = (confirmation_complete and bot.status == 'RUNNING' and 
-                        cooldown_remaining_minutes == 0 and has_sufficient_balance and price_step_ok)
-            blocking_reason = None
+            # FIXED: Single unified logic for trade readiness
+            can_trade = (bot.status == 'RUNNING' and 
+                        cooldown_remaining_minutes == 0 and 
+                        has_sufficient_balance and 
+                        price_step_ok and
+                        confirmation_complete)
+            
+            # Determine status and blocking reason with proper priority
             readiness_status = "no_signal"
+            blocking_reason = None
             
             if next_action != "hold":
-                if confirmation_status.get('needs_confirmation', False) and not confirmation_status.get('is_confirmed', False):
-                    readiness_status = "confirming"
-                elif cooldown_remaining_minutes > 0:
+                # Priority 1: Cooldown (overrides everything)
+                if cooldown_remaining_minutes > 0:
                     readiness_status = "cooling_down"
                     blocking_reason = "cooldown"
+                # Priority 2: Bot not running
+                elif bot.status != 'RUNNING':
+                    readiness_status = "blocked"
+                    blocking_reason = "bot_stopped"
+                # Priority 3: Insufficient balance
                 elif not has_sufficient_balance:
                     readiness_status = "blocked"
                     blocking_reason = balance_blocking_reason
+                # Priority 4: Price step requirement
                 elif not price_step_ok:
                     readiness_status = "blocked"
                     blocking_reason = price_step_blocking_reason
+                # Priority 5: Confirmation required but not complete
+                elif confirmation_required and not confirmation_complete:
+                    readiness_status = "confirming"
+                    blocking_reason = "awaiting_confirmation"
+                # Priority 6: Ready to trade
                 elif can_trade:
                     readiness_status = "ready"
+                    blocking_reason = None
                 else:
                     readiness_status = "blocked"
                     blocking_reason = "unknown"
-            
-            if not can_trade and next_action != "hold":
-                if bot.status != 'RUNNING':
-                    blocking_reason = "bot_stopped"
-                elif confirmation_status.get('needs_confirmation', False) and not confirmation_status.get('is_confirmed', False):
-                    blocking_reason = "awaiting_confirmation"
-                elif cooldown_remaining_minutes > 0:
-                    blocking_reason = "cooldown"
-                elif not has_sufficient_balance:
-                    blocking_reason = balance_blocking_reason
-                elif not price_step_ok:
-                    blocking_reason = price_step_blocking_reason
             
             trade_readiness = TradeReadiness(
                 status=readiness_status,
