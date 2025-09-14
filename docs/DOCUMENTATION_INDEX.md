@@ -5,6 +5,7 @@
 
 ## 🎯 **CURRENT ROADMAP & ANALYSIS**
 - `IMPLEMENTATION_ROADMAP_SEPTEMBER_2025.md` - **MASTER ROADMAP** - Your complete strategic implementation plan
+- `RATE_LIMITING_FIX_PLAN.md` - **CRITICAL FIX** - API 429 rate limiting solution with WebSocket migration
 - `PHASE_3_DASHBOARD_UX_COMPLETE.md` - **PHASE 3 COMPLETE** - Professional trading dashboard implementation
 - `WEBSOCKET_INFRASTRUCTURE_DISCOVERY.md` - **MAJOR DISCOVERY** - Advanced WebSocket system operational
 - `CODEBASE_ANALYSIS_SEPTEMBER_2025.md` - Comprehensive system assessment 

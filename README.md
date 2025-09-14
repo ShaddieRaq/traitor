@@ -5,6 +5,8 @@
 
 **Priority Fix**: Migrate from REST API price fetching to WebSocket real-time data streams to resolve rate limiting issues (429 errors). This industry-standard approach will eliminate DOGE price failures and improve overall system reliability.
 
+**📋 Complete Implementation Plan**: See `docs/RATE_LIMITING_FIX_PLAN.md` for detailed 3-phase solution with immediate caching relief and WebSocket migration strategy.
+
 ## Core Featuresus Cryptocurrency Trading System
 
 **STATUS**: Decommissioned system pending architectural review. Features comprehensive autonomous trading capabilities with advanced error handling, real-time activity monitoring, and sophisticated bot management. System achieved operational status with full WebSocket infrastructure before decommissioning due to data integrity concerns.
