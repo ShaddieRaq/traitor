@@ -152,26 +152,11 @@ def calculate_profitability_data(db: Session):
     
     # Calculate ROI percentage
     roi_percentage = (net_pnl / total_spent * 100) if total_spent > 0 else 0.0
-    
-    # Get current balances from Coinbase
-    try:
-        from ..services.coinbase_service import CoinbaseService
-        coinbase_service = CoinbaseService()
-        accounts = coinbase_service.get_accounts()
-        
-        current_balance_usd = 0.0
-        active_positions_value = 0.0
-        
-        for account in accounts:
-            if account.get('currency') == 'USD':
-                current_balance_usd = float(account.get('available_balance', 0))
-            else:
-                active_positions_value += float(account.get('available_balance_fiat', 0))
-                
-    except Exception as e:
-        logger.error(f"Error fetching Coinbase balances: {e}")
-        current_balance_usd = 0.0
-        active_positions_value = 0.0
+
+    # Note: Removed real-time balance fetching to avoid rate limiting
+    # Performance calculations should be based on trade history, not live balances
+    current_balance_usd = 0.0  # Could be calculated from position tracking if needed
+    active_positions_value = 0.0  # Could be calculated from position tracking if needed
     
     return {
         "total_trades": len(authentic_trades),
@@ -687,28 +672,10 @@ def get_profitability_analysis_legacy(db: Session = Depends(get_db)):
     roi_percentage = (net_pnl / total_spent * 100) if total_spent > 0 else 0.0
     success_rate = (len(authentic_trades) / len(authentic_trades) * 100) if authentic_trades else 0.0
     
-    # Get current account balances
-    try:
-        coinbase_service = CoinbaseService()
-        accounts = coinbase_service.get_accounts()
-        
-        # Calculate current balances
-        current_balance_usd = 0.0
-        active_positions_value = 0.0
-        
-        for account in accounts:
-            balance = account.get('available_balance', 0.0)
-            if account.get('is_cash', False):
-                current_balance_usd += balance
-            else:
-                # For crypto positions, we'd need current market prices
-                # For now, use a simple approximation
-                active_positions_value += balance * 45000  # Rough BTC price approximation
-                
-    except Exception as e:
-        # Fallback if Coinbase API is unavailable
-        current_balance_usd = 500.0  # From our profitability analysis
-        active_positions_value = 116.40  # Estimated crypto value
+    # Note: Removed real-time balance fetching to avoid rate limiting
+    # Current balances can be calculated from position tracking if needed
+    current_balance_usd = 0.0  # Could use position tracking service
+    active_positions_value = 0.0  # Could use position tracking service
     
     return {
         "total_trades": len(authentic_trades),

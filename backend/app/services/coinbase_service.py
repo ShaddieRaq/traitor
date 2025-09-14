@@ -41,6 +41,10 @@ class CoinbaseService:
             'level2': [],
             'heartbeat': []
         }
+        # Account data caching to reduce rate limiting
+        self.cached_accounts = None
+        self.cached_accounts_timestamp = None
+        
         self._initialize_client()
     
     def _initialize_client(self):
@@ -482,6 +486,17 @@ class CoinbaseService:
             logger.warning("Coinbase client not initialized")
             return []
         
+        # Check if we have fresh cached data (within 60 seconds to reduce rate limiting)
+        from datetime import datetime
+        if (self.cached_accounts and self.cached_accounts_timestamp and 
+            (datetime.utcnow() - self.cached_accounts_timestamp).total_seconds() < 60):
+            cache_age = (datetime.utcnow() - self.cached_accounts_timestamp).total_seconds()
+            logger.info(f"💾 Using cached account data (age: {cache_age:.1f}s) - avoiding REST API call")
+            return self.cached_accounts
+        
+        # Make REST API call (with rate limiting risk)
+        logger.warning("⚠️ Making REST API call for account data - potential rate limiting risk")
+        
         try:
             # Use the same approach as the working application
             # Get portfolios first
@@ -536,6 +551,11 @@ class CoinbaseService:
                         continue
             
             logger.info(f"Successfully processed {len(accounts)} accounts from portfolio breakdown")
+            
+            # Cache the results to reduce future API calls
+            self.cached_accounts = accounts
+            self.cached_accounts_timestamp = datetime.utcnow()
+            
             return accounts
             
         except Exception as e:
@@ -580,6 +600,10 @@ class CoinbaseService:
                             logger.error(f"Error processing fallback account: {account_error}")
                             continue
                 
+                # Cache the fallback results too
+                self.cached_accounts = accounts
+                self.cached_accounts_timestamp = datetime.utcnow()
+                
                 return accounts
                 
             except Exception as fallback_error:
@@ -589,6 +613,7 @@ class CoinbaseService:
     def get_available_balance(self, currency: str) -> float:
         """
         Get available balance for a specific currency.
+        Uses cached account data when available to avoid rate limiting.
         
         Args:
             currency: Currency code (e.g., 'USD', 'BTC', 'ETH')
@@ -597,6 +622,26 @@ class CoinbaseService:
             Available balance as float, 0.0 if currency not found or error
         """
         try:
+            # Check if we have fresh cached account data first
+            from datetime import datetime
+            if self.cached_accounts and self.cached_accounts_timestamp:
+                cache_age = (datetime.utcnow() - self.cached_accounts_timestamp).total_seconds()
+                if cache_age < 60:
+                    # Use cached data - much faster and avoids rate limiting
+                    logger.info(f"💾 Using cached account data for {currency} balance lookup (cache age: {cache_age:.1f}s)")
+                    
+                    for account in self.cached_accounts:
+                        if account.get('currency') == currency:
+                            balance = float(account.get('available_balance', 0))
+                            logger.info(f"💾 Found {currency} balance: {balance} from cache")
+                            return balance
+                    
+                    # Currency not found in cached accounts
+                    logger.debug(f"Currency {currency} not found in cached accounts (balance: 0.0)")
+                    return 0.0
+            
+            # Fallback to get_accounts() which will handle caching and REST API calls
+            logger.debug(f"No fresh cached data available, fetching accounts for {currency} balance")
             accounts = self.get_accounts()
             for account in accounts:
                 if account.get('currency') == currency:

@@ -458,8 +458,87 @@ async def start_temperature_stream():
         "success": True,
         "message": "Temperature streaming enabled via market data updates"
     }
-    
-    return {
-        "success": True,
-        "message": "Market data stream stopped"
-    }
+
+@router.post("/start-portfolio-stream")
+async def start_portfolio_stream():
+    """Start WebSocket portfolio streaming to eliminate REST API rate limiting."""
+    try:
+        # Get all active bot product IDs
+        from ..core.database import SessionLocal
+        db = SessionLocal()
+        
+        try:
+            active_bots = db.query(Bot).filter(Bot.status == "RUNNING").all()
+            product_ids = list(set([bot.pair for bot in active_bots if bot.pair]))
+            
+            if not product_ids:
+                product_ids = ["BTC-USD", "ETH-USD", "SOL-USD"]  # Default products
+            
+            logger.info(f"Starting portfolio streaming for products: {product_ids}")
+            
+            # Start portfolio WebSocket streaming
+            success = coinbase_service.start_portfolio_streaming(product_ids)
+            
+            if success:
+                return {
+                    "success": True,
+                    "message": f"Portfolio WebSocket streaming started for {len(product_ids)} products",
+                    "products": product_ids,
+                    "status": "Real-time portfolio data will eliminate REST API rate limiting"
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": "Failed to start portfolio streaming",
+                    "error": "WebSocket initialization failed"
+                }
+                
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"Error starting portfolio stream: {e}")
+        return {
+            "success": False,
+            "message": "Failed to start portfolio streaming",
+            "error": str(e)
+        }
+
+@router.get("/portfolio-stream-status")
+async def get_portfolio_stream_status():
+    """Get current portfolio streaming status."""
+    try:
+        ws_status = coinbase_service.get_websocket_status()
+        portfolio_data = coinbase_service.get_portfolio_data()
+        
+        return {
+            "websocket_running": ws_status["is_running"],
+            "portfolio_data_available": ws_status["portfolio_data_available"],
+            "last_portfolio_update": ws_status["last_portfolio_update"],
+            "accounts_count": len(portfolio_data["accounts"]),
+            "data_age_seconds": portfolio_data["data_age_seconds"],
+            "is_realtime": portfolio_data["is_realtime"],
+            "status": "healthy" if portfolio_data["is_realtime"] else "fallback_to_rest_api"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting portfolio stream status: {e}")
+        return {
+            "error": str(e),
+            "status": "error"
+        }
+
+@router.get("/portfolio-data")
+async def get_realtime_portfolio_data():
+    """Get current real-time portfolio data from WebSocket stream."""
+    try:
+        portfolio_data = coinbase_service.get_portfolio_data()
+        return portfolio_data
+        
+    except Exception as e:
+        logger.error(f"Error getting portfolio data: {e}")
+        return {
+            "error": str(e),
+            "accounts": [],
+            "is_realtime": False
+        }
