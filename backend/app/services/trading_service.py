@@ -425,7 +425,7 @@ class TradingService:
             # Don't fail the trade if WebSocket emission fails
     
     def _place_order(self, product_id: str, side: str, base_size: float, bot_id: int = None) -> Optional[Dict[str, Any]]:
-        """Place the actual order on Coinbase with real-time WebSocket updates."""
+        """Place the actual order on Coinbase with immediate status verification."""
         try:
             # Phase 2: Emit trade execution start
             if bot_id:
@@ -455,17 +455,72 @@ class TradingService:
                     })
                 raise TradeExecutionError("Coinbase order placement returned None")
             
+            order_id = order_result.get('order_id')
+            if not order_id:
+                raise TradeExecutionError("Order placement failed - no order ID returned")
+            
+            # CRITICAL FIX: Immediate status check for market orders (they often fill instantly)
+            import time
+            max_checks = 10  # Check up to 10 times
+            check_interval = 0.5  # 500ms between checks
+            
+            logger.info(f"🔍 Checking immediate status for order {order_id}")
+            
+            for attempt in range(max_checks):
+                time.sleep(check_interval)
+                
+                try:
+                    status = self.coinbase_service.get_order_status(order_id)
+                    if status and status.get('status', '').lower() in ['filled', 'done', 'settled']:
+                        logger.info(f"✅ Order {order_id} filled immediately (attempt {attempt + 1})")
+                        order_result['status'] = 'completed'  # Override status
+                        order_result['filled_immediately'] = True
+                        
+                        # Emit immediate completion update
+                        if bot_id:
+                            self._emit_trade_update({
+                                "stage": "order_filled_immediately",
+                                "bot_id": bot_id,
+                                "order_id": order_id,
+                                "status": "completed",
+                                "message": f"Order filled immediately in {(attempt + 1) * check_interval:.1f}s"
+                            })
+                        break
+                    elif status and status.get('status', '').lower() in ['cancelled', 'rejected']:
+                        logger.warning(f"❌ Order {order_id} failed immediately: {status.get('status')}")
+                        order_result['status'] = 'failed'
+                        order_result['failed_immediately'] = True
+                        break
+                        
+                except Exception as status_check_error:
+                    logger.warning(f"Status check attempt {attempt + 1} failed: {status_check_error}")
+                    continue
+            
+            else:
+                # Reached max attempts without completion
+                logger.info(f"⏳ Order {order_id} still pending after {max_checks * check_interval}s - will monitor")
+                order_result['requires_monitoring'] = True
+                
+                if bot_id:
+                    self._emit_trade_update({
+                        "stage": "order_pending",
+                        "bot_id": bot_id,
+                        "order_id": order_id,
+                        "status": "pending",
+                        "message": f"Order pending - monitoring enabled"
+                    })
+            
             # Phase 2: Emit successful order placement
             if bot_id:
                 self._emit_trade_update({
                     "stage": "order_placed",
                     "bot_id": bot_id,
-                    "order_id": order_result.get('order_id'),
+                    "order_id": order_id,
                     "status": "order_placed",
-                    "message": f"Order placed successfully: {order_result.get('order_id')}"
+                    "message": f"Order placed successfully: {order_id}"
                 })
             
-            logger.info(f"📋 Order placed: {order_result.get('order_id')} - {side} {base_size} {product_id}")
+            logger.info(f"📋 Order placed: {order_id} - {side} {base_size} {product_id}")
             return order_result
             
         except Exception as e:
@@ -482,7 +537,7 @@ class TradingService:
     
     def _record_trade(self, bot: Bot, side: str, size_usd: float, base_size: float, price: float, 
                      order_result: Dict[str, Any], current_temperature: str) -> Trade:
-        """Record the trade in the database with enhanced position management."""
+        """Record trade with intelligent status based on order placement results."""
         try:
             # Get current signal scores for recording
             signal_scores = self._get_current_signal_scores(bot)
@@ -492,6 +547,27 @@ class TradingService:
             average_entry_price = self.position_service.calculate_average_entry_price(bot.id)
             position_tranches_json = self.position_service.create_position_tranches_json(bot.id)
             
+            # CRITICAL FIX: Determine initial status based on order placement result
+            initial_status = "pending"
+            filled_at = None
+            
+            if order_result.get('filled_immediately'):
+                initial_status = "completed"
+                filled_at = datetime.utcnow()
+                logger.info(f"🎯 Recording as completed - order filled immediately")
+            elif order_result.get('failed_immediately'):
+                initial_status = "failed"
+                logger.info(f"❌ Recording as failed - order failed immediately")
+            elif order_result.get('status') == 'completed':
+                initial_status = "completed"
+                filled_at = datetime.utcnow()
+                logger.info(f"✅ Recording as completed - order status confirmed")
+            elif order_result.get('status') == 'failed':
+                initial_status = "failed"
+                logger.info(f"❌ Recording as failed - order status confirmed")
+            else:
+                logger.info(f"⏳ Recording as pending - order requires monitoring")
+            
             trade = Trade(
                 bot_id=bot.id,
                 product_id=bot.pair,
@@ -499,7 +575,7 @@ class TradingService:
                 size=base_size,  # Store crypto quantity (FIXED: was size_usd)
                 price=price,
                 order_id=order_result["order_id"],
-                status=order_result.get("status", "pending"),  # Start as pending
+                status=initial_status,  # Smart initial status
                 combined_signal_score=bot.current_combined_score,
                 signal_scores=json.dumps(signal_scores),
                 # Phase 4.1.3: Enhanced position fields
@@ -510,8 +586,7 @@ class TradingService:
                 position_status="BUILDING",  # Will be updated by position service
 
                 created_at=datetime.utcnow(),
-                # filled_at will be set when order actually fills (not immediately)
-                filled_at=None
+                filled_at=filled_at  # Set immediately if order filled, None otherwise
             )
             
             self.db.add(trade)
@@ -521,7 +596,12 @@ class TradingService:
             # Phase 4.1.3: Update position status based on new trade
             self.position_service.update_position_status(bot.id, trade)
             
-            logger.info(f"💾 Trade recorded with tranche support: ID {trade.id}, Tranche #{tranche_number}")
+            # If marked for monitoring, schedule immediate follow-up
+            if order_result.get('requires_monitoring'):
+                self._schedule_order_monitoring(trade.order_id, trade.id)
+                logger.info(f"� Scheduled monitoring for order {trade.order_id}")
+            
+            logger.info(f"💾 Trade recorded: ID {trade.id}, Status: {initial_status}, Tranche #{tranche_number}")
             return trade
             
         except Exception as e:
@@ -569,6 +649,18 @@ class TradingService:
             logger.error(f"Failed to update bot position: {e}")
             # Don't raise exception here - trade was successful, position update is secondary
     
+    def _schedule_order_monitoring(self, order_id: str, trade_id: int):
+        """Schedule real-time monitoring for an order that requires follow-up."""
+        try:
+            # Use the new dedicated monitoring task
+            from ..tasks.trading_tasks import monitor_order_status
+            monitor_order_status.delay(order_id, trade_id)
+            logger.info(f"📅 Scheduled real-time monitoring for order {order_id} (trade {trade_id})")
+            
+        except Exception as e:
+            logger.error(f"Failed to schedule order monitoring: {e}")
+            # Don't fail the trade if monitoring scheduling fails
+    
     def get_trade_status(self, trade_id: int) -> Dict[str, Any]:
         """Get current status of a trade."""
         trade = self.db.query(Trade).filter(Trade.id == trade_id).first()
@@ -591,7 +683,7 @@ class TradingService:
 
     def update_pending_trade_statuses(self) -> Dict[str, Any]:
         """
-        Update the status of all pending trades by checking with Coinbase.
+        Enhanced trade status update with comprehensive logging and error handling.
         This should be called periodically to keep trade statuses current.
         """
         try:
@@ -602,52 +694,105 @@ class TradingService:
             
             updated_count = 0
             completed_count = 0
+            failed_count = 0
+            sync_issues = []
             
-            logger.info(f"🔄 Checking status of {len(pending_trades)} pending trades")
+            logger.info(f"🔄 Enhanced reconciliation: checking {len(pending_trades)} pending trades")
             
             for trade in pending_trades:
                 if not trade.order_id:
                     # No order ID means trade failed to place - mark as failed
+                    old_status = trade.status
                     trade.status = "failed"
                     trade.filled_at = datetime.utcnow()
                     updated_count += 1
+                    failed_count += 1
+                    sync_issues.append({
+                        "trade_id": trade.id,
+                        "issue": "no_order_id",
+                        "old_status": old_status,
+                        "new_status": "failed"
+                    })
                     continue
-                    
-                # Check order status with Coinbase
-                order_status = self.coinbase_service.get_order_status(trade.order_id)
                 
-                if order_status:
-                    old_status = trade.status
-                    new_status = order_status.get("status", "pending")
+                try:
+                    # Check order status with Coinbase
+                    order_status = self.coinbase_service.get_order_status(trade.order_id)
                     
-                    # Map Coinbase statuses to our statuses
-                    if new_status.lower() in ["filled", "done", "settled"]:
-                        trade.status = "completed"
-                        # CRITICAL: Only set filled_at when order actually fills
-                        if not trade.filled_at:  # Don't overwrite if already set
-                            trade.filled_at = datetime.utcnow()
-                        completed_count += 1
+                    if order_status:
+                        old_status = trade.status
+                        new_status = order_status.get("status", "pending")
                         
-                        # Sync completed trade to raw_trades table using clean Coinbase data
-                        try:
-                            self._sync_completed_trade_to_raw_table(trade)
-                        except Exception as sync_error:
-                            logger.warning(f"Failed to sync trade {trade.id} to raw_trades: {sync_error}")
+                        # Map Coinbase statuses to our statuses
+                        if new_status.lower() in ["filled", "done", "settled"]:
+                            trade.status = "completed"
+                            # CRITICAL: Only set filled_at when order actually fills
+                            if not trade.filled_at:  # Don't overwrite if already set
+                                trade.filled_at = datetime.utcnow()
+                            completed_count += 1
                             
-                    elif new_status.lower() in ["cancelled", "rejected"]:
-                        trade.status = "failed"
-                        # Don't set filled_at for failed orders - they weren't filled
-                        trade.filled_at = None
-                    elif new_status.lower() in ["open", "active", "pending"]:
-                        trade.status = "pending"
-                        # Keep filled_at as None for pending orders
-                        trade.filled_at = None
-                    else:
-                        trade.status = new_status.lower()
+                            # Log sync issue if this order was stuck
+                            if old_status == "pending":
+                                sync_issues.append({
+                                    "trade_id": trade.id,
+                                    "order_id": trade.order_id,
+                                    "issue": "stale_pending_order",
+                                    "old_status": old_status,
+                                    "new_status": "completed",
+                                    "created_at": trade.created_at.isoformat() if trade.created_at else None
+                                })
+                            
+                            # Sync completed trade to raw_trades table using clean Coinbase data
+                            try:
+                                self._sync_completed_trade_to_raw_table(trade)
+                            except Exception as sync_error:
+                                logger.warning(f"Failed to sync trade {trade.id} to raw_trades: {sync_error}")
+                                
+                        elif new_status.lower() in ["cancelled", "rejected"]:
+                            trade.status = "failed"
+                            # Don't set filled_at for failed orders - they weren't filled
+                            trade.filled_at = None
+                            failed_count += 1
+                            
+                            if old_status == "pending":
+                                sync_issues.append({
+                                    "trade_id": trade.id,
+                                    "order_id": trade.order_id,
+                                    "issue": "stale_pending_failed",
+                                    "old_status": old_status,
+                                    "new_status": "failed"
+                                })
+                                
+                        elif new_status.lower() in ["open", "active", "pending"]:
+                            trade.status = "pending"
+                            # Keep filled_at as None for pending orders
+                            trade.filled_at = None
+                        else:
+                            trade.status = new_status.lower()
+                        
+                        if old_status != trade.status:
+                            updated_count += 1
+                            logger.info(f"📊 Trade {trade.id} status: {old_status} → {trade.status}")
                     
-                    if old_status != trade.status:
-                        updated_count += 1
-                        logger.info(f"📊 Trade {trade.id} status: {old_status} → {trade.status}")
+                    else:
+                        # Could not get status from Coinbase
+                        logger.warning(f"⚠️ Could not get status for order {trade.order_id}")
+                        sync_issues.append({
+                            "trade_id": trade.id,
+                            "order_id": trade.order_id,
+                            "issue": "coinbase_status_unavailable",
+                            "old_status": trade.status,
+                            "new_status": "unchanged"
+                        })
+                        
+                except Exception as trade_error:
+                    logger.error(f"Error checking trade {trade.id} (order {trade.order_id}): {trade_error}")
+                    sync_issues.append({
+                        "trade_id": trade.id,
+                        "order_id": trade.order_id,
+                        "issue": "api_error",
+                        "error": str(trade_error)
+                    })
             
             # Commit all updates
             self.db.commit()
@@ -656,18 +801,49 @@ class TradingService:
                 "total_checked": len(pending_trades),
                 "updated_count": updated_count,
                 "completed_count": completed_count,
+                "failed_count": failed_count,
+                "sync_issues_count": len(sync_issues),
+                "sync_issues": sync_issues,
                 "timestamp": datetime.utcnow().isoformat()
             }
             
+            # Enhanced logging and alerting
             if updated_count > 0:
-                logger.info(f"✅ Updated {updated_count} trade statuses, {completed_count} completed")
+                logger.warning(f"⚠️ SYNC ISSUE DETECTED: {updated_count} orders required manual sync")
+                logger.info(f"✅ Reconciliation complete: {completed_count} completed, {failed_count} failed")
+                
+                # Alert about persistent sync issues
+                if len(sync_issues) > 0:
+                    self._alert_sync_issues(result)
+            else:
+                logger.info("✅ All orders in sync - no stale statuses found")
             
             return result
             
         except Exception as e:
             self.db.rollback()
-            logger.error(f"❌ Error updating trade statuses: {e}")
+            logger.error(f"❌ Error in enhanced trade status reconciliation: {e}")
             return {"error": str(e), "total_checked": 0, "updated_count": 0}
+    
+    def _alert_sync_issues(self, reconciliation_result: Dict[str, Any]):
+        """Alert about persistent sync issues."""
+        updated_count = reconciliation_result.get('updated_count', 0)
+        sync_issues = reconciliation_result.get('sync_issues', [])
+        
+        if updated_count > 0:
+            logger.error(f"🚨 SYNC ISSUE ALERT: {updated_count} orders required manual sync")
+            
+            # Log details for investigation
+            for issue in sync_issues:
+                if issue.get('issue') == 'stale_pending_order':
+                    logger.error(f"   STALE ORDER: {issue['order_id']} was pending but actually completed")
+                elif issue.get('issue') == 'no_order_id':
+                    logger.error(f"   MISSING ORDER ID: Trade {issue['trade_id']} has no order_id")
+                elif issue.get('issue') == 'api_error':
+                    logger.error(f"   API ERROR: {issue['order_id']} - {issue.get('error')}")
+            
+            # TODO: Add Slack/email alerts for production
+            # send_slack_alert(f"Order sync issue: {updated_count} stale orders found")
     
     def _sync_completed_trade_to_raw_table(self, trade: Trade):
         """

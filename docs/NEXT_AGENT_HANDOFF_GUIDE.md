@@ -21,7 +21,35 @@
 
 ---
 
-## 🚀 **Priority Areas for Next Agent**
+## � **CRITICAL PRIORITY: Order Synchronization Issue (URGENT)**
+
+### **🥇 Priority 0: Fix Order Status Synchronization (CRITICAL)**
+
+**Current State**: Systematic issue where database order status doesn't sync with Coinbase reality
+- **Problem**: Orders show "pending" in database but are actually "FILLED" on Coinbase
+- **Impact**: Bots blocked from trading, missing profitable opportunities
+- **Evidence**: 3 confirmed cases (AVNT, MOODENG bots affected)
+- **Business Impact**: Every hour of delay = potential lost profits
+
+**📖 ESSENTIAL READING**: `ORDER_SYNC_CRITICAL_ISSUE.md` - Complete analysis and fix plan
+
+**Immediate Actions Required:**
+1. **Diagnose Scope**: Audit all pending orders for sync issues
+2. **Fix Pipeline**: Ensure Coinbase order completion events reach database
+3. **Implement Monitoring**: Real-time sync health checks
+4. **Add Reconciliation**: Automated order status verification system
+
+```bash
+# Quick sync issue check
+sqlite3 backend/trader.db "SELECT order_id, created_at FROM trades WHERE status = 'pending'"
+
+# Verify with Coinbase API for each pending order
+# Manual fix template: UPDATE trades SET status = 'completed' WHERE order_id = 'ORDER_ID'
+```
+
+---
+
+## 🚀 **Secondary Priority Areas (After Order Sync Fix)**
 
 ### **🥇 Priority 1: Performance Monitoring & Optimization**
 

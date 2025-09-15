@@ -236,3 +236,28 @@ def update_trade_statuses():
             "status": "error", 
             "message": str(e)
         }
+
+
+@celery_app.task(name="app.tasks.trading_tasks.monitor_order_status")
+def monitor_order_status(order_id: str, trade_id: int):
+    """Monitor a specific order until completion using real-time monitoring service."""
+    import asyncio
+    
+    logger.info(f"🔍 Background monitoring started for order {order_id} (trade {trade_id})")
+    
+    try:
+        # Import here to avoid circular imports
+        from ..services.order_monitoring_service import order_monitor
+        
+        # Run async monitoring in task
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(order_monitor.monitor_order(order_id, trade_id))
+        loop.close()
+        
+        logger.info(f"✅ Monitoring completed for order {order_id}")
+        return {"status": "completed", "order_id": order_id, "trade_id": trade_id}
+        
+    except Exception as e:
+        logger.error(f"❌ Order monitoring task failed for {order_id}: {e}")
+        return {"status": "error", "error": str(e), "order_id": order_id, "trade_id": trade_id}

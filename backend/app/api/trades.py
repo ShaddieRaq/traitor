@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 import logging
 from ..core.database import get_db
-from ..models.models import Bot  # Trade model removed - using raw_trades
+from ..models.models import Bot, Trade  # Trade needed for manual sync endpoint
 # from ..models.models import Trade, Bot  # DEPRECATED: Trade model disabled
 from .schemas import TradeResponse
 from ..services.trading_safety import TradingSafetyService
@@ -1930,6 +1930,141 @@ def validate_trade_data():
             'status': 'error',
             'error': str(e),
             'error_type': type(e).__name__
+        }
+
+
+# Manual Order Status Sync Endpoint for Order Sync Critical Issue Resolution
+@router.post("/sync-order-status/{order_id}")
+def sync_order_status(
+    order_id: str,
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Manually sync order status from Coinbase for debugging and emergency fixes.
+    
+    Critical Issue Resolution: When automatic sync fails and orders remain pending
+    in database while actually filled on Coinbase, this endpoint provides manual
+    fix capability to unblock bot trading.
+    
+    Returns:
+    - sync_result: Status of the sync operation
+    - before: Trade status before sync
+    - after: Trade status after sync
+    - coinbase_data: Raw Coinbase order data for verification
+    """
+    from ..services.coinbase_service import CoinbaseService
+    from ..services.trading_service import TradingService
+    import traceback
+    
+    # Find trade with this order ID
+    trade = db.query(Trade).filter(Trade.order_id == order_id).first()
+    if not trade:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"No trade found with order_id: {order_id}"
+        )
+    
+    # Store before state
+    before_status = trade.status
+    before_filled_at = trade.filled_at
+    
+    try:
+        # Get fresh order data from Coinbase
+        coinbase_service = CoinbaseService()
+        coinbase_order = coinbase_service.get_order(order_id)
+        
+        if not coinbase_order:
+            return {
+                "sync_result": "FAILED",
+                "error": "Order not found on Coinbase",
+                "order_id": order_id,
+                "before": {"status": before_status, "filled_at": before_filled_at},
+                "after": {"status": before_status, "filled_at": before_filled_at}
+            }
+        
+        # Extract Coinbase order status
+        coinbase_status = coinbase_order.get('status', '').upper()
+        coinbase_filled_at = coinbase_order.get('filled_time')
+        
+        # Map Coinbase status to our status
+        status_mapping = {
+            'FILLED': 'completed',
+            'CANCELLED': 'cancelled',
+            'PENDING': 'pending',
+            'OPEN': 'pending',
+            'DONE': 'completed'
+        }
+        
+        new_status = status_mapping.get(coinbase_status, 'unknown')
+        
+        # Update trade if status changed
+        status_changed = False
+        filled_at_changed = False
+        
+        if trade.status != new_status:
+            trade.status = new_status
+            status_changed = True
+            
+        # Update filled_at if order is completed and we don't have filled_at
+        if new_status == 'completed' and not trade.filled_at and coinbase_filled_at:
+            try:
+                from datetime import datetime
+                if isinstance(coinbase_filled_at, str):
+                    # Parse ISO format: 2024-01-15T10:30:45.123Z
+                    trade.filled_at = datetime.fromisoformat(coinbase_filled_at.replace('Z', '+00:00')).replace(tzinfo=None)
+                filled_at_changed = True
+            except Exception as e:
+                logger.warning(f"Could not parse filled_at time {coinbase_filled_at}: {e}")
+        
+        # Commit changes if any updates made
+        if status_changed or filled_at_changed:
+            db.commit()
+            logger.info(f"Manual sync updated order {order_id}: status {before_status} -> {new_status}")
+        
+        # Prepare result
+        sync_result = "SUCCESS" if (status_changed or filled_at_changed) else "NO_CHANGES_NEEDED"
+        
+        return {
+            "sync_result": sync_result,
+            "order_id": order_id,
+            "before": {
+                "status": before_status,
+                "filled_at": before_filled_at.isoformat() if before_filled_at else None
+            },
+            "after": {
+                "status": trade.status,
+                "filled_at": trade.filled_at.isoformat() if trade.filled_at else None
+            },
+            "coinbase_data": {
+                "status": coinbase_status,
+                "filled_time": coinbase_filled_at,
+                "order_configuration": coinbase_order.get('order_configuration', {}),
+                "filled_size": coinbase_order.get('filled_size'),
+                "filled_value": coinbase_order.get('filled_value')
+            },
+            "changes": {
+                "status_changed": status_changed,
+                "filled_at_changed": filled_at_changed
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error manually syncing order {order_id}: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        
+        return {
+            "sync_result": "ERROR",
+            "order_id": order_id,
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "before": {
+                "status": before_status,
+                "filled_at": before_filled_at.isoformat() if before_filled_at else None
+            },
+            "after": {
+                "status": before_status,  # No changes on error
+                "filled_at": before_filled_at.isoformat() if before_filled_at else None
+            }
         }
 
 
