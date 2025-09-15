@@ -257,16 +257,31 @@ class CoinbaseService:
             return []
     
     def get_product_ticker(self, product_id: str) -> Optional[dict]:
-        """Get current ticker for a product."""
+        """Get current ticker for a product. Uses WebSocket cache first, REST API as fallback."""
+        # Try WebSocket cache first (instant, no rate limits)
+        try:
+            from .websocket_price_cache import get_price_cache
+            price_cache = get_price_cache()
+            cached_price = price_cache.get_cached_price(product_id)
+            
+            if cached_price:
+                logger.debug(f"Using WebSocket cached price for {product_id}: ${cached_price['price']}")
+                return cached_price
+        except Exception as e:
+            logger.warning(f"WebSocket price cache error for {product_id}: {e}")
+        
+        # Fallback to REST API (rate limited)
         if not self.client:
             return None
         
         try:
+            logger.info(f"WebSocket cache miss, using REST API for {product_id}")
             response = self.client.get_product(product_id)
             return {
                 "product_id": product_id,
                 "price": float(response.price),
-                "volume_24h": float(response.volume_24h) if hasattr(response, 'volume_24h') else 0
+                "volume_24h": float(response.volume_24h) if hasattr(response, 'volume_24h') else 0,
+                "data_source": "rest_api"
             }
         except Exception as e:
             logger.error(f"Error fetching ticker for {product_id}: {e}")
@@ -889,6 +904,50 @@ class CoinbaseService:
         except Exception as e:
             logger.error(f"❌ Failed to get raw Coinbase fills: {e}")
             return []
+
+    def start_price_websocket_streaming(self, product_ids: List[str]) -> dict:
+        """Start WebSocket price streaming for specified products."""
+        try:
+            from .websocket_price_cache import start_price_websocket_background
+            
+            if not product_ids:
+                return {
+                    "success": False,
+                    "message": "No products specified for streaming",
+                    "products": []
+                }
+            
+            # Start WebSocket price streaming in background
+            thread = start_price_websocket_background(product_ids)
+            
+            logger.info(f"🚀 Started WebSocket price streaming for {len(product_ids)} products")
+            return {
+                "success": True,
+                "message": f"WebSocket price streaming started for {len(product_ids)} products",
+                "products": product_ids,
+                "thread_active": thread.is_alive() if thread else False
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to start WebSocket price streaming: {e}")
+            return {
+                "success": False,
+                "message": f"Error starting WebSocket streaming: {str(e)}",
+                "products": product_ids
+            }
+
+    def get_websocket_price_status(self) -> dict:
+        """Get WebSocket price streaming status."""
+        try:
+            from .websocket_price_cache import get_price_cache
+            price_cache = get_price_cache()
+            return price_cache.get_connection_status()
+        except Exception as e:
+            logger.error(f"Error getting WebSocket price status: {e}")
+            return {
+                "connected": False,
+                "error": str(e)
+            }
 
 
 # Global instance

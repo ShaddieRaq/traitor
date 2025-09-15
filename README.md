@@ -1,15 +1,14 @@
-# 🚀 Auto- 🔗 **API Rate Limiting Analysis**: Comprehensive analysis of REST API usage patterns and rate limiting solutions
-- 📊 **Professional Dashboard**: TradingView-style interface with live updates and professional visualizations
+# 🚀 Auto-Trader Cryptocurrency Trading System
 
-## Next Major Improvement: WebSocket Price Migration
+## ⚠️ CRITICAL: WebSocket Price Migration INCOMPLETE
 
-**Priority Fix**: Migrate from REST API price fetching to WebSocket real-time data streams to resolve rate limiting issues (429 errors). This industry-standard approach will eliminate DOGE price failures and improve overall system reliability.
+**Priority Fix**: WebSocket implementation attempted but FAILED. System still uses REST API for price fetching, causing rate limiting issues (429 errors). The WebSocket infrastructure was built but does not successfully connect to Coinbase.
 
-**📋 Complete Implementation Plan**: See `docs/RATE_LIMITING_FIX_PLAN.md` for detailed 3-phase solution with immediate caching relief and WebSocket migration strategy.
+**📋 Status**: See `docs/WEBSOCKET_IMPLEMENTATION_FAILURE_REPORT.md` for details on failed WebSocket implementation.
 
-## Core Featuresus Cryptocurrency Trading System
+## Core Features
 
-**STATUS**: Decommissioned system pending architectural review. Features comprehensive autonomous trading capabilities with advanced error handling, real-time activity monitoring, and sophisticated bot management. System achieved operational status with full WebSocket infrastructure before decommissioning due to data integrity concerns.
+**STATUS**: System operational with REST API price feeds. Rate limiting issues (429 errors) remain unresolved. WebSocket price implementation attempted but failed to connect. Features comprehensive autonomous trading capabilities with advanced error handling, real-time activity monitoring, and sophisticated bot management.
 
 ## Latest Technical Achievements
 
