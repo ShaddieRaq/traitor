@@ -260,22 +260,22 @@ class CoinbaseService:
         """Get current ticker for a product. Uses WebSocket cache first, REST API as fallback."""
         # Try WebSocket cache first (instant, no rate limits)
         try:
-            from .websocket_price_cache import get_price_cache
-            price_cache = get_price_cache()
-            cached_price = price_cache.get_cached_price(product_id)
+            from .simple_websocket import get_websocket_service
+            ws_service = get_websocket_service()
+            cached_price = ws_service.get_price(product_id)
             
             if cached_price:
-                logger.debug(f"Using WebSocket cached price for {product_id}: ${cached_price['price']}")
+                logger.debug(f"✅ Using WebSocket price for {product_id}: ${cached_price['price']}")
                 return cached_price
         except Exception as e:
-            logger.warning(f"WebSocket price cache error for {product_id}: {e}")
+            logger.warning(f"WebSocket price error for {product_id}: {e}")
         
         # Fallback to REST API (rate limited)
         if not self.client:
             return None
         
         try:
-            logger.info(f"WebSocket cache miss, using REST API for {product_id}")
+            logger.warning(f"⚠️ WebSocket cache miss, using REST API for {product_id}")
             response = self.client.get_product(product_id)
             return {
                 "product_id": product_id,
@@ -908,7 +908,7 @@ class CoinbaseService:
     def start_price_websocket_streaming(self, product_ids: List[str]) -> dict:
         """Start WebSocket price streaming for specified products."""
         try:
-            from .websocket_price_cache import start_price_websocket_background
+            from .simple_websocket import get_websocket_service
             
             if not product_ids:
                 return {
@@ -917,16 +917,24 @@ class CoinbaseService:
                     "products": []
                 }
             
-            # Start WebSocket price streaming in background
-            thread = start_price_websocket_background(product_ids)
+            # Start WebSocket price streaming
+            ws_service = get_websocket_service()
+            success = ws_service.start_streaming(product_ids)
             
-            logger.info(f"🚀 Started WebSocket price streaming for {len(product_ids)} products")
-            return {
-                "success": True,
-                "message": f"WebSocket price streaming started for {len(product_ids)} products",
-                "products": product_ids,
-                "thread_active": thread.is_alive() if thread else False
-            }
+            if success:
+                logger.info(f"🚀 Started WebSocket price streaming for {len(product_ids)} products")
+                return {
+                    "success": True,
+                    "message": f"WebSocket price streaming started for {len(product_ids)} products",
+                    "products": product_ids,
+                    "streaming": True
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": "WebSocket already running or failed to start",
+                    "products": product_ids
+                }
             
         except Exception as e:
             logger.error(f"Failed to start WebSocket price streaming: {e}")
@@ -939,9 +947,15 @@ class CoinbaseService:
     def get_websocket_price_status(self) -> dict:
         """Get WebSocket price streaming status."""
         try:
-            from .websocket_price_cache import get_price_cache
-            price_cache = get_price_cache()
-            return price_cache.get_connection_status()
+            from .simple_websocket import get_websocket_service
+            ws_service = get_websocket_service()
+            
+            return {
+                "connected": ws_service.is_running(),
+                "subscribed_products": len(ws_service.subscription_products),
+                "cached_products": len(ws_service.get_all_prices()),
+                "last_update": "Live" if ws_service.is_running() else "Not connected"
+            }
         except Exception as e:
             logger.error(f"Error getting WebSocket price status: {e}")
             return {

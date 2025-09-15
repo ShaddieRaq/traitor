@@ -100,9 +100,10 @@ async def get_price_streaming_status():
 async def stop_price_streaming():
     """Stop WebSocket price streaming."""
     try:
-        from ..services.websocket_price_cache import stop_price_websocket
+        from ..services.simple_websocket import get_websocket_service
         
-        await stop_price_websocket()
+        ws_service = get_websocket_service()
+        ws_service.stop()
         
         logger.info("🛑 WebSocket price streaming stopped")
         return {
@@ -119,16 +120,19 @@ async def stop_price_streaming():
 async def get_cached_prices():
     """Get all cached price data from WebSocket."""
     try:
-        from ..services.websocket_price_cache import get_price_cache
+        from ..services.simple_websocket import get_websocket_service
         
-        price_cache = get_price_cache()
-        cached_prices = price_cache.get_all_cached_prices()
+        ws_service = get_websocket_service()
+        cached_prices = ws_service.get_all_prices()
         
         return {
             "success": True,
             "cached_prices": cached_prices,
             "cache_count": len(cached_prices),
-            "connection_status": price_cache.get_connection_status()
+            "connection_status": {
+                "connected": ws_service.is_running(),
+                "products": ws_service.subscription_products
+            }
         }
         
     except Exception as e:

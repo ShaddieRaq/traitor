@@ -39,7 +39,7 @@ class WebSocketPriceCache:
         
         while self._running and self._reconnect_attempts < self._max_reconnect_attempts:
             try:
-                logger.info(f"Connecting to Coinbase WebSocket for products: {product_ids}")
+                logger.info(f"Connecting to Coinbase Advanced Trade WebSocket for products: {product_ids}")
                 
                 # Coinbase Advanced Trade WebSocket endpoint
                 uri = "wss://advanced-trade-ws.coinbase.com"
@@ -49,15 +49,15 @@ class WebSocketPriceCache:
                     self.is_connected = True
                     self._reconnect_attempts = 0
                     
-                    # Subscribe to ticker channel for all products (Advanced Trade format)
+                    # Subscribe to ticker channel using Advanced Trade format
                     subscribe_message = {
                         "type": "subscribe",
-                        "channel": "ticker",
-                        "product_ids": product_ids
+                        "product_ids": product_ids,
+                        "channel": "ticker"
                     }
                     
                     await websocket.send(json.dumps(subscribe_message))
-                    logger.info(f"Subscribed to ticker updates for {len(product_ids)} products")
+                    logger.info(f"✅ Subscribed to Advanced Trade WebSocket for {len(product_ids)} products")
                     
                     # Listen for messages
                     async for message in websocket:
@@ -90,23 +90,37 @@ class WebSocketPriceCache:
             
     async def _handle_ticker_message(self, data: dict):
         """Process incoming ticker messages and update price cache."""
-        if data.get("type") == "ticker":
-            product_id = data.get("product_id")
-            if product_id and product_id in self.subscription_products:
+        try:
+            # Coinbase Advanced Trade format: check for events array with tickers
+            if data.get("channel") == "ticker" and "events" in data:
+                events = data.get("events", [])
                 
-                price_data = {
-                    "price": float(data.get("price", 0)),
-                    "volume_24h": float(data.get("volume_24h", 0)),
-                    "best_bid": float(data.get("best_bid", 0)),
-                    "best_ask": float(data.get("best_ask", 0)),
-                    "timestamp": datetime.utcnow(),
-                    "sequence": data.get("sequence", 0)
-                }
-                
-                self.price_cache[product_id] = price_data
-                self.last_update_time[product_id] = datetime.utcnow()
-                
-                logger.debug(f"Updated price for {product_id}: ${price_data['price']}")
+                for event in events:
+                    if "tickers" in event:
+                        tickers = event.get("tickers", [])
+                        
+                        for ticker in tickers:
+                            product_id = ticker.get("product_id")
+                            if product_id and product_id in self.subscription_products:
+                                
+                                price_data = {
+                                    "price": float(ticker.get("price", 0)),
+                                    "volume_24h": float(ticker.get("volume_24_h", 0)),
+                                    "best_bid": float(ticker.get("best_bid", 0)),
+                                    "best_ask": float(ticker.get("best_ask", 0)),
+                                    "timestamp": datetime.utcnow(),
+                                    "high_24h": float(ticker.get("high_24_h", 0)),
+                                    "low_24h": float(ticker.get("low_24_h", 0))
+                                }
+                                
+                                self.price_cache[product_id] = price_data
+                                self.last_update_time[product_id] = datetime.utcnow()
+                                
+                                logger.info(f"✅ Updated price for {product_id}: ${price_data['price']}")
+        
+        except Exception as e:
+            logger.error(f"Error processing ticker message: {e}")
+            logger.debug(f"Message data: {data}")
     
     def get_cached_price(self, product_id: str) -> Optional[dict]:
         """Get cached price data for a product."""
