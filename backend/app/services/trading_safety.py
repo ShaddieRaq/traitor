@@ -286,7 +286,16 @@ class TradingSafetyService:
         return is_cooled_down
     
     def _check_price_step(self, bot: Bot, side: str, size_usd: float) -> bool:
-        """Check if price has moved enough since last trade (trade_step_pct)."""
+        """Check if price has moved enough since last trade (trade_step_pct).
+        
+        Note: Price step requirement only applies to BUY orders to prevent over-buying
+        at similar prices. SELL orders should always be allowed for profit-taking or loss-cutting.
+        """
+        # Price step requirement only applies to BUY orders
+        if side.upper() == "SELL":
+            logger.info(f"💰 Bot {bot.id} price step: SELL order always allowed (no price step requirement)")
+            return True
+        
         # Get the most recent completed trade for this bot
         last_trade = self.db.query(Trade).filter(
             and_(

@@ -869,16 +869,26 @@ class BotSignalEvaluator:
                 auto_size=True  # Use intelligent sizing from Phase 4.1.3
             )
             
-            # Log trade execution result
+            # Log trade execution result with proper classification
             if trade_result.get('success'):
-                logger.info(
-                    f"Automatic {action} trade executed successfully for bot {bot.id}: "
-                    f"Trade ID {trade_result.get('trade_id')}"
-                )
+                if trade_result.get('status') == 'blocked':
+                    # Normal blocking condition - not an error
+                    logger.info(
+                        f"📋 Automatic {action} trade blocked for bot {bot.id}: "
+                        f"{trade_result.get('blocking_reason', 'unknown condition')} (normal trading condition)"
+                    )
+                else:
+                    # Actual successful trade execution
+                    logger.info(
+                        f"✅ Automatic {action} trade executed successfully for bot {bot.id}: "
+                        f"Trade ID {trade_result.get('trade_id')}"
+                    )
             else:
+                # Actual system errors
+                error_message = trade_result.get('message', 'Unknown error')
                 logger.warning(
-                    f"Automatic {action} trade failed for bot {bot.id}: "
-                    f"{trade_result.get('message', 'Unknown error')}"
+                    f"⚠️ Automatic {action} trade failed for bot {bot.id}: "
+                    f"{error_message} (actual system error)"
                 )
             
             return {

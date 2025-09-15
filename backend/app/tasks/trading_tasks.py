@@ -40,12 +40,29 @@ def evaluate_bot_signals(enable_automatic_trading: bool = False):
             evaluator = BotSignalEvaluator(db)
             evaluation_results = []
             
-            for bot in active_bots:
+            # Cache for market data to avoid duplicate API calls
+            market_data_cache = {}
+            
+            for i, bot in enumerate(active_bots):
                 try:
-                    logger.info(f"Evaluating bot {bot.id} ({bot.name})")
+                    logger.info(f"Evaluating bot {bot.id} ({bot.name}) - {i+1}/{len(active_bots)}")
                     
-                    # Get market data for this bot's pair
-                    market_data = coinbase_service.get_historical_data(bot.pair)
+                    # Add delay between API calls to prevent rate limiting (except for first bot)
+                    if i > 0:
+                        import time
+                        delay = 3  # 3 second delay between each bot evaluation
+                        logger.info(f"⏳ Waiting {delay}s before next API call to prevent rate limiting...")
+                        time.sleep(delay)
+                    
+                    # Check cache first
+                    if bot.pair in market_data_cache:
+                        logger.info(f"📋 Using cached market data for {bot.pair}")
+                        market_data = market_data_cache[bot.pair]
+                    else:
+                        # Get market data for this bot's pair
+                        logger.info(f"📡 Fetching fresh market data for {bot.pair}")
+                        market_data = coinbase_service.get_historical_data(bot.pair)
+                        market_data_cache[bot.pair] = market_data
                     
                     if market_data.empty:
                         logger.warning(f"No market data available for {bot.pair}, skipping bot {bot.id}")
@@ -53,6 +70,27 @@ def evaluate_bot_signals(enable_automatic_trading: bool = False):
                     
                     # Evaluate bot (includes automatic trading if enabled)
                     result = evaluator.evaluate_bot(bot, market_data)
+                    
+                    # Store evaluation results back to the bot for UI display
+                    try:
+                        import json
+                        from datetime import datetime
+                        
+                        evaluation_data = {
+                            "action": result.get("action"),
+                            "overall_score": result.get("overall_score"),
+                            "confidence": result.get("confidence"),
+                            "signal_results": result.get("signal_results"),
+                            "evaluation_timestamp": datetime.now().isoformat(),
+                            "market_context": result.get("market_context")
+                        }
+                        
+                        bot.evaluation_metadata = json.dumps(evaluation_data)
+                        db.commit()
+                        logger.info(f"💾 Stored evaluation results for bot {bot.id}")
+                        
+                    except Exception as store_error:
+                        logger.error(f"Failed to store evaluation results for bot {bot.id}: {store_error}")
                     
                     evaluation_results.append({
                         "bot_id": bot.id,
@@ -129,6 +167,27 @@ def fast_trading_evaluation():
                     
                     # Evaluate bot with automatic trading enabled
                     result = evaluator.evaluate_bot(bot, market_data)
+                    
+                    # Store evaluation results back to the bot for UI display
+                    try:
+                        import json
+                        from datetime import datetime
+                        
+                        evaluation_data = {
+                            "action": result.get("action"),
+                            "overall_score": result.get("overall_score"),
+                            "confidence": result.get("confidence"),
+                            "signal_results": result.get("signal_results"),
+                            "evaluation_timestamp": datetime.now().isoformat(),
+                            "market_context": result.get("market_context")
+                        }
+                        
+                        bot.evaluation_metadata = json.dumps(evaluation_data)
+                        db.commit()
+                        logger.debug(f"💾 Stored evaluation results for bot {bot.id}: {result.get('action')} (score: {result.get('overall_score', 0):.3f})")
+                        
+                    except Exception as store_error:
+                        logger.error(f"Failed to store evaluation results for bot {bot.id}: {store_error}")
                     
                     # Check if trade was attempted
                     automatic_trade = result.get("automatic_trade")

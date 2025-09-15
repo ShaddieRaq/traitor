@@ -330,7 +330,22 @@ class CoinbaseService:
                 return df
             
         except Exception as e:
+            error_msg = str(e)
             logger.error(f"Error fetching historical data for {product_id}: {e}")
+            
+            # Check for rate limiting errors and report to system health
+            if "429" in error_msg or "Too Many Requests" in error_msg or "rate limit" in error_msg.lower():
+                logger.error(f"🚨 Rate limiting detected for {product_id}: {error_msg}")
+                # Report to system health monitor
+                try:
+                    from ..api.system_errors import report_bot_error, ErrorType
+                    report_bot_error(
+                        error_type=ErrorType.MARKET_DATA,
+                        message=f"Rate limiting error fetching {product_id} data: {error_msg}",
+                        details={"product_id": product_id, "error_type": "rate_limit_429"}
+                    )
+                except Exception as report_error:
+                    logger.error(f"Failed to report rate limiting error: {report_error}")
         
         return pd.DataFrame()
     
@@ -586,7 +601,21 @@ class CoinbaseService:
             return accounts
             
         except Exception as e:
+            error_msg = str(e)
             logger.error(f"Error fetching portfolio breakdown: {e}")
+            
+            # Check for rate limiting errors and report to system health
+            if "429" in error_msg or "Too Many Requests" in error_msg or "rate limit" in error_msg.lower():
+                logger.error(f"🚨 Rate limiting detected in portfolio breakdown: {error_msg}")
+                try:
+                    from ..api.system_errors import report_bot_error, ErrorType
+                    report_bot_error(
+                        error_type=ErrorType.MARKET_DATA,
+                        message=f"Rate limiting error in portfolio breakdown: {error_msg}",
+                        details={"error_type": "rate_limit_429", "operation": "portfolio_breakdown"}
+                    )
+                except Exception as report_error:
+                    logger.error(f"Failed to report rate limiting error: {report_error}")
             
             # Fallback to original method if portfolio breakdown fails
             logger.info("Falling back to original get_accounts() method")
@@ -634,7 +663,22 @@ class CoinbaseService:
                 return accounts
                 
             except Exception as fallback_error:
+                error_msg = str(fallback_error)
                 logger.error(f"Fallback method also failed: {fallback_error}")
+                
+                # Check for rate limiting errors and report to system health
+                if "429" in error_msg or "Too Many Requests" in error_msg or "rate limit" in error_msg.lower():
+                    logger.error(f"🚨 Rate limiting detected in account data fetch: {error_msg}")
+                    try:
+                        from ..api.system_errors import report_bot_error, ErrorType
+                        report_bot_error(
+                            error_type=ErrorType.MARKET_DATA,
+                            message=f"Rate limiting error fetching account data: {error_msg}",
+                            details={"error_type": "rate_limit_429", "operation": "get_accounts"}
+                        )
+                    except Exception as report_error:
+                        logger.error(f"Failed to report rate limiting error: {report_error}")
+                
                 return []
     
     def get_available_balance(self, currency: str) -> float:

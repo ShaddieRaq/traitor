@@ -18,15 +18,15 @@ celery_app.conf.update(
     beat_schedule={
         "fetch-market-data": {
             "task": "app.tasks.data_tasks.fetch_market_data_task",
-            "schedule": 60.0,  # Every minute
+            "schedule": 300.0,  # Every 5 minutes - reduced from 60s to prevent rate limiting
         },
         "fast-trading-loop": {
             "task": "app.tasks.trading_tasks.fast_trading_evaluation",
-            "schedule": 0.5,  # Every 500ms
+            "schedule": 300.0,  # Every 5 minutes - reduced from 500ms to prevent rate limiting
         },
         "update-trade-statuses": {
             "task": "app.tasks.trading_tasks.update_trade_statuses",
-            "schedule": 30.0,  # Every 30 seconds
+            "schedule": 120.0,  # Every 2 minutes - reduced from 30s to prevent rate limiting
         },
     },
 )

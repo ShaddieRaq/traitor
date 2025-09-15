@@ -1933,6 +1933,179 @@ def validate_trade_data():
         }
 
 
+# Pending Orders API Endpoints for Real-time UI Updates
+@router.get("/pending/{bot_id}")
+def get_bot_pending_orders(
+    bot_id: int,
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Get current pending orders for a specific bot.
+    
+    Returns detailed information about orders that are still pending completion,
+    including time elapsed and order details for UI display.
+    """
+    from datetime import datetime, timedelta
+    
+    # Verify bot exists
+    bot = db.query(Bot).filter(Bot.id == bot_id).first()
+    if not bot:
+        raise HTTPException(status_code=404, detail=f"Bot {bot_id} not found")
+    
+    # Get pending trades for this bot
+    pending_trades = db.query(Trade).filter(
+        Trade.bot_id == bot_id,
+        Trade.status == 'pending',
+        Trade.order_id.isnot(None),
+        Trade.order_id != ''
+    ).order_by(Trade.created_at.desc()).all()
+    
+    # Calculate detailed pending order information
+    pending_orders = []
+    current_time = datetime.utcnow()
+    
+    for trade in pending_trades:
+        # Calculate time elapsed since order placement
+        time_elapsed = current_time - trade.created_at if trade.created_at else timedelta(0)
+        time_elapsed_minutes = int(time_elapsed.total_seconds() / 60)
+        time_elapsed_seconds = int(time_elapsed.total_seconds())
+        
+        # Determine urgency level based on time elapsed
+        if time_elapsed_minutes > 10:
+            urgency = "critical"  # Likely stuck
+        elif time_elapsed_minutes > 5:
+            urgency = "warning"   # Taking longer than expected
+        elif time_elapsed_minutes > 2:
+            urgency = "normal"    # Normal processing time
+        else:
+            urgency = "fresh"     # Just placed
+        
+        pending_orders.append({
+            "trade_id": trade.id,
+            "order_id": trade.order_id,
+            "side": trade.side,
+            "size": float(trade.size) if trade.size else 0.0,
+            "size_usd": float(trade.size_usd) if trade.size_usd else 0.0,
+            "price": float(trade.price) if trade.price else 0.0,
+            "created_at": trade.created_at.isoformat() if trade.created_at else None,
+            "time_elapsed_minutes": time_elapsed_minutes,
+            "time_elapsed_seconds": time_elapsed_seconds,
+            "urgency": urgency,
+            "product_id": trade.product_id
+        })
+    
+    return {
+        "bot_id": bot_id,
+        "bot_name": bot.name,
+        "bot_pair": bot.pair,
+        "has_pending_orders": len(pending_orders) > 0,
+        "pending_order_count": len(pending_orders),
+        "pending_orders": pending_orders,
+        "most_recent_pending": pending_orders[0] if pending_orders else None,
+        "critical_count": len([o for o in pending_orders if o["urgency"] == "critical"]),
+        "warning_count": len([o for o in pending_orders if o["urgency"] == "warning"]),
+        "oldest_pending_minutes": max([o["time_elapsed_minutes"] for o in pending_orders]) if pending_orders else 0,
+        "generated_at": current_time.isoformat()
+    }
+
+
+@router.get("/pending")
+def get_all_pending_orders(db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """
+    Get all pending orders across all bots for system monitoring.
+    
+    Useful for dashboard overview and identifying system-wide sync issues.
+    """
+    from datetime import datetime, timedelta
+    
+    # Get all pending trades
+    pending_trades = db.query(Trade).filter(
+        Trade.status == 'pending',
+        Trade.order_id.isnot(None),
+        Trade.order_id != ''
+    ).order_by(Trade.created_at.desc()).all()
+    
+    current_time = datetime.utcnow()
+    bot_summaries = {}
+    all_pending_orders = []
+    
+    for trade in pending_trades:
+        # Calculate time metrics
+        time_elapsed = current_time - trade.created_at if trade.created_at else timedelta(0)
+        time_elapsed_minutes = int(time_elapsed.total_seconds() / 60)
+        
+        # Determine urgency
+        if time_elapsed_minutes > 10:
+            urgency = "critical"
+        elif time_elapsed_minutes > 5:
+            urgency = "warning"
+        elif time_elapsed_minutes > 2:
+            urgency = "normal"
+        else:
+            urgency = "fresh"
+        
+        # Build order details
+        order_details = {
+            "trade_id": trade.id,
+            "bot_id": trade.bot_id,
+            "order_id": trade.order_id,
+            "side": trade.side,
+            "size_usd": float(trade.size_usd) if trade.size_usd else 0.0,
+            "product_id": trade.product_id,
+            "created_at": trade.created_at.isoformat() if trade.created_at else None,
+            "time_elapsed_minutes": time_elapsed_minutes,
+            "urgency": urgency
+        }
+        
+        all_pending_orders.append(order_details)
+        
+        # Group by bot for summary
+        bot_id = trade.bot_id
+        if bot_id not in bot_summaries:
+            bot_summaries[bot_id] = {
+                "bot_id": bot_id,
+                "pending_count": 0,
+                "critical_count": 0,
+                "warning_count": 0,
+                "oldest_minutes": 0
+            }
+        
+        bot_summaries[bot_id]["pending_count"] += 1
+        if urgency == "critical":
+            bot_summaries[bot_id]["critical_count"] += 1
+        elif urgency == "warning":
+            bot_summaries[bot_id]["warning_count"] += 1
+        
+        bot_summaries[bot_id]["oldest_minutes"] = max(
+            bot_summaries[bot_id]["oldest_minutes"], 
+            time_elapsed_minutes
+        )
+    
+    # Overall system health assessment
+    total_critical = len([o for o in all_pending_orders if o["urgency"] == "critical"])
+    total_warning = len([o for o in all_pending_orders if o["urgency"] == "warning"])
+    
+    if total_critical > 0:
+        system_health = "critical"
+    elif total_warning > 0:
+        system_health = "warning"
+    elif len(all_pending_orders) > 0:
+        system_health = "normal"
+    else:
+        system_health = "healthy"
+    
+    return {
+        "system_health": system_health,
+        "total_pending_orders": len(all_pending_orders),
+        "critical_orders": total_critical,
+        "warning_orders": total_warning,
+        "affected_bots": len(bot_summaries),
+        "bot_summaries": list(bot_summaries.values()),
+        "pending_orders": all_pending_orders,
+        "generated_at": current_time.isoformat()
+    }
+
+
 # Manual Order Status Sync Endpoint for Order Sync Critical Issue Resolution
 @router.post("/sync-order-status/{order_id}")
 def sync_order_status(

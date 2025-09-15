@@ -86,7 +86,33 @@ class TradingService:
             # 4. Enhanced safety validation with intelligent context
             safety_result = self._validate_trade_safety(bot, side, size_usd, current_temperature)
             if not safety_result["allowed"]:
-                raise TradeExecutionError(f"Trade rejected by safety system: {safety_result['reason']}")
+                # Distinguish between normal blocking conditions and actual errors
+                reason = safety_result['reason']
+                normal_blocks = [
+                    'Price step requirement not met',
+                    'cooldown period',
+                    'confirmation required'
+                ]
+                
+                is_normal_block = any(block_reason in reason for block_reason in normal_blocks)
+                
+                if is_normal_block:
+                    # Return success response with blocked status for normal conditions
+                    if redis_client:
+                        redis_client.delete(redis_lock_key)
+                        logger.info(f"🔓 Bot {bot_id} Redis trade lock released (normal block)")
+                    
+                    return {
+                        "success": True,
+                        "status": "blocked",
+                        "blocking_reason": reason,
+                        "bot_id": bot_id,
+                        "message": f"Trade blocked: {reason}",
+                        "blocked_at": datetime.utcnow().isoformat() + "Z"
+                    }
+                else:
+                    # Actual safety errors still throw exceptions
+                    raise TradeExecutionError(f"Trade rejected by safety system: {reason}")
             
             # 5. Get current market price for calculations
             market_price = self._get_current_price(bot.pair)
@@ -94,7 +120,19 @@ class TradingService:
             # 6. Validate account balance before proceeding
             balance_validation = self._validate_account_balance(bot.pair, side, size_usd, market_price)
             if not balance_validation["valid"]:
-                raise TradeExecutionError(f"Insufficient balance: {balance_validation['message']}")
+                # Balance issues are normal blocking conditions too
+                if redis_client:
+                    redis_client.delete(redis_lock_key)
+                    logger.info(f"🔓 Bot {bot_id} Redis trade lock released (insufficient balance)")
+                
+                return {
+                    "success": True,
+                    "status": "blocked", 
+                    "blocking_reason": f"insufficient_balance: {balance_validation['message']}",
+                    "bot_id": bot_id,
+                    "message": f"Trade blocked: {balance_validation['message']}",
+                    "blocked_at": datetime.utcnow().isoformat() + "Z"
+                }
             
             # 7. Calculate position size in base currency
             base_size = self._calculate_base_size(side, size_usd, market_price)
@@ -599,6 +637,17 @@ class TradingService:
             # If marked for monitoring, schedule immediate follow-up
             if order_result.get('requires_monitoring'):
                 self._schedule_order_monitoring(trade.order_id, trade.id)
+            
+            # Broadcast pending order creation via WebSocket if order is pending
+            if initial_status == "pending":
+                self._broadcast_pending_order_created(trade)
+            
+            logger.info(f"💾 Trade recorded: ID {trade.id}, Status: {initial_status}, Tranche #{tranche_number}")
+            return trade
+            
+            # If marked for monitoring, schedule immediate follow-up
+            if order_result.get('requires_monitoring'):
+                self._schedule_order_monitoring(trade.order_id, trade.id)
                 logger.info(f"� Scheduled monitoring for order {trade.order_id}")
             
             logger.info(f"💾 Trade recorded: ID {trade.id}, Status: {initial_status}, Tranche #{tranche_number}")
@@ -607,6 +656,40 @@ class TradingService:
         except Exception as e:
             self.db.rollback()
             raise TradeExecutionError(f"Failed to record trade: {e}")
+    
+    def _broadcast_pending_order_created(self, trade: Trade):
+        """Broadcast new pending order creation via WebSocket."""
+        try:
+            from ..api.websocket import manager
+            import asyncio
+            
+            pending_order_data = {
+                "trade_id": trade.id,
+                "bot_id": trade.bot_id,
+                "order_id": trade.order_id,
+                "side": trade.side,
+                "size": float(trade.size) if trade.size else 0.0,
+                "size_usd": float(trade.size_usd) if trade.size_usd else 0.0,
+                "price": float(trade.price) if trade.price else 0.0,
+                "product_id": trade.product_id,
+                "status": "pending",
+                "created_at": trade.created_at.isoformat() if trade.created_at else None,
+                "time_elapsed_seconds": 0
+            }
+            
+            # Use asyncio to run the async broadcast in a sync context
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # If there's already a running loop, create a task
+                asyncio.create_task(manager.broadcast_pending_order_update(pending_order_data))
+            else:
+                # If no loop is running, run directly
+                asyncio.run(manager.broadcast_pending_order_update(pending_order_data))
+                
+            logger.info(f"📡 Broadcasted pending order creation for order {trade.order_id}")
+            
+        except Exception as e:
+            logger.warning(f"Failed to broadcast pending order creation: {e}")
     
     def _get_current_signal_scores(self, bot: Bot) -> Dict[str, Any]:
         """Get current individual signal scores for recording."""

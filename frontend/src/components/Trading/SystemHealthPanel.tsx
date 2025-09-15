@@ -5,22 +5,35 @@ interface SystemError {
   id: string;
   bot_id?: number;
   bot_name?: string;
-  error_type: 'signal_calculation' | 'market_data' | 'configuration' | 'trading_logic';
+  error_type: 'signal_calculation' | 'market_data' | 'configuration' | 'trading_logic' | 'system';
   message: string;
   timestamp: string;
   resolved: boolean;
 }
 
 const SystemHealthPanel: React.FC = () => {
-  const { data: errors, isLoading } = useQuery<SystemError[]>({
+  const { data: errors, isLoading, refetch } = useQuery<SystemError[]>({
     queryKey: ['system-errors'],
     queryFn: async () => {
-      const response = await fetch('/api/v1/system/errors');
+      const response = await fetch('/api/v1/system-errors/errors');
       if (!response.ok) throw new Error('Failed to fetch system errors');
       return response.json();
     },
     refetchInterval: 10000, // Check every 10 seconds
   });
+
+  const resolveError = async (errorId: string) => {
+    try {
+      const response = await fetch(`/api/v1/system-errors/errors/${errorId}/resolve`, {
+        method: 'POST',
+      });
+      if (response.ok) {
+        refetch(); // Refresh the error list
+      }
+    } catch (error) {
+      console.error('Failed to resolve error:', error);
+    }
+  };
 
   const activeErrors = errors?.filter(e => !e.resolved) || [];
   const recentErrors = errors?.filter(e => e.resolved).slice(0, 3) || [];
@@ -37,12 +50,18 @@ const SystemHealthPanel: React.FC = () => {
     );
   }
 
-  const getErrorIcon = (type: string) => {
+  const getErrorIcon = (type: string, message: string = '') => {
+    // Check for rate limiting in message
+    if (message.toLowerCase().includes('rate limit') || message.includes('429')) {
+      return '🚫';
+    }
+    
     switch (type) {
       case 'signal_calculation': return '📊';
       case 'market_data': return '📡';
       case 'configuration': return '⚙️';
       case 'trading_logic': return '🤖';
+      case 'system': return '🔧';
       default: return '⚠️';
     }
   };
@@ -75,10 +94,10 @@ const SystemHealthPanel: React.FC = () => {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center mb-1">
-                      <span className="mr-2">{getErrorIcon(error.error_type)}</span>
+                      <span className="mr-2">{getErrorIcon(error.error_type, error.message)}</span>
                       <span className="text-sm font-medium text-red-900">
                         {error.bot_name ? `${error.bot_name}: ` : ''}
-                        {error.error_type.replace('_', ' ')}
+                        {error.message.toLowerCase().includes('rate limit') || error.message.includes('429') ? 'Rate Limiting' : error.error_type.replace('_', ' ')}
                       </span>
                     </div>
                     <div className="text-sm text-red-800 mb-1">{error.message}</div>
@@ -86,7 +105,10 @@ const SystemHealthPanel: React.FC = () => {
                       {new Date(error.timestamp).toLocaleString()}
                     </div>
                   </div>
-                  <button className="ml-2 px-2 py-1 text-xs bg-red-100 hover:bg-red-200 rounded border border-red-300">
+                  <button 
+                    onClick={() => resolveError(error.id)}
+                    className="ml-2 px-2 py-1 text-xs bg-red-100 hover:bg-red-200 rounded border border-red-300"
+                  >
                     Dismiss
                   </button>
                 </div>
@@ -105,10 +127,10 @@ const SystemHealthPanel: React.FC = () => {
               <div key={error.id} className="p-2 bg-gray-50 rounded border border-gray-200">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
-                    <span className="mr-2 opacity-60">{getErrorIcon(error.error_type)}</span>
+                    <span className="mr-2 opacity-60">{getErrorIcon(error.error_type, error.message)}</span>
                     <span className="text-sm text-gray-700">
                       {error.bot_name ? `${error.bot_name}: ` : ''}
-                      {error.error_type.replace('_', ' ')}
+                      {error.message.toLowerCase().includes('rate limit') || error.message.includes('429') ? 'Rate Limiting' : error.error_type.replace('_', ' ')}
                     </span>
                   </div>
                   <div className="text-xs text-gray-500">

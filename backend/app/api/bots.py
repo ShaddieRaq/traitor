@@ -310,35 +310,42 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
     
     for bot in bots:
         try:
-            # Get fresh evaluation for this bot
-            market_data = market_data_cache.get(bot.pair)
-            if market_data is not None and not market_data.empty:
-                temp_data = evaluator.calculate_bot_temperature_light(bot, market_data)
-                fresh_score = temp_data.get('score', 0.0)
-                temperature = temp_data.get('temperature', 'FROZEN')
-                distance_to_signal = temp_data.get('distance_to_action', 1.0)
-            else:
-                fresh_score = bot.current_combined_score
-                temperature = calculate_bot_temperature(bot.current_combined_score)
-                distance_to_signal = abs(fresh_score) / 0.3 if fresh_score != 0 else 1.0
+            # Get REAL evaluation for this bot - same as trading logic uses
+            try:
+                # Get market data for this bot's pair
+                market_data = market_data_cache.get(bot.pair)
+                if market_data is not None and not market_data.empty:
+                    evaluation_result = evaluator.evaluate_bot(bot, market_data)
+                    fresh_score = evaluation_result.get('overall_score', 0.0)
+                    next_action = evaluation_result.get('action', 'hold')
+                    confidence = evaluation_result.get('confidence', 0.0)
+                    logger.info(f"✅ Real evaluation for bot {bot.id}: {next_action} | {fresh_score:.3f}")
+                else:
+                    logger.warning(f"⚠️  No market data for {bot.pair}, using stored score")
+                    fresh_score = bot.current_combined_score or 0.0
+                    next_action = "hold"
+                    confidence = 0.0
+            except Exception as eval_error:
+                logger.error(f"❌ Evaluation failed for bot {bot.id}: {eval_error}")
+                # Fallback to stored score
+                fresh_score = bot.current_combined_score or 0.0
+                next_action = "hold"
+                confidence = 0.0
+            
+            # Calculate temperature from real score
+            temperature = calculate_bot_temperature(fresh_score)
+            distance_to_signal = abs(fresh_score) / 0.3 if fresh_score != 0 else 1.0
+            
+            # Calculate signal strength (0-1 scale) from real evaluation
+            abs_score = abs(fresh_score)
+            signal_strength = min(abs_score / 0.3, 1.0)  # Normalize to production threshold
             
             # Get confirmation status
             confirmation_status = evaluator.get_confirmation_status(bot)
             
-            # Determine next action based on signal
-            next_action = "hold"
-            if fresh_score > 0.08:  # Using testing thresholds
-                next_action = "sell"
-            elif fresh_score < -0.08:
-                next_action = "buy"
-            
-            # Calculate signal strength (0-1 scale)
-            abs_score = abs(fresh_score)
-            signal_strength = min(abs_score / 0.3, 1.0)  # Normalize to production threshold
-            confidence = min(abs_score / 0.08, 1.0)  # Confidence based on testing threshold
-            
             # Calculate distance to threshold
             threshold = 0.08  # Testing threshold for immediate visibility
+            abs_score = abs(fresh_score)
             distance_to_threshold = max(0, threshold - abs_score) if abs_score < threshold else 0
             
             # Create trading intent
@@ -360,12 +367,12 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                 cooldown_minutes = getattr(bot, 'cooldown_minutes', None) or 15
                 cooldown_remaining_minutes = max(0, cooldown_minutes - time_since_trade)
             
-            # Create confirmation status object - FIXED: Suspend confirmation during cooldown
+            # Create confirmation status object - FIXED: Proper cooldown handling
             if cooldown_remaining_minutes > 0:
-                # During cooldown, confirmation should be suspended
+                # During cooldown, confirmation should show as suspended/blocked
                 confirmation = ConfirmationStatus(
                     is_active=False,
-                    action=None,
+                    action="suspended_cooldown",  # Special action to indicate cooldown suspension
                     progress=0.0,
                     time_remaining_seconds=0,
                     started_at=None,

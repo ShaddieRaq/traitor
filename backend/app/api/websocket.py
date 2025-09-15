@@ -72,6 +72,24 @@ class ConnectionManager:
             "timestamp": datetime.utcnow().isoformat()
         }
         await self.broadcast(message)
+    
+    async def broadcast_pending_order_update(self, pending_order_update: dict):
+        """Broadcast pending order status updates to all connected clients."""
+        message = {
+            "type": "pending_order_update",
+            "data": pending_order_update,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        await self.broadcast(message)
+    
+    async def broadcast_order_status_change(self, order_status_change: dict):
+        """Broadcast order status changes (pending -> completed/failed) to all connected clients."""
+        message = {
+            "type": "order_status_change", 
+            "data": order_status_change,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        await self.broadcast(message)
 
 
 # Global connection manager

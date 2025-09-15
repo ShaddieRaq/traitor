@@ -105,8 +105,25 @@ class OrderMonitoringService:
         try:
             from ..api.websocket import manager
             
-            update_data = {
-                "type": "trade_status_update",
+            # Broadcast order status change
+            status_change_data = {
+                "trade_id": trade.id,
+                "bot_id": trade.bot_id,
+                "order_id": trade.order_id,
+                "old_status": "pending",  # We know it was pending since we're monitoring it
+                "new_status": trade.status,
+                "filled_at": trade.filled_at.isoformat() if trade.filled_at else None,
+                "updated_at": datetime.utcnow().isoformat(),
+                "product_id": trade.product_id,
+                "side": trade.side,
+                "size_usd": float(trade.size_usd) if trade.size_usd else 0.0
+            }
+            
+            await manager.broadcast_order_status_change(status_change_data)
+            
+            # Also broadcast general trade update for backward compatibility
+            trade_update_data = {
+                "type": "trade_status_update", 
                 "trade_id": trade.id,
                 "bot_id": trade.bot_id,
                 "order_id": trade.order_id,
@@ -115,8 +132,8 @@ class OrderMonitoringService:
                 "updated_at": datetime.utcnow().isoformat()
             }
             
-            await manager.broadcast_trade_update(update_data)
-            logger.info(f"📡 Broadcasted status update for trade {trade.id}")
+            await manager.broadcast_trade_update(trade_update_data)
+            logger.info(f"📡 Broadcasted status change for order {trade.order_id}: pending → {trade.status}")
             
         except Exception as e:
             logger.warning(f"Failed to broadcast status update: {e}")

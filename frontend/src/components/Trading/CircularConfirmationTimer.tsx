@@ -25,7 +25,8 @@ const CircularConfirmationTimer: React.FC<CircularConfirmationTimerProps> = ({
              action === 'sell' ? 'stroke-red-500 text-red-700' : 
              'stroke-blue-500 text-blue-700';
     } else {
-      return action === 'none' ? 'stroke-gray-400 text-gray-600' : 
+      return action === 'none' ? 'stroke-gray-400 text-gray-600' :
+             action === 'suspended_cooldown' ? 'stroke-blue-400 text-blue-600' :
              action === 'buy' ? 'stroke-green-400 text-green-600' :
              action === 'sell' ? 'stroke-red-400 text-red-600' :
              'stroke-purple-500 text-purple-700';
@@ -72,10 +73,14 @@ const CircularConfirmationTimer: React.FC<CircularConfirmationTimerProps> = ({
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center">
             <div className="text-xs">
-              {isActive ? '⏱️' : action === 'buy' ? '📈' : action === 'sell' ? '📉' : '👁️'}
+              {isActive ? '⏱️' : 
+               action === 'suspended_cooldown' ? '🚫' :
+               action === 'buy' ? '📈' : 
+               action === 'sell' ? '📉' : '👁️'}
             </div>
             <div className={`text-xs font-bold ${colors}`}>
               {isActive ? `${Math.floor(confirmation.time_remaining_seconds / 60)}:${String(confirmation.time_remaining_seconds % 60).padStart(2, '0')}` : 
+               action === 'suspended_cooldown' ? 'BLOCKED' :
                action === 'none' ? 'WAIT' : 'READY'}
             </div>
           </div>
@@ -86,11 +91,13 @@ const CircularConfirmationTimer: React.FC<CircularConfirmationTimerProps> = ({
       <div className="flex-1 min-w-0">
         <div className={`text-sm font-medium ${colors}`}>
           {isActive ? 'Confirmation Timer' : 
+           action === 'suspended_cooldown' ? 'Execution Status' :
            action === 'none' ? 'Monitoring' : 'Ready to Trade'}
         </div>
         <div className="text-xs text-gray-500">
           {isActive ? `${progress.toFixed(0)}% complete` : 
-           action === 'none' ? 'Waiting for signal' : 'Awaiting confirmation'}
+           action === 'suspended_cooldown' ? 'Cannot execute' :
+           action === 'none' ? 'Waiting for signal' : 'Can execute now'}
         </div>
       </div>
     </div>
