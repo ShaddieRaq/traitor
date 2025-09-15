@@ -66,6 +66,14 @@ curl -X POST "http://localhost:8000/api/v1/trades/update-statuses"
 
 # View recent bot evaluations
 curl "http://localhost:8000/api/v1/bot-evaluation/recent-evaluations" | jq
+
+# Check raw trades (new system)
+curl -s "http://localhost:8000/api/v1/raw-trades/" | jq 'length'
+curl -s "http://localhost:8000/api/v1/raw-trades/" | jq '.[] | select(.product_id == "SUI-USD")'
+
+# Common Issue: Bot shows 0 trades but Coinbase has trades
+# PROBLEM: System moved from trades to raw-trades model, sync missing
+# SOLUTION: Use working sync scripts (check /scripts/ and /docs/legacy_scripts/)
 ```
 
 ### Testing Approach
@@ -131,6 +139,14 @@ Routes are organized by feature with consistent patterns:
 
 ## Known Issues & Context
 
+### ⚠️ CRITICAL AI AGENT WARNINGS
+**Documentation/Code Mismatches**: This codebase has evolved rapidly with multiple system migrations. Be aware:
+- **API endpoints may be deprecated** but still referenced in code/docs
+- **"Legacy" scripts may be the only working solution** for some operations
+- **Trade system migration**: Moved from `trades` model to `raw_trades` model, sync may be incomplete
+- **Always verify endpoints work** before suggesting them to users
+- **Check both `/scripts/` and `/docs/legacy_scripts/` for working solutions**
+
 ### WebSocket Implementation Status
 **COMPLETED**: WebSocket price feeds FULLY OPERATIONAL as of September 15, 2025. Rate limiting issues (429 errors) completely eliminated.
 - **Production Implementation**: `/backend/app/services/simple_websocket.py` - Stable, real-time WebSocket service
@@ -144,6 +160,14 @@ Routes are organized by feature with consistent patterns:
 - **Detection**: Use `/api/v1/trades/update-statuses` endpoint for manual sync
 - **Background Service**: Celery task runs every 30 seconds for automatic updates
 - **Impact**: Can temporarily block bots from new trades despite available funds
+
+### Trade Data Migration Issue
+**CRITICAL**: System migrated from `trades` to `raw_trades` model. Bots may show 0 trades even when Coinbase has trades.
+- **Symptom**: Bot dashboard shows 0 trades but user has trades on Coinbase
+- **Root Cause**: Trades exist on Coinbase but not in `raw_trades` table
+- **Check**: `curl -s "http://localhost:8000/api/v1/raw-trades/" | jq '.[] | select(.product_id == "SUI-USD")'`
+- **Solution**: Look for working sync scripts in `/scripts/` or `/docs/legacy_scripts/`
+- **Warning**: Many sync endpoints are deprecated - verify before recommending
 
 ### Position Management
 Enhanced position tracking with tranches in `Trade.position_tranches` (JSON field) for multi-entry position building.
