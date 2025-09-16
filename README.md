@@ -110,6 +110,22 @@ open http://localhost:3000
 | `./scripts/status.sh` | Check service status |
 | `./scripts/logs.sh` | View application logs |
 
+### Health Monitoring & Troubleshooting
+
+| Command | Description |
+|---------|-------------|
+| `./scripts/health_monitor.sh` | **NEW**: Continuous health monitoring with auto-fixes |
+| `python scripts/fix_signal_locks.py --check` | Check for stuck bot signal states |
+| `python scripts/fix_signal_locks.py --fix` | Fix detected signal locks automatically |
+| `bash scripts/position-reconcile.sh check` | Verify position accuracy vs Coinbase |
+
+**Real-Time UI Monitoring**: The Enhanced System Health Panel in the dashboard (http://localhost:3000) provides:
+- 📊 **Live Logs Tab**: Real-time application log streaming
+- 🏥 **Health Overview**: System health score and critical alerts  
+- 📈 **Performance Metrics**: Background task status and monitoring
+
+For troubleshooting guidance, see [`docs/TRADING_ISSUES_TROUBLESHOOTING.md`](docs/TRADING_ISSUES_TROUBLESHOOTING.md)
+
 ### Access Points
 
 - **Frontend Dashboard**: http://localhost:3000

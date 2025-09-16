@@ -2,7 +2,7 @@
 
 ## System Overview
 
-This is a **production-ready autonomous cryptocurrency trading system** that achieved 37,000% returns in 24 hours. The architecture is **bot-centric** with one bot per trading pair, using weighted signal aggregation for decision-making.
+This is a **production-ready autonomous cryptocurrency trading system** that achieved 37,000% returns. The architecture is **bot-centric** with one bot per trading pair, using weighted signal aggregation for decision-making.
 
 ### Core Architecture
 - **Backend**: FastAPI + SQLAlchemy ORM + Celery/Redis for background tasks
@@ -10,6 +10,7 @@ This is a **production-ready autonomous cryptocurrency trading system** that ach
 - **Database**: Single SQLite file (`trader.db`) with models in `/backend/app/models/models.py`
 - **API Structure**: RESTful with `/api/v1/` prefix, feature-organized routes in `/backend/app/api/`
 - **Real-time Architecture**: 5-second polling (proven more reliable than WebSocket for this use case)
+- **Testing**: 185+ comprehensive tests with signal validation and live API integration
 
 ## Bot-Centric Design Patterns
 
@@ -30,12 +31,15 @@ signal_instance = create_signal_instance(signal_type, parameters)
 - **Bot**: Core entity with `signal_config` JSON field for dynamic signal configuration
 - **BotSignalHistory**: Time-series signal scores for confirmation tracking
 - **Trade**: Enhanced with `position_tranches`, `average_entry_price`, `tranche_number`
+- **RawTrade**: Clean Coinbase transaction data (preferred for P&L calculations)
 - **MarketData**: OHLCV candlestick data for technical analysis
 
 ### Signal Scoring System
 - **Range**: -1.0 (strong sell) to +1.0 (strong buy)
 - **Aggregation**: Weighted sum of individual signal scores
-- **Thresholds**: Temperature-based (🔥🌡️❄️🧊) with production vs testing modes
+- **Thresholds**: Temperature-based (🔥🌡️❄️🧊) with testing vs production modes
+- **Testing Thresholds**: 10x more sensitive (HOT ≥0.08, WARM ≥0.03, COOL ≥0.005)
+- **Production Thresholds**: Conservative (HOT ≥0.3, WARM ≥0.15, COOL ≥0.05)
 
 ## Operational Commands & Scripts
 
@@ -58,7 +62,7 @@ signal_instance = create_signal_instance(signal_type, parameters)
 ```bash
 # Backend development (from /backend)
 python -m app.main                    # Start FastAPI server
-python test_runner.py all            # Run comprehensive signal tests 
+python tests/test_runner.py all      # Run comprehensive signal tests 
 celery -A app.tasks.celery_app worker # Start background worker
 
 # Frontend development (from /frontend)
@@ -66,8 +70,8 @@ npm run dev                          # Vite development server
 npm run build                        # Production build
 
 # Testing specific signal categories
-python test_runner.py rsi            # RSI signal tests only
-python test_runner.py aggregation    # Signal aggregation tests
+python tests/test_runner.py rsi            # RSI signal tests only
+python tests/test_runner.py aggregation    # Signal aggregation tests
 ```
 
 ### Critical API Endpoints for Debugging
@@ -75,10 +79,12 @@ python test_runner.py aggregation    # Signal aggregation tests
 # System health & status
 curl "http://localhost:8000/api/v1/bot-evaluation/recent-evaluations" | jq
 curl "http://localhost:8000/api/v1/system-errors/errors" | jq '.[0:5]'
+curl "http://localhost:8000/api/v1/bots/status/enhanced" | jq  # Real-time bot status
 
 # Trade & position management
 curl -X POST "http://localhost:8000/api/v1/trades/update-statuses"  # Sync order statuses
 curl "http://localhost:8000/api/v1/raw-trades/" | jq '.[] | select(.product_id == "BTC-USD")'
+curl "http://localhost:8000/api/v1/trades/pending" | jq  # Check stuck orders
 
 # Bot temperature & scoring
 curl "http://localhost:8000/api/v1/bots/" | jq '.[] | {name, status, current_combined_score}'
@@ -109,6 +115,8 @@ curl "http://localhost:8000/api/v1/bots/" | jq '.[] | {name, status, current_com
 - **State Management**: Server state via TanStack Query, no global state
 - **Activity Feed**: Sticky panel with live bot status updates
 - **Error Handling**: Toast notifications with extended display for errors
+- **Component Structure**: `/frontend/src/pages/` for routes, `/components/` for reusables
+- **API Hooks**: Centralized in `/frontend/src/hooks/` using TanStack Query patterns
 
 ## Project-Specific Patterns & Conventions
 
@@ -182,7 +190,39 @@ Enhanced multi-tranche position tracking:
 ./scripts/quick-test.sh  
 
 # Targeted signal testing
-python test_runner.py [rsi|ma|macd|aggregation|all]
+python tests/test_runner.py [rsi|ma|macd|aggregation|all]
+```
+
+### Trading Issue Resolution Tools
+
+**Signal Lock Management**:
+```bash
+# Check for stuck signal confirmation states
+python scripts/fix_signal_locks.py --check
+
+# Auto-fix detected signal locks
+python scripts/fix_signal_locks.py --fix
+
+# Continuous monitoring mode
+python scripts/fix_signal_locks.py --monitor
+```
+
+**Position Accuracy Tools**:
+```bash
+# Check position discrepancies
+bash scripts/position-reconcile.sh check
+
+# Fix position tracking issues
+bash scripts/position-reconcile.sh fix
+```
+
+**System Health Monitoring**:
+```bash
+# Start continuous health monitoring
+./scripts/health_monitor.sh
+
+# Manual health check
+./scripts/status.sh
 ```
 
 ## Key Files for AI Agent Context
@@ -193,4 +233,8 @@ python test_runner.py [rsi|ma|macd|aggregation|all]
 **Main Bot API**: `/backend/app/api/bots.py`  
 **Trading Safety**: `/backend/app/services/trading_safety.py`  
 **Frontend Components**: `/frontend/src/components/` (React + TypeScript)  
+**Trading Issue Troubleshooting**: `/docs/TRADING_ISSUES_TROUBLESHOOTING.md`  
+**Signal Lock Management**: `/scripts/fix_signal_locks.py`  
+**Position Reconciliation**: `/scripts/position-reconcile.sh`  
+**Health Monitoring**: `/scripts/health_monitor.sh`  
 **Comprehensive Documentation**: `/docs/` with detailed status reports and guides
