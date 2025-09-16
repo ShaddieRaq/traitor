@@ -86,6 +86,11 @@ export interface BalanceStatus {
   message: string;
 }
 
+export interface OptimizationStatus {
+  skipped: boolean;
+  reason: string;
+}
+
 export interface BotStatus {
   id: number;
   name: string;
@@ -96,6 +101,7 @@ export interface BotStatus {
   temperature: string;
   distance_to_signal: number;
   balance_status: BalanceStatus;
+  optimization_status?: OptimizationStatus;
 }
 
 export interface MarketData {

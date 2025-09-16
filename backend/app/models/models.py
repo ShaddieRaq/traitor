@@ -28,6 +28,9 @@ class Bot(Base):
     # Signal configuration (JSON string)
     signal_config = Column(Text)  # JSON: {"RSI": {"weight": 0.4, "period": 14, "oversold": 30, "overbought": 70}, ...}
     
+    # Performance optimization settings
+    skip_signals_on_low_balance = Column(Boolean, default=False)  # Skip signal processing when balance insufficient
+    
     # Current state
     current_position_size = Column(Float, default=0.0)
     current_position_entry_price = Column(Float)

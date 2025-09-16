@@ -87,6 +87,41 @@ source venv/bin/activate
 celery -A app.tasks.celery_app beat --loglevel=info
 ```
 
+### Balance Optimization Commands
+```bash
+# Check optimization status for all bots
+curl "http://localhost:8000/api/v1/bots/status/enhanced" | jq '.[] | {name, optimization_status}'
+
+# Check specific bot optimization settings
+sqlite3 backend/trader.db "SELECT id, name, skip_signals_on_low_balance FROM bots;"
+
+# Enable optimization for specific bot
+sqlite3 backend/trader.db "UPDATE bots SET skip_signals_on_low_balance = 1 WHERE id = 3;"
+
+# Disable optimization for specific bot  
+sqlite3 backend/trader.db "UPDATE bots SET skip_signals_on_low_balance = 0 WHERE id = 3;"
+
+# Monitor optimization impact in logs
+cd backend && tail -f logs/app.log | grep "optimization_skipped"
+
+# Check balance details that trigger optimization
+curl "http://localhost:8000/api/v1/accounts/" | jq '.[] | {currency, available_balance}'
+
+# Test optimization logic directly
+cd backend && python -c "
+from app.services.bot_evaluator import BotSignalEvaluator
+from app.core.database import SessionLocal
+from app.models.models import Bot
+
+db = SessionLocal()
+bot = db.query(Bot).first()
+evaluator = BotSignalEvaluator(db)
+result = evaluator._has_minimum_balance_for_any_trade(bot)
+print(f'Balance check result: {result}')
+db.close()
+"
+```
+
 ## Signal Development Quick Guide
 
 ### Adding a New Signal

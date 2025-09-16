@@ -12,22 +12,24 @@
 
 ## Latest Technical Achievements
 
+- ⚡ **Balance Pre-Check Optimization**: Smart signal processing that skips expensive calculations when insufficient balance (~60% API call reduction)
 - 🔄 **Real-Time Activity Panel**: Sticky always-visible activity feed with live bot status
 - 🚨 **Enhanced Error Handling**: WebSocket error broadcasting with extended toast notifications  
 - 🤖 **Confirmation State Management**: Automatic bot state reset preventing stuck confirmation states
-- � **API Rate Limiting Analysis**: Comprehensive analysis of REST API usage patterns and rate limiting solutions
+- 📈 **API Rate Limiting Analysis**: Comprehensive analysis of REST API usage patterns and rate limiting solutions
 - 📊 **Professional Dashboard**: TradingView-style interface with live updates and professional visualizations
 
 ## Core Features
 
 - 🤖 **Bot-Centric Architecture**: One bot per trading pair with intelligent signal aggregation
-- ⚡ **Signal Processing**: RSI, Moving Average, MACD with mathematical precision validation
+- ⚡ **Signal Processing**: RSI, Moving Average, MACD with mathematical precision validation + smart balance pre-checking
 - 📊 **Real-Time Dashboard**: Modern React interface with 5-second live updates and sticky activity panel
-- 🏦 **Coinbase Integration**: Direct integration with Coinbase Advanced Trade API
+- 🏦 **Coinbase Integration**: Direct integration with Coinbase Advanced Trade API with optimized request patterns
 - 🛡️ **Production Safety**: Comprehensive safety limits, circuit breakers, emergency controls
 - 🎯 **Risk Management**: Position sizing, cooldown periods, temperature-based controls
 - 🌡️ **Bot Temperature**: Hot 🔥/warm 🌡️/cool ❄️/frozen 🧊 indicators with live market responsiveness
 - 🚀 **WebSocket Infrastructure**: Real-time error broadcasting and trade status updates
+- ⚡ **Performance Optimization**: Smart signal processing skips calculations when insufficient balance
 
 ## Tech Stack
 

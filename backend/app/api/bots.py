@@ -193,12 +193,20 @@ def get_bots_status_summary(db: Session = Depends(get_db)):
         try:
             # Get fresh evaluation for this bot (full evaluation)
             market_data = market_data_cache.get(bot.pair)
+            optimization_status = {"skipped": False, "reason": ""}
             if market_data is not None and not market_data.empty:
                 # Use full evaluation to get accurate signals (automatic trading handled by confirmation system)
                 evaluation_result = evaluator.evaluate_bot(bot, market_data)
                 fresh_score = evaluation_result.get('overall_score', 0.0)
                 temperature = evaluation_result.get('temperature', 'FROZEN')
                 distance_to_signal = abs(fresh_score) if fresh_score != 0 else 1.0
+                
+                # Check if signals were skipped due to optimization
+                if evaluation_result.get('metadata', {}).get('optimization_skipped', False):
+                    optimization_status = {
+                        "skipped": True, 
+                        "reason": "Insufficient balance - signals skipped for performance"
+                    }
             else:
                 # Fallback to cached data if no market data available
                 fresh_score = bot.current_combined_score
@@ -237,7 +245,8 @@ def get_bots_status_summary(db: Session = Depends(get_db)):
                 "current_position_size": bot.current_position_size,
                 "temperature": temperature,
                 "distance_to_signal": distance_to_signal,
-                "balance_status": balance_status
+                "balance_status": balance_status,
+                "optimization_status": optimization_status
             })
         except Exception as e:
             logger.error(f"Error evaluating bot {bot.id}: {e}")

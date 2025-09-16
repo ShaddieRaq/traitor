@@ -77,6 +77,16 @@ const ConsolidatedBotCard: React.FC<ConsolidatedBotCardProps> = ({ bot, classNam
 
   // Get status info
   const getStatusInfo = () => {
+    // PRIORITY 0: Optimization status (highest priority)
+    if (bot.optimization_status?.skipped) {
+      return { 
+        text: 'Signals Skipped', 
+        color: 'text-purple-700', 
+        bgColor: 'bg-purple-100',
+        icon: '⚡'
+      };
+    }
+    
     // PRIORITY 1: Cooldown status (overrides everything else)
     if (readiness?.cooldown_remaining_minutes > 0 || readiness?.blocking_reason === 'cooldown') {
       const minutes = readiness?.cooldown_remaining_minutes || 0;
@@ -186,6 +196,16 @@ const ConsolidatedBotCard: React.FC<ConsolidatedBotCardProps> = ({ bot, classNam
           <span className="text-red-700 font-medium">⚠️ Trading Blocked:</span>
           <div className="text-red-600 mt-1">
             {readiness.blocking_reason}
+          </div>
+        </div>
+      )}
+
+      {/* OPTIMIZATION STATUS: Show when signals are skipped for performance */}
+      {bot.optimization_status?.skipped && (
+        <div className="mt-3 p-2 bg-purple-50 border border-purple-200 rounded text-xs">
+          <span className="text-purple-700 font-medium">⚡ Performance Optimization:</span>
+          <div className="text-purple-600 mt-1">
+            {bot.optimization_status.reason}
           </div>
         </div>
       )}

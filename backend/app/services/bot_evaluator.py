@@ -43,6 +43,32 @@ class BotSignalEvaluator:
             - confirmation_status: Confirmation tracking info
             - metadata: Evaluation metadata
         """
+        # Performance optimization: Skip signal processing if balance is insufficient
+        if hasattr(bot, 'skip_signals_on_low_balance') and bot.skip_signals_on_low_balance:
+            balance_check = self._has_minimum_balance_for_any_trade(bot)
+            if not balance_check.get('can_trade', True):
+                logger.debug(f"Skipping signal processing for bot {bot.id} ({bot.pair}) due to insufficient balance: {balance_check.get('reason', 'unknown')}")
+                return {
+                    'overall_score': 0.0,
+                    'action': 'hold',
+                    'confidence': 0.0,
+                    'signal_results': {},
+                    'confirmation_status': {
+                        'confirmed': False,
+                        'consecutive_signals': 0,
+                        'required_signals': bot.confirmation_minutes,
+                        'last_signal_time': None,
+                        'message': f'Skipped: {balance_check.get("reason", "Insufficient balance for trading")}'
+                    },
+                    'metadata': {
+                        'evaluation_time': pd.Timestamp.now().isoformat(),
+                        'data_points_evaluated': len(market_data),
+                        'optimization_skipped': True,
+                        'balance_details': balance_check
+                    },
+                    'automatic_trade': False
+                }
+        
         # Get current price from market data
         current_price = market_data['close'].iloc[-1] if len(market_data) > 0 else 0
         
@@ -321,7 +347,7 @@ class BotSignalEvaluator:
                 bot_name=bot.name,
                 details={
                     "signal_config": bot.signal_config,
-                    "trading_pair": bot.trading_pair,
+                    "trading_pair": bot.pair,
                     "evaluation_timestamp": pd.Timestamp.now().isoformat()
                 }
             )
@@ -914,6 +940,114 @@ class BotSignalEvaluator:
                 'execution_timestamp': datetime.utcnow().isoformat(),
                 'bot_id': bot.id,
                 'bot_name': bot.name,
+                'error': str(e)
+            }
+
+    def _has_minimum_balance_for_any_trade(self, bot: Bot) -> Dict[str, Any]:
+        """
+        Quick balance check to determine if bot can potentially trade.
+        Much faster than full trade validation - checks basic thresholds only.
+        
+        This method uses cached account data when available to minimize API calls
+        and provides a fast way to skip expensive signal processing when balance
+        is clearly insufficient for any trading activity.
+        
+        Args:
+            bot: Bot instance
+            
+        Returns:
+            Dict with 'can_trade', 'reason', 'details', and 'balances'
+        """
+        try:
+            from ..services.coinbase_service import coinbase_service
+            
+            # Parse trading pair for currency identification
+            base_currency, quote_currency = bot.pair.split('-')
+            
+            # Get basic account balances (uses cache when available)
+            usd_balance = coinbase_service.get_available_balance('USD')
+            crypto_balance = coinbase_service.get_available_balance(base_currency)
+            
+            # Define conservative minimum thresholds (much looser than exact trade validation)
+            # These are designed to catch obvious insufficient balance cases early
+            min_usd_for_buy = 5.0    # Conservative minimum for any USD buy order
+            min_crypto_for_sell = {   # Minimum crypto amounts for sell orders
+                'BTC': 0.00001,      # ~$0.50 worth
+                'ETH': 0.001,        # ~$2-3 worth
+                'SOL': 0.01,         # ~$1-2 worth
+                'DOGE': 1.0,         # ~$0.10 worth
+                'XRP': 1.0,          # ~$0.50 worth
+                'AVNT': 1.0,         # ~$0.80 worth
+                'AERO': 0.1,         # ~$0.10 worth
+                'SUI': 0.1           # ~$1-2 worth
+            }
+            
+            min_crypto_threshold = min_crypto_for_sell.get(base_currency, 0.001)
+            
+            # Check if bot can potentially buy (needs USD)
+            can_buy = usd_balance >= min_usd_for_buy
+            
+            # Check if bot can potentially sell (needs crypto)
+            can_sell = crypto_balance >= min_crypto_threshold
+            
+            # Determine overall trading capability
+            if not can_buy and not can_sell:
+                return {
+                    'can_trade': False,
+                    'reason': 'insufficient_balance_all',
+                    'details': f'Cannot buy (${usd_balance:.2f} < ${min_usd_for_buy}) or sell ({crypto_balance:.6f} {base_currency} < {min_crypto_threshold})',
+                    'balances': {
+                        'usd': usd_balance,
+                        'crypto': crypto_balance,
+                        'crypto_currency': base_currency
+                    },
+                    'thresholds': {
+                        'min_usd': min_usd_for_buy,
+                        'min_crypto': min_crypto_threshold
+                    }
+                }
+            elif not can_buy:
+                return {
+                    'can_trade': True,
+                    'reason': 'sell_only',
+                    'details': f'Can sell {base_currency} but cannot buy (${usd_balance:.2f} < ${min_usd_for_buy})',
+                    'balances': {
+                        'usd': usd_balance,
+                        'crypto': crypto_balance,
+                        'crypto_currency': base_currency
+                    }
+                }
+            elif not can_sell:
+                return {
+                    'can_trade': True,
+                    'reason': 'buy_only',
+                    'details': f'Can buy with USD but cannot sell {base_currency} ({crypto_balance:.6f} < {min_crypto_threshold})',
+                    'balances': {
+                        'usd': usd_balance,
+                        'crypto': crypto_balance,
+                        'crypto_currency': base_currency
+                    }
+                }
+            else:
+                return {
+                    'can_trade': True,
+                    'reason': 'sufficient_balance',
+                    'details': f'Can both buy (${usd_balance:.2f}) and sell ({crypto_balance:.6f} {base_currency})',
+                    'balances': {
+                        'usd': usd_balance,
+                        'crypto': crypto_balance,
+                        'crypto_currency': base_currency
+                    }
+                }
+                
+        except Exception as e:
+            # On error, allow signal processing (fail safe approach)
+            logger.warning(f"Balance pre-check failed for bot {bot.id}: {str(e)} - allowing signal processing")
+            return {
+                'can_trade': True,
+                'reason': 'error_assume_yes',
+                'details': f'Balance check failed: {str(e)}',
+                'balances': None,
                 'error': str(e)
             }
 
