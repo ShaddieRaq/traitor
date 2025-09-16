@@ -228,33 +228,60 @@ class TradingService:
             return success_result
             
         except TradeExecutionError as e:
-            logger.error(f"❌ Trade execution failed: {e}")
+            # Check if this is a race condition block vs actual error
+            is_race_condition_block = "Another trade is currently in progress" in str(e)
             
-            # Broadcast trade failure via WebSocket
-            self._emit_trade_update({
-                "stage": "trade_failed",
-                "bot_id": bot_id,
-                "bot_name": bot.name if 'bot' in locals() else f"Bot {bot_id}",
-                "side": side,
-                "size_usd": size_usd,
-                "status": "failed",
-                "error": str(e),
-                "message": f"Trade failed: {str(e)}"
-            })
-            
-            error_result = {
-                "success": False,
-                "error": str(e),
-                "error_type": "trade_execution_error",
-                "bot_id": bot_id,
-                "request": {
+            if is_race_condition_block:
+                # This is a protective mechanism, not an actual error
+                logger.warning(f"❌ Trade execution blocked due to race condition: {e}")
+                # Don't broadcast race condition blocks to UI - they're protective, not errors
+            else:
+                # This is an actual error that should be shown to user
+                logger.error(f"❌ Trade execution failed: {e}")
+                
+                # Broadcast actual trade failures via WebSocket
+                self._emit_trade_update({
+                    "stage": "trade_failed",
+                    "bot_id": bot_id,
+                    "bot_name": bot.name if 'bot' in locals() else f"Bot {bot_id}",
                     "side": side,
                     "size_usd": size_usd,
-                    "temperature": current_temperature,
-                    "auto_size": auto_size
-                },
-                "failed_at": datetime.utcnow().isoformat() + "Z"
-            }
+                    "status": "failed",
+                    "error": str(e),
+                    "message": f"Trade failed: {str(e)}"
+                })
+            
+            # Determine error result based on error type
+            if is_race_condition_block:
+                error_result = {
+                    "success": False,
+                    "status": "blocked",
+                    "blocking_reason": "Another trade in progress (race condition protection)",
+                    "error": str(e),
+                    "error_type": "race_condition_block",
+                    "bot_id": bot_id,
+                    "request": {
+                        "side": side,
+                        "size_usd": size_usd,
+                        "temperature": current_temperature,
+                        "auto_size": auto_size
+                    },
+                    "blocked_at": datetime.utcnow().isoformat() + "Z"
+                }
+            else:
+                error_result = {
+                    "success": False,
+                    "error": str(e),
+                    "error_type": "trade_execution_error",
+                    "bot_id": bot_id,
+                    "request": {
+                        "side": side,
+                        "size_usd": size_usd,
+                        "temperature": current_temperature,
+                        "auto_size": auto_size
+                    },
+                    "failed_at": datetime.utcnow().isoformat() + "Z"
+                }
             
             # Release Redis lock on error
             if redis_client:
