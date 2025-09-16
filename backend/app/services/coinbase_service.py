@@ -9,6 +9,7 @@ from ..core.config import settings
 import logging
 import signal
 from contextlib import contextmanager
+from .market_data_cache import get_market_data_cache
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,9 @@ class CoinbaseService:
         # Account data caching to reduce rate limiting
         self.cached_accounts = None
         self.cached_accounts_timestamp = None
+        
+        # Initialize market data cache
+        self.market_data_cache = get_market_data_cache()
         
         self._initialize_client()
     
@@ -289,7 +293,7 @@ class CoinbaseService:
     
     def get_historical_data(self, product_id: str, granularity: int = 3600, limit: int = 100) -> pd.DataFrame:
         """
-        Get historical candlestick data.
+        Get historical candlestick data with intelligent caching.
         
         Args:
             product_id: Trading pair (e.g., "BTC-USD")
@@ -298,6 +302,19 @@ class CoinbaseService:
         """
         if not self.client:
             return pd.DataFrame()
+        
+        # Use cache to get data, falling back to API if needed
+        def fetch_from_api():
+            return self._fetch_historical_data_from_api(product_id, granularity, limit)
+        
+        return self.market_data_cache.get_or_fetch(product_id, granularity, limit, fetch_from_api)
+    
+    def _fetch_historical_data_from_api(self, product_id: str, granularity: int, limit: int) -> pd.DataFrame:
+        """
+        Internal method to fetch data directly from Coinbase API.
+        This method should only be called by the cache system.
+        """
+        logger.info(f"🌐 Making API call for {product_id} (granularity={granularity}, limit={limit})")
         
         try:
             import time
@@ -342,6 +359,7 @@ class CoinbaseService:
                 df = pd.DataFrame(data)
                 df.set_index('timestamp', inplace=True)
                 df.sort_index(inplace=True)
+                logger.info(f"✅ Successfully fetched {len(df)} candles for {product_id}")
                 return df
             
         except Exception as e:
@@ -962,6 +980,27 @@ class CoinbaseService:
                 "connected": False,
                 "error": str(e)
             }
+    
+    def get_cache_stats(self) -> dict:
+        """Get market data cache performance statistics."""
+        return self.market_data_cache.get_stats()
+    
+    def get_cache_info(self) -> dict:
+        """Get detailed cache information for debugging."""
+        return self.market_data_cache.get_cache_info()
+    
+    def invalidate_cache(self, product_id: Optional[str] = None) -> int:
+        """
+        Invalidate market data cache.
+        
+        Args:
+            product_id: If provided, only invalidate cache for this product.
+                       If None, invalidate all cache entries.
+                       
+        Returns:
+            Number of cache entries invalidated
+        """
+        return self.market_data_cache.invalidate(product_id)
 
 
 # Global instance

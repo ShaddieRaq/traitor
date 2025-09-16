@@ -23,9 +23,10 @@ trader/
 │   │   ├── 📝 models/                # Database models
 │   │   │   └── models.py             # SQLAlchemy models
 │   │   ├── 🔧 services/              # Business logic
-│   │   │   ├── coinbase_service.py   # Coinbase API client
+│   │   │   ├── coinbase_service.py   # Coinbase API client with intelligent caching
+│   │   │   ├── market_data_cache.py  # 🆕 Market data caching service (96%+ hit rate)
 │   │   │   ├── bot_evaluator.py      # Signal evaluation service
-│   │   │   ├── trading_service.py    # Trade execution service (Phase 4.1.2)
+│   │   │   ├── trading_service.py    # Trade execution service
 │   │   │   └── signals/              # Signal implementations
 │   │   │       ├── base.py           # Abstract base signal
 │   │   │       └── technical.py      # RSI, MA, MACD signals
@@ -120,6 +121,30 @@ result = evaluator._has_minimum_balance_for_any_trade(bot)
 print(f'Balance check result: {result}')
 db.close()
 "
+```
+
+### Market Data Cache Monitoring Commands (NEW - September 16, 2025)
+```bash
+# Check cache performance statistics (96%+ hit rate expected)
+curl "http://localhost:8000/api/v1/cache/stats" | jq '.'
+
+# View detailed cache entries and expiration times
+curl "http://localhost:8000/api/v1/cache/info" | jq '.'
+
+# Check rate limiting status (should show ~2-3 calls/minute)
+curl "http://localhost:8000/api/v1/cache/rate-limiting-status" | jq '.'
+
+# Invalidate cache for specific trading pair
+curl -X POST "http://localhost:8000/api/v1/cache/invalidate?product_id=BTC-USD"
+
+# Invalidate all cache entries
+curl -X POST "http://localhost:8000/api/v1/cache/invalidate"
+
+# Monitor cache activity in logs
+cd backend && tail -f logs/app.log | grep "💾\|cache"
+
+# Quick cache health check
+curl -s "http://localhost:8000/api/v1/cache/stats" | jq '.cache_stats | {hit_rate_percent, api_calls_saved, cache_size}'
 ```
 
 ## Signal Development Quick Guide

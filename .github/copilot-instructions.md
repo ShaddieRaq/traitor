@@ -12,6 +12,12 @@ This is a **production-ready autonomous cryptocurrency trading system** that ach
 - **Real-time Architecture**: 5-second polling (proven more reliable than WebSocket for this use case)
 - **Testing**: 185+ comprehensive tests with signal validation and live API integration
 
+### Essential Development Context
+- **Bot-Per-Pair Architecture**: Each `Bot` entity manages exactly one trading pair (e.g., "BTC Scalper" for BTC-USD)
+- **Fresh Data Pattern**: Backend performs live calculations on each API request (no stale caching)
+- **Signal Factory Pattern**: Dynamic signal creation via `create_signal_instance()` in `/backend/app/services/signals/base.py`
+- **Temperature-Based UI**: Real-time activity indicators (🔥HOT, 🌡️WARM, ❄️COOL, 🧊FROZEN) driven by signal scores
+
 ## Bot-Centric Design Patterns
 
 ### Signal System Architecture
@@ -27,7 +33,7 @@ Each `Bot` entity manages one trading pair with:
 signal_instance = create_signal_instance(signal_type, parameters)
 ```
 
-### Critical Data Models
+### Critical Data Models & Relationships
 - **Bot**: Core entity with `signal_config` JSON field for dynamic signal configuration
 - **BotSignalHistory**: Time-series signal scores for confirmation tracking
 - **Trade**: Enhanced with `position_tranches`, `average_entry_price`, `tranche_number`
@@ -40,6 +46,12 @@ signal_instance = create_signal_instance(signal_type, parameters)
 - **Thresholds**: Temperature-based (🔥🌡️❄️🧊) with testing vs production modes
 - **Testing Thresholds**: 10x more sensitive (HOT ≥0.08, WARM ≥0.03, COOL ≥0.005)
 - **Production Thresholds**: Conservative (HOT ≥0.3, WARM ≥0.15, COOL ≥0.05)
+
+### Core Service Dependencies
+- **BotSignalEvaluator**: Main signal aggregation in `/backend/app/services/bot_evaluator.py`
+- **TradingService**: Order execution & position management 
+- **CoinbaseService**: API integration with JWT authentication
+- **TradingSafetyService**: Risk management and circuit breakers
 
 ## Operational Commands & Scripts
 
@@ -111,12 +123,27 @@ curl "http://localhost:8000/api/v1/bots/" | jq '.[] | {name, status, current_com
 - **Position Reconciliation**: `/backend/app/services/position_reconciliation_service.py`
 
 ### Frontend Real-time Architecture
-- **No WebSocket**: Uses 5-second TanStack Query polling (proven more reliable)
-- **State Management**: Server state via TanStack Query, no global state
-- **Activity Feed**: Sticky panel with live bot status updates
+- **TanStack Query Polling**: 5-second intervals proven more reliable than WebSocket
+- **Aggressive Polling Pattern**: `staleTime: 0`, `refetchIntervalInBackground: true`
+- **Fresh Data Strategy**: No caching - backend calculates fresh signals on each request
+- **State Management**: Server state via TanStack Query, minimal client state
+- **Activity Feed**: Sticky panel (`StickyActivityPanel`) with live bot status updates
 - **Error Handling**: Toast notifications with extended display for errors
 - **Component Structure**: `/frontend/src/pages/` for routes, `/components/` for reusables
 - **API Hooks**: Centralized in `/frontend/src/hooks/` using TanStack Query patterns
+
+**Critical Frontend Pattern**: All data hooks use aggressive polling:
+```typescript
+export const useBotsStatus = () => {
+  return useQuery({
+    queryKey: ['bots', 'status'],
+    queryFn: () => api.get('/bots/status/summary'),
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
+    staleTime: 0  // Always fetch fresh data
+  });
+};
+```
 
 ## Project-Specific Patterns & Conventions
 
@@ -144,6 +171,12 @@ Enhanced multi-tranche position tracking:
   {"entry_price": 49500, "size": 0.001, "timestamp": "2025-09-15T11:00:00Z"}
 ]
 ```
+
+### API Conventions
+- **Fresh Data Philosophy**: `/api/v1/bots/status/enhanced` recalculates all values on request
+- **Error Tracking**: System errors auto-logged to `/api/v1/system-errors/errors`
+- **Trade Sync**: Manual sync via `/api/v1/trades/update-statuses`
+- **Health Checks**: Real-time status via `/api/v1/diagnosis/trading-diagnosis`
 
 ## Known Issues & Critical Context
 

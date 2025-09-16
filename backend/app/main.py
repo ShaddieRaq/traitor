@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api import bots, market, trades, bot_evaluation, websocket, bot_temperatures, coinbase_sync, trading_diagnosis, validation, market_analysis, raw_trades, positions, system_errors, websocket_prices, health_monitoring
+from .api import bots, market, trades, bot_evaluation, websocket, bot_temperatures, coinbase_sync, trading_diagnosis, validation, market_analysis, raw_trades, positions, system_errors, websocket_prices, health_monitoring, market_data_cache
 from .core.config import settings
 from .core.database import engine, Base
 import logging
@@ -48,6 +48,9 @@ app.include_router(positions.router, prefix="/api/v1/positions", tags=["position
 
 # System Errors API
 app.include_router(system_errors.router, prefix="/api/v1/system-errors", tags=["system-errors"])
+
+# Market Data Cache API
+app.include_router(market_data_cache.router, prefix="/api/v1/cache", tags=["market-data-cache"])
 
 # Health Monitoring API  
 app.include_router(health_monitoring.router, prefix="/api/v1/health", tags=["health-monitoring"])
