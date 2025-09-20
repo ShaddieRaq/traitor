@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { ToastProvider } from './components/ui/Toast';
-import Dashboard from './pages/Dashboard';
+import DashboardRedesigned from './pages/DashboardRedesigned';
 import Signals from './pages/Signals';
 import Trades from './pages/Trades';
 import Market from './pages/Market';
@@ -32,7 +32,7 @@ function App() {
                   <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
                     <Link
                       to="/"
-                      className="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center"
+                      className="border-transparent text-blue-500 hover:text-blue-700 hover:border-blue-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center"
                     >
                       <BarChart3 className="h-4 w-4 mr-2" />
                       Dashboard
@@ -65,12 +65,12 @@ function App() {
           </nav>
 
           {/* Main content */}
-          <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+          <main>
             <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/bots" element={<Signals />} />
-              <Route path="/trades" element={<Trades />} />
-              <Route path="/market" element={<Market />} />
+              <Route path="/" element={<DashboardRedesigned />} />
+              <Route path="/bots" element={<div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8"><Signals /></div>} />
+              <Route path="/trades" element={<div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8"><Trades /></div>} />
+              <Route path="/market" element={<div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8"><Market /></div>} />
             </Routes>
           </main>
         </div>

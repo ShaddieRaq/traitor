@@ -714,6 +714,45 @@ class CoinbaseService:
                 
                 return []
     
+    def get_transaction_summary(self, start_date: str = None, end_date: str = None, user_native_currency: str = "USD") -> Optional[Dict[str, Any]]:
+        """
+        Get transaction summary including deposits, withdrawals, and other transactions.
+        
+        Args:
+            start_date: Start date in ISO format (e.g., "2024-01-01T00:00:00Z")
+            end_date: End date in ISO format (e.g., "2024-12-31T23:59:59Z")  
+            user_native_currency: Native currency for summary (default USD)
+            
+        Returns:
+            Transaction summary with deposits, withdrawals, and other transaction data
+        """
+        try:
+            logger.info(f"Getting transaction summary from {start_date} to {end_date}")
+            
+            # Call Coinbase API using the correct method - start with basic call
+            if start_date and end_date:
+                response = self.client.get_transaction_summary(
+                    start_date=start_date,
+                    end_date=end_date,
+                    user_native_currency=user_native_currency
+                )
+            else:
+                # Try basic call without date parameters
+                response = self.client.get_transaction_summary()
+            
+            if response and hasattr(response, 'transaction_summary'):
+                logger.info("Successfully retrieved transaction summary")
+                return response.transaction_summary
+            else:
+                logger.warning("Transaction summary response was empty or malformed")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error getting transaction summary: {e}")
+            logger.error(f"Error type: {type(e)}")
+            logger.error(f"Error details: {str(e)}")
+            return None
+
     def get_available_balance(self, currency: str) -> float:
         """
         Get available balance for a specific currency.

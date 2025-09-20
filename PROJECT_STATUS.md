@@ -1,19 +1,32 @@
 # 🚀 Trading System Status - Updated September 20, 2025
 
-## Current Status: FULLY OPERATIONAL WITH DATABASE CONSOLIDATION COMPLETE
+## Current Status: DASHBOARD CONSOLIDATION & CHART STABILITY COMPLETE
 
-### ✅ SYSTEM FULLY OPERATIONAL - DATABASE ARCHITECTURE UNIFIED (September 20, 2025)
-**Status**: **DATABASE CONSOLIDATION COMPLETE** - All services unified on single authoritative database
+### ✅ DASHBOARD UX ENHANCEMENT COMPLETE (September 20, 2025)
+**Status**: **CHART OSCILLATION ELIMINATED** - Unified dashboard with stable visualizations
 
 **Current Operational State**: 
+- ✅ **Dashboard Consolidation** - Single main dashboard replacing dual-dashboard confusion
+- ✅ **Chart Stability** - Fixed oscillating charts by eliminating Math.random() usage
+- ✅ **Live Data Integration** - Real portfolio values ($1,266) from Coinbase API
+- ✅ **Enhanced Bot Cards** - Clear signal summaries instead of confusing charts
 - ✅ **11 Active Trading Bots** fully operational across major cryptocurrency pairs
 - ✅ **Single Database Architecture** - All fragmentation issues resolved
 - ✅ **3,606+ Trade History** synchronized and accessible
-- ✅ **TOSHI-USD Bot Functional** - P&L tracking operational with $189.61 current position
 - ✅ **Real-time UI Updates** - All bot cards visible and updating correctly
 - ✅ **P&L Calculation Accuracy** - Live tracking across 12 trading pairs
 
-### 🎯 DATABASE CONSOLIDATION SUCCESS (September 20, 2025)
+### � DASHBOARD CONSOLIDATION SUCCESS (September 20, 2025)
+- **Problem Resolved**: Oscillating charts causing user confusion and dual dashboard architecture
+- **Solution Implemented**: 
+  - Fixed all Math.random() calls with deterministic data generation
+  - Replaced confusing signal charts with clear numerical summaries
+  - Made DashboardRedesigned the main dashboard at root route
+  - Completely removed old Dashboard.tsx
+  - Integrated live portfolio data showing accurate Coinbase values
+- **Result**: **Stable, clear, unified user experience**
+
+### �🎯 PREVIOUS DATABASE CONSOLIDATION SUCCESS (September 20, 2025)
 - **Problem Resolved**: Split-brain database syndrome with 4 separate database files
 - **Solution Implemented**: Unified `/trader.db` as single source of truth
 - **Migration Complete**: All 11 bots migrated from stale backend database

@@ -2,11 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
+import logging
 from ..core.database import get_db
 from ..models.models import MarketData
 from ..api.schemas import MarketDataResponse, ProductTickerResponse, AccountResponse
 from ..services.coinbase_service import coinbase_service
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -48,6 +50,81 @@ def get_accounts():
     """Get account balances."""
     accounts = coinbase_service.get_accounts()
     return accounts
+
+
+@router.get("/portfolio/live")
+def get_live_portfolio_value():
+    """Get real-time portfolio value from Coinbase accounts."""
+    try:
+        accounts = coinbase_service.get_accounts()
+        total_usd = 0
+        holdings = []
+        
+        for account in accounts:
+            if account.get('available_balance', 0) > 0:
+                currency = account['currency']
+                balance = account['available_balance']
+                
+                # Handle USD/USDC as $1.00
+                if currency in ['USD', 'USDC']:
+                    price = 1.0
+                    value_usd = balance
+                else:
+                    try:
+                        # Get current market price
+                        product_id = f"{currency}-USD"
+                        ticker = coinbase_service.get_product_ticker(product_id)
+                        price = float(ticker.get('price', 0))
+                        value_usd = balance * price
+                    except Exception as e:
+                        logger.warning(f"Could not get price for {currency}: {e}")
+                        price = 0
+                        value_usd = 0
+                
+                total_usd += value_usd
+                holdings.append({
+                    'currency': currency,
+                    'balance': balance,
+                    'price': price,
+                    'value_usd': value_usd
+                })
+        
+        # Sort by value descending
+        holdings.sort(key=lambda x: x['value_usd'], reverse=True)
+        
+        return {
+            'total_portfolio_value_usd': total_usd,
+            'holdings': holdings,
+            'last_updated': datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error calculating live portfolio value: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to calculate portfolio value: {str(e)}")
+
+
+@router.get("/transaction-summary")
+def get_transaction_summary(
+    start_date: str = None,
+    end_date: str = None,
+    user_native_currency: str = "USD"
+):
+    """Get transaction summary including deposits and withdrawals from Coinbase."""
+    try:
+        transaction_summary = coinbase_service.get_transaction_summary(
+            start_date=start_date,
+            end_date=end_date,
+            user_native_currency=user_native_currency
+        )
+        
+        if transaction_summary:
+            return transaction_summary
+        else:
+            raise HTTPException(status_code=404, detail="No transaction summary found")
+            
+    except Exception as e:
+        logger.error(f"Error fetching transaction summary: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch transaction summary: {str(e)}")
 
 
 @router.get("/system/status")
