@@ -86,11 +86,12 @@ export const ExpandableBotCard: React.FC<ExpandableBotCardProps> = ({
     });
   };
 
-  const mockTradingIntent = bot.trading_intent || {
+  // Calculate trading intent based on current signal - don't use potentially stale bot.trading_intent
+  const tradingIntent = {
     next_action: getActionText().toLowerCase(),
     signal_strength: Math.abs(bot.current_combined_score || 0),
-    confidence: 0.75, // Fixed value instead of random
-    distance_to_threshold: bot.distance_to_signal || 0.1 // Fixed value instead of random
+    confidence: Math.abs(bot.current_combined_score || 0) * 0.8, // Confidence based on signal strength
+    distance_to_threshold: bot.distance_to_signal || 0.0
   };
 
   const mockTradeReadiness = bot.trade_readiness || {
@@ -168,28 +169,28 @@ export const ExpandableBotCard: React.FC<ExpandableBotCardProps> = ({
               <div>
                 <div className="text-xs text-gray-600">Next Action</div>
                 <div className={`font-semibold ${
-                  mockTradingIntent.next_action === 'buy' ? 'text-green-600' :
-                  mockTradingIntent.next_action === 'sell' ? 'text-red-600' : 'text-gray-600'
+                  tradingIntent.next_action === 'buy' ? 'text-green-600' :
+                  tradingIntent.next_action === 'sell' ? 'text-red-600' : 'text-gray-600'
                 }`}>
-                  {mockTradingIntent.next_action.toUpperCase()}
+                  {tradingIntent.next_action.toUpperCase()}
                 </div>
               </div>
               <div>
                 <div className="text-xs text-gray-600">Signal Strength</div>
                 <div className="font-semibold">
-                  {(mockTradingIntent.signal_strength * 100).toFixed(1)}%
+                  {(tradingIntent.signal_strength * 100).toFixed(1)}%
                 </div>
               </div>
               <div>
                 <div className="text-xs text-gray-600">Confidence</div>
                 <div className="font-semibold">
-                  {(mockTradingIntent.confidence * 100).toFixed(1)}%
+                  {(tradingIntent.confidence * 100).toFixed(1)}%
                 </div>
               </div>
               <div>
                 <div className="text-xs text-gray-600">Distance to Threshold</div>
                 <div className="font-semibold">
-                  {mockTradingIntent.distance_to_threshold.toFixed(3)}
+                  {tradingIntent.distance_to_threshold.toFixed(3)}
                 </div>
               </div>
             </div>
