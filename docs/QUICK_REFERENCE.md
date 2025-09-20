@@ -94,13 +94,13 @@ celery -A app.tasks.celery_app beat --loglevel=info
 curl "http://localhost:8000/api/v1/bots/status/enhanced" | jq '.[] | {name, optimization_status}'
 
 # Check specific bot optimization settings
-sqlite3 backend/trader.db "SELECT id, name, skip_signals_on_low_balance FROM bots;"
+sqlite3 trader.db "SELECT id, name, skip_signals_on_low_balance FROM bots;"
 
 # Enable optimization for specific bot
-sqlite3 backend/trader.db "UPDATE bots SET skip_signals_on_low_balance = 1 WHERE id = 3;"
+sqlite3 trader.db "UPDATE bots SET skip_signals_on_low_balance = 1 WHERE id = 3;"
 
 # Disable optimization for specific bot  
-sqlite3 backend/trader.db "UPDATE bots SET skip_signals_on_low_balance = 0 WHERE id = 3;"
+sqlite3 trader.db "UPDATE bots SET skip_signals_on_low_balance = 0 WHERE id = 3;"
 
 # Monitor optimization impact in logs
 cd backend && tail -f logs/app.log | grep "optimization_skipped"

@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     debug: bool = False
     
     # Database
-    database_url: str = "sqlite:////Users/lazy_genius/Projects/trader/backend/trader.db"
+    database_url: str = "sqlite:////Users/lazy_genius/Projects/trader/trader.db"
     
     # Coinbase API
     coinbase_api_key: str = ""

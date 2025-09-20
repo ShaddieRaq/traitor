@@ -72,10 +72,11 @@ def get_raw_trade_stats(db: Session = Depends(get_db)):
 
 @router.get("/pnl-by-product")
 def get_pnl_by_product(db: Session = Depends(get_db)):
-    """Get P&L breakdown by trading pair using clean data."""
+    """Get P&L breakdown by trading pair using clean data with unrealized P&L."""
     try:
         service = RawTradeService(db)
-        pnl_data = service.calculate_pnl_by_product()
+        # Use the new method that includes unrealized P&L for open positions
+        pnl_data = service.calculate_unrealized_pnl_by_product()
         
         # Format for API response
         formatted_data = {
@@ -83,7 +84,7 @@ def get_pnl_by_product(db: Session = Depends(get_db)):
         }
         
         for product_id, data in pnl_data.items():
-            formatted_data["products"].append({
+            product_info = {
                 "product_id": product_id,
                 "trade_count": data["total_trades"],
                 "buy_trades": data["buy_trades"],
@@ -91,8 +92,22 @@ def get_pnl_by_product(db: Session = Depends(get_db)):
                 "total_spent_usd": data["total_spent"],
                 "total_received_usd": data["total_received"],
                 "total_fees_usd": data["total_fees"],
-                "net_pnl_usd": data["net_pnl"]
-            })
+                "realized_pnl_usd": data["realized_pnl"],
+                "unrealized_pnl_usd": data["unrealized_pnl"],
+                "net_pnl_usd": data["net_pnl"],  # Now includes unrealized P&L
+                "current_holdings": data["current_holdings"],
+                "current_value": data["current_value"]
+            }
+            
+            # Add price info if available
+            if "current_price" in data:
+                product_info["current_price"] = data["current_price"]
+            if "average_buy_price" in data:
+                product_info["average_buy_price"] = data["average_buy_price"]
+            if "average_short_price" in data:
+                product_info["average_short_price"] = data["average_short_price"]
+                
+            formatted_data["products"].append(product_info)
         
         # Sort by net P&L descending
         formatted_data["products"].sort(key=lambda x: x["net_pnl_usd"], reverse=True)
