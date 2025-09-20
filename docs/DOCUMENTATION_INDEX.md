@@ -21,9 +21,12 @@
 ## 📋 **CURRENT DOCUMENTATION**
 
 ### **System Status & Operations**
-- **[Project Status](current/PROJECT_STATUS.md)** - **SYSTEM COMPLETE** - Production-ready autonomous trading system
-- **[Project Roadmap Assessment](current/PROJECT_ROADMAP_ASSESSMENT_SEPTEMBER_2025.md)** - **NEW** - Strategic focus shift to trading optimization
-- **[Dashboard Development Complete](current/DASHBOARD_DEVELOPMENT_COMPLETE.md)** - **NEW** - Phase 2 complete, Phase 3+ deferred
+- **[Project Status](current/PROJECT_STATUS.md)** - **PHASE A.2 COMPLETE** - System-wide threshold optimization successful
+- **[Project Roadmap Assessment](current/PROJECT_ROADMAP_ASSESSMENT_SEPTEMBER_2025.md)** - **UPDATED** - Phase A.2 complete, Phase A.3 next
+- **[System-Wide Threshold Optimization](current/SYSTEM_WIDE_THRESHOLD_OPTIMIZATION_SEPTEMBER_20_2025.md)** - **NEW** - Comprehensive optimization results
+- **[7-Day Analysis Results](current/7_DAY_ANALYSIS_RESULTS_SEPT_20_2025.md)** - Performance analysis foundation
+- **[Threshold Testing Progress](current/THRESHOLD_TESTING_PROGRESS_SEPT_20_2025.md)** - Testing implementation details
+- **[Dashboard Development Complete](current/DASHBOARD_DEVELOPMENT_COMPLETE.md)** - Phase 2 complete, Phase 3+ deferred
 - **[Live Data Integration Complete](current/LIVE_DATA_INTEGRATION_COMPLETE.md)** - Real-time data integration status
 - **[Dashboard Consolidation September 20](current/DASHBOARD_CONSOLIDATION_SEPTEMBER_20_2025.md)** - Chart stability & UX fixes
 - **[September 16 Caching Success](current/SEPTEMBER_16_2025_CACHING_SUCCESS.md)** - Rate limiting solution achievement

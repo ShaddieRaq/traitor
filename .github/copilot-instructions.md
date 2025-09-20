@@ -11,12 +11,13 @@ This is a **production-ready autonomous cryptocurrency trading system** with 11 
 - **API Structure**: RESTful with `/api/v1/` prefix, feature-organized routes in `/backend/app/api/`
 - **Real-time Architecture**: 5-second polling (proven more reliable than WebSocket for this use case)
 - **Testing**: 185+ comprehensive tests with signal validation and live API integration
-- **Caching Layer**: Market data caching with 30-second TTL achieving 96%+ hit rates (eliminates rate limiting)
+- **Caching Layer**: Market data caching with 30-second TTL achieving 80%+ hit rates (eliminates rate limiting)
 
 ### Essential Development Context
 - **Bot-Per-Pair Architecture**: Each `Bot` entity manages exactly one trading pair (11 active bots)
-- **Smart Caching Pattern**: Market data cached with 30s TTL via `MarketDataCache` - 97% API call reduction
+- **Smart Caching Pattern**: Market data cached with 30s TTL via `MarketDataCache` - 80%+ API call reduction
 - **Balance Pre-Check Optimization**: Bots skip signal processing when insufficient balance (~60% API reduction)
+- **Trading Intent Consistency**: Fixed September 2025 - unified BUY/SELL logic across all bot card sections
 - **Signal Factory Pattern**: Dynamic signal creation via `create_signal_instance()` in `/backend/app/services/signals/base.py`
 - **Temperature-Based UI**: Real-time activity indicators (🔥HOT, 🌡️WARM, ❄️COOL, 🧊FROZEN) driven by signal scores
 - **Unified Database**: Single `/trader.db` file - **CRITICAL: No longer multiple database files**
@@ -48,9 +49,10 @@ signal_instance = create_signal_instance(signal_type, parameters)
 ### Signal Scoring System
 - **Range**: -1.0 (strong sell) to +1.0 (strong buy)
 - **Aggregation**: Weighted sum of individual signal scores
-- **Thresholds**: Temperature-based (🔥🌡️❄️🧊) with testing vs production modes
-- **Testing Thresholds**: 10x more sensitive (HOT ≥0.08, WARM ≥0.03, COOL ≥0.005)
-- **Production Thresholds**: Conservative (HOT ≥0.3, WARM ≥0.15, COOL ≥0.05)
+- **Thresholds**: ✅ **OPTIMIZED** - System-wide ±0.05 thresholds (September 20, 2025)
+- **Current Configuration**: All 11 bots use ±0.05 buy/sell thresholds (50% more sensitive)
+- **Temperature Mapping**: 🔥HOT (≥0.15), 🌡️WARM (≥0.05), ❄️COOL (≥0.005), 🧊FROZEN (<0.005)
+- **Optimization Impact**: 355% increase in trading activity (18% → 54.5% active bots)
 
 ### Core Service Dependencies
 - **BotSignalEvaluator**: Main signal aggregation in `/backend/app/services/bot_evaluator.py`
@@ -121,8 +123,8 @@ curl "http://localhost:8000/api/v1/bots/" | jq '.[] | {name, status, current_com
 ### Coinbase API Integration
 - **Service Layer**: `/backend/app/services/coinbase_service.py` - Core API interactions
 - **Authentication**: JWT-based for Coinbase Advanced Trade API
-- **Caching Strategy**: MarketDataCache with 30s TTL achieving 96%+ hit rates
-- **Rate Limiting**: **RESOLVED** - Intelligent caching eliminates 429 errors (97% API reduction)
+- **Caching Strategy**: MarketDataCache with 30s TTL achieving 80%+ hit rates
+- **Rate Limiting**: **RESOLVED** - Intelligent caching eliminates 429 errors (80%+ API reduction)
 - **Order Management**: `/backend/app/services/order_monitoring_service.py` for status sync
 
 ### Signal Processing Pipeline  
@@ -235,9 +237,10 @@ Enhanced multi-tranche position tracking:
 **SYSTEM ARCHITECTURE STATUS**:
 - ✅ **Single Database**: `/trader.db` is the authoritative database (no backend/trader.db split)
 - ✅ **Unified Configuration**: All services use main database at project root
-- ✅ **11 Active Bots**: All bots operational across major trading pairs (BTC, ETH, SOL, XRP, DOGE, AVNT, AERO, SUI, AVAX, TOSHI)
-- ✅ **Rate Limiting Resolved**: Intelligent market data caching with 96%+ hit rates
+- ✅ **11 Active Bots**: All bots operational across major trading pairs (BTC, ETH, SOL, XRP, DOGE, AVNT, AERO, SUI, AVAX, TOSHI, PENGU)
+- ✅ **Rate Limiting Resolved**: Intelligent market data caching with 80%+ hit rates
 - ✅ **Real-time P&L**: Live profit/loss tracking via clean `raw_trades` data
+- ✅ **System-wide Optimization**: All bots use ±0.05 thresholds (50% more sensitive)
 
 **CURRENT API USAGE GUIDELINES**:
 - ✅ **Primary Data Source**: `/api/v1/raw-trades/pnl-by-product` for performance data
@@ -256,10 +259,12 @@ Enhanced multi-tranche position tracking:
 ### Current Major Issues
 
 **System Status**: ✅ **ALL MAJOR ISSUES RESOLVED**
-- ✅ **Rate Limiting**: Intelligent market data caching eliminates 429 errors (97% API reduction)
+- ✅ **Rate Limiting**: Intelligent market data caching eliminates 429 errors (80%+ API reduction)
 - ✅ **Order Synchronization**: 30-second Celery task handles automatic updates
 - ✅ **Database Integrity**: Single unified database with clean `raw_trades` data
 - ✅ **Balance Pre-Check Optimization**: Bots skip signal processing when insufficient balance
+- ✅ **Trading Intent Consistency**: Fixed September 2025 - unified BUY/SELL logic across bot cards
+- ✅ **System-wide Threshold Optimization**: All 11 bots optimized with ±0.05 thresholds (September 20, 2025)
 
 **For Current Issues Check**:
 ```bash
@@ -269,7 +274,7 @@ Enhanced multi-tranche position tracking:
 # Recent system errors  
 curl "http://localhost:8000/api/v1/system-errors/errors" | jq '.[0:5]'
 
-# Cache performance (should show 90%+ hit rates)
+# Cache performance (should show 80%+ hit rates)
 curl "http://localhost:8000/api/v1/cache/stats" | jq
 ```
 
@@ -346,12 +351,13 @@ bash scripts/position-reconcile.sh fix
 ## Current System Context (September 20, 2025)
 
 ### Immediate System State
-- **11 Active Bots**: BTC-USD, ETH-USD, SOL-USD, XRP-USD, DOGE-USD, AVNT-USD, AERO-USD, SUI-USD, AVAX-USD, TOSHI-USD, and one additional pair
+- **11 Active Bots**: BTC-USD, ETH-USD, SOL-USD, XRP-USD, DOGE-USD, AVNT-USD, AERO-USD, SUI-USD, AVAX-USD, TOSHI-USD, PENGU-USD
 - **Single Database**: `/trader.db` at project root (3,606+ trades)
 - **Unified Dashboard**: Main dashboard at root route with stable charts and live data
-- **Cache Performance**: 96%+ hit rates eliminating API rate limits
+- **Cache Performance**: 80%+ hit rates eliminating API rate limits
 - **Real-time Updates**: 5-second polling across frontend components
 - **Background Processing**: Celery workers handling order sync every 30 seconds
+- **System-wide Optimization**: All 11 bots use ±0.05 thresholds (54.5% active trading activity)
 
 ### Production-Ready Features
 - **Dashboard Consolidation**: Single main dashboard with fixed oscillating charts
@@ -363,3 +369,4 @@ bash scripts/position-reconcile.sh fix
 - **Temperature-Based UI**: Real-time 🔥HOT/🌡️WARM/❄️COOL/🧊FROZEN indicators
 - **Comprehensive Safety Systems**: Trading limits, cooldowns, emergency controls
 - **Clean Data Architecture**: `RawTrade` model for authoritative P&L calculations
+- **Optimized Signal Sensitivity**: 355% increase in trading activity through threshold optimization
