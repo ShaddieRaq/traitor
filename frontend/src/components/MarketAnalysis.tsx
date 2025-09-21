@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { useMarketAnalysis, MarketAnalysisCandidate } from '../hooks/useMarketAnalysis';
+import { useNotifications } from '../hooks/useNotifications';
 import { useBots } from '../hooks/useBots';
 
 const MarketAnalysis: React.FC = () => {
-  const [limit, setLimit] = useState(15);
-  const { data: analysis, isLoading, error } = useMarketAnalysis(limit);
+  const [limit, setLimit] = useState(50);
+  const [includeGems, setIncludeGems] = useState(true);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const { data: analysis, isLoading, error, refetch } = useMarketAnalysis(limit, includeGems);
   const { data: bots } = useBots();
+  const { data: notificationsData } = useNotifications(50, false);
 
   const getRiskColor = (color: string) => {
     switch (color) {
@@ -30,6 +34,29 @@ const MarketAnalysis: React.FC = () => {
       case 'GOOD_CANDIDATE': return 'Good Candidate';
       case 'CONSIDER_LATER': return 'Consider Later';
       default: return rec;
+    }
+  };
+
+  const triggerFreshAnalysis = async () => {
+    try {
+      const response = await fetch('/api/v1/market-analysis/trigger-scan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        // Refetch the live analysis data
+        refetch();
+        alert(`✅ Fresh market analysis triggered!\n\nTask ID: ${result.task_id}\n\nData will refresh automatically in a few minutes.`);
+      } else {
+        throw new Error('Failed to trigger analysis');
+      }
+    } catch (error) {
+      console.error('Error triggering market analysis:', error);
+      alert('❌ Failed to trigger market analysis. Please try again.');
     }
   };
 
@@ -66,8 +93,21 @@ const MarketAnalysis: React.FC = () => {
       {/* Header */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold text-gray-900">Market Analysis</h2>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Market Analysis</h2>
+            <p className="text-sm text-gray-600 mt-1">
+              🤖 Auto-scans every hour • 💎 Gem hunting enabled • {notificationsData?.unread_count || 0} unread opportunities
+            </p>
+          </div>
           <div className="flex items-center space-x-4">
+            {/* Trigger Fresh Analysis */}
+            <button
+              onClick={triggerFreshAnalysis}
+              className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
+            >
+              🚀 Trigger Fresh Scan
+            </button>
+            
             <label className="flex items-center">
               <span className="text-sm font-medium text-gray-700 mr-2">Analyze top:</span>
               <select
@@ -75,17 +115,27 @@ const MarketAnalysis: React.FC = () => {
                 onChange={(e) => setLimit(Number(e.target.value))}
                 className="border border-gray-300 rounded-md px-3 py-1 text-sm"
               >
-                <option value={10}>10 pairs</option>
-                <option value={15}>15 pairs</option>
                 <option value={25}>25 pairs</option>
                 <option value={50}>50 pairs</option>
+                <option value={100}>100 pairs</option>
+                <option value={200}>200 pairs</option>
               </select>
+            </label>
+            
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={includeGems}
+                onChange={(e) => setIncludeGems(e.target.checked)}
+                className="mr-2"
+              />
+              <span className="text-sm font-medium text-gray-700">💎 Include Gems</span>
             </label>
           </div>
         </div>
 
         {/* Summary Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
           <div className="bg-blue-50 p-4 rounded-lg">
             <div className="text-2xl font-bold text-blue-600">{analysis.active_bots_count}</div>
             <div className="text-sm text-blue-700">Active Bots</div>
@@ -101,6 +151,10 @@ const MarketAnalysis: React.FC = () => {
           <div className="bg-purple-50 p-4 rounded-lg">
             <div className="text-2xl font-bold text-purple-600">{analysis.total_analyzed}</div>
             <div className="text-sm text-purple-700">Total Analyzed</div>
+          </div>
+          <div className="bg-orange-50 p-4 rounded-lg">
+            <div className="text-2xl font-bold text-orange-600">{notificationsData?.unread_count || 0}</div>
+            <div className="text-sm text-orange-700">Auto-Discovered</div>
           </div>
         </div>
 
@@ -137,6 +191,41 @@ const MarketAnalysis: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Category Leaders */}
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Category Leaders</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h4 className="font-medium text-blue-900 mb-2">🏆 Best Liquidity</h4>
+              <div className="text-lg font-semibold text-blue-700">
+                {analysis.summary.best_by_category.liquidity.product_id}
+              </div>
+              <div className="text-sm text-blue-600">
+                ${analysis.summary.best_by_category.liquidity.volume.toFixed(1)}M volume
+              </div>
+            </div>
+            <div className="bg-green-50 p-4 rounded-lg">
+              <h4 className="font-medium text-green-900 mb-2">📈 Most Volatile</h4>
+              <div className="text-lg font-semibold text-green-700">
+                {analysis.summary.best_by_category.volatility.product_id}
+              </div>
+              <div className="text-sm text-green-600">
+                {analysis.summary.best_by_category.volatility.change > 0 ? '+' : ''}
+                {analysis.summary.best_by_category.volatility.change.toFixed(2)}% change
+              </div>
+            </div>
+            <div className="bg-purple-50 p-4 rounded-lg">
+              <h4 className="font-medium text-purple-900 mb-2">🚀 Best Momentum</h4>
+              <div className="text-lg font-semibold text-purple-700">
+                {analysis.summary.best_by_category.momentum.product_id}
+              </div>
+              <div className="text-sm text-purple-600">
+                +{analysis.summary.best_by_category.momentum.growth.toFixed(1)}% volume growth
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Detailed Analysis Table */}
@@ -231,40 +320,83 @@ const MarketAnalysis: React.FC = () => {
         </div>
       </div>
 
-      {/* Best by Category */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Category Leaders</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h4 className="font-medium text-blue-900 mb-2">🏆 Best Liquidity</h4>
-            <div className="text-lg font-semibold text-blue-700">
-              {analysis.summary.best_by_category.liquidity.product_id}
-            </div>
-            <div className="text-sm text-blue-600">
-              ${analysis.summary.best_by_category.liquidity.volume.toFixed(1)}M volume
-            </div>
+      {/* Auto-Discovered Opportunities */}
+      {notificationsData?.notifications && notificationsData.notifications.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">🤖 Recent Auto-Discoveries</h3>
+            <span className="text-sm text-gray-500">
+              {notificationsData.notifications.filter(n => n.type === 'market_opportunity').length} opportunities found
+            </span>
           </div>
-          <div className="bg-green-50 p-4 rounded-lg">
-            <h4 className="font-medium text-green-900 mb-2">📈 Most Volatile</h4>
-            <div className="text-lg font-semibold text-green-700">
-              {analysis.summary.best_by_category.volatility.product_id}
-            </div>
-            <div className="text-sm text-green-600">
-              {analysis.summary.best_by_category.volatility.change > 0 ? '+' : ''}
-              {analysis.summary.best_by_category.volatility.change.toFixed(2)}% change
-            </div>
+          <div className="space-y-3">
+            {notificationsData.notifications
+              .filter(n => n.type === 'market_opportunity')
+              .slice(0, 3)
+              .map((notification) => {
+                // Extract trading pairs from notification message
+                const pairs = notification.message.match(/\*\*([A-Z]+-USD)\*\*/g)?.map(match => 
+                  match.replace(/\*\*/g, '')
+                ) || [];
+                
+                return (
+                  <div key={notification.id} className="bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <span className="text-lg">🎯</span>
+                          <h4 className="font-medium text-gray-900">{notification.title}</h4>
+                          {!notification.read && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                              New
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {pairs.slice(0, 4).map((pair, pairIndex) => (
+                            <span 
+                              key={pairIndex}
+                              className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                            >
+                              {pair}
+                            </span>
+                          ))}
+                          {pairs.length > 4 && (
+                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                              +{pairs.length - 4} more
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Discovered: {notification.time_ago}
+                        </div>
+                      </div>
+                      <div className="ml-4">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          notification.priority === 'high' 
+                            ? 'bg-orange-100 text-orange-800' 
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {notification.priority.toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
           </div>
-          <div className="bg-purple-50 p-4 rounded-lg">
-            <h4 className="font-medium text-purple-900 mb-2">🚀 Best Momentum</h4>
-            <div className="text-lg font-semibold text-purple-700">
-              {analysis.summary.best_by_category.momentum.product_id}
+          {notificationsData.notifications.filter(n => n.type === 'market_opportunity').length > 3 && (
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => setShowNotifications(true)}
+                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+              >
+                View all {notificationsData.notifications.filter(n => n.type === 'market_opportunity').length} discoveries →
+              </button>
             </div>
-            <div className="text-sm text-purple-600">
-              +{analysis.summary.best_by_category.momentum.growth.toFixed(1)}% volume growth
-            </div>
-          </div>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 };

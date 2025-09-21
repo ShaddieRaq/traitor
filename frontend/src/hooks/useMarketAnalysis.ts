@@ -48,11 +48,11 @@ export interface MarketAnalysisResponse {
   total_analyzed: number;
 }
 
-export const useMarketAnalysis = (limit: number = 15) => {
+export const useMarketAnalysis = (limit: number = 50, includeGems: boolean = true) => {
   return useQuery({
-    queryKey: ['market-analysis', limit],
+    queryKey: ['market-analysis', limit, includeGems],
     queryFn: async () => {
-      const response = await api.get(`/market-analysis/analysis?limit=${limit}`);
+      const response = await api.get(`/market-analysis/analysis?limit=${limit}&include_gems=${includeGems}`);
       return response.data as MarketAnalysisResponse;
     },
     refetchInterval: 60000, // Refresh every minute

@@ -18,13 +18,15 @@ class MarketAnalysisService:
     
     def analyze_potential_pairs(self, 
                               exclude_pairs: Optional[List[str]] = None,
-                              limit: int = 15) -> Dict[str, Any]:
+                              limit: int = 100,
+                              include_gems: bool = True) -> Dict[str, Any]:
         """
         Analyze potential trading pairs and rank them by suitability.
         
         Args:
             exclude_pairs: List of pairs to exclude (existing bots)
             limit: Number of top candidates to analyze
+            include_gems: If True, includes a gem-hunting pass for high-scoring low-volume pairs
             
         Returns:
             Dict containing analysis results and recommendations
@@ -56,19 +58,65 @@ class MarketAnalysisService:
                     
                     usd_pairs.append(product)
             
-            # Sort by volume and get top candidates
-            usd_pairs.sort(key=self._get_volume_safe, reverse=True)
-            candidates = usd_pairs[:limit]
+            logger.info(f"STEP 1: Found {len(usd_pairs)} tradeable USD pairs (excluding {len(exclude_pairs or [])} existing bots)")
+            
+            if include_gems and limit < len(usd_pairs):
+                # Hybrid approach: Volume leaders + Gem hunting
+                logger.info(f"STEP 2A: Using hybrid approach - analyzing top volume + potential gems")
+                
+                # Take top volume leaders (75% of limit)
+                volume_limit = int(limit * 0.75)
+                usd_pairs.sort(key=self._get_volume_safe, reverse=True)
+                volume_leaders = usd_pairs[:volume_limit]
+                logger.info(f"STEP 2B: Selected top {len(volume_leaders)} pairs by volume")
+                
+                # Quick score remaining pairs to find gems (25% of limit)
+                gem_limit = limit - volume_limit
+                remaining_pairs = usd_pairs[volume_limit:]
+                
+                # Quick scoring of remaining pairs
+                gem_candidates = []
+                for product in remaining_pairs:
+                    quick_analysis = self._analyze_single_pair(product)
+                    if quick_analysis and quick_analysis['total_score'] >= 15:  # High score threshold
+                        gem_candidates.append((product, quick_analysis['total_score']))
+                
+                # Sort gems by score and take top ones
+                gem_candidates.sort(key=lambda x: x[1], reverse=True)
+                gem_pairs = [pair[0] for pair in gem_candidates[:gem_limit]]
+                
+                logger.info(f"STEP 2C: Found {len(gem_pairs)} potential gems (score ≥15) from {len(remaining_pairs)} lower-volume pairs")
+                
+                # Combine volume leaders + gems
+                candidates = volume_leaders + gem_pairs
+                
+            else:
+                # Original volume-only approach
+                usd_pairs.sort(key=self._get_volume_safe, reverse=True)
+                logger.info(f"STEP 2: Sorted {len(usd_pairs)} pairs by volume (highest first)")
+                candidates = usd_pairs[:limit]
+            
+            logger.info(f"STEP 3: Selected {len(candidates)} pairs for detailed analysis")
+            
+            # Debug logging for pool size
+            logger.info(f"Total USD pairs available: {len(usd_pairs)}, Analyzing top: {len(candidates)}")
             
             # Analyze each candidate
             analysis_results = []
-            for product in candidates:
+            for i, product in enumerate(candidates, 1):
                 analysis = self._analyze_single_pair(product)
                 if analysis:
                     analysis_results.append(analysis)
+                    if i <= 5:  # Log first 5 for debugging
+                        logger.info(f"  #{i}: {analysis['product_id']} - Volume: ${analysis['volume_24h_million']:.1f}M, Score: {analysis['total_score']:.1f}")
+            
+            logger.info(f"STEP 4: Completed analysis of {len(analysis_results)} pairs")
             
             # Sort by total score
             analysis_results.sort(key=lambda x: x['total_score'], reverse=True)
+            if analysis_results:
+                top_3 = analysis_results[:3]
+                logger.info(f"STEP 5: Sorted by score - Top pair: {top_3[0]['product_id']} ({top_3[0]['total_score']:.1f})")
             
             # Generate summary and recommendations
             summary = self._generate_analysis_summary(analysis_results)

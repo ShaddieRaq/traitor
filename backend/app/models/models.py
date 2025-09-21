@@ -133,6 +133,20 @@ class RawTrade(Base):
     synced_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class Notification(Base):
+    """System notifications for market opportunities and alerts."""
+    __tablename__ = "notifications"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    type = Column(String(50), nullable=False)  # 'market_opportunity', 'system_alert', 'trade_alert'
+    title = Column(String(200), nullable=False)
+    message = Column(Text, nullable=False)
+    priority = Column(String(20), default="normal")  # 'low', 'normal', 'high', 'critical'
+    data = Column(Text)  # JSON data for additional context
+    read = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 # Add back references
 Bot.signal_history = relationship("BotSignalHistory", back_populates="bot")
 Bot.trades = relationship("Trade", back_populates="bot")

@@ -7,6 +7,8 @@ import EnhancedSystemHealthPanel from '../components/Trading/EnhancedSystemHealt
 import { TradeExecutionFeed } from '../components/Trading/TradeExecutionFeed';
 import { TradeProgressIndicator } from '../components/Trading/TradeProgressIndicator';
 import { useTradeExecutionToasts } from '../hooks/useTradeExecutionToasts';
+import NotificationBell from '../components/Notifications/NotificationBell';
+import NotificationPanel from '../components/Notifications/NotificationPanel';
 
 const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -17,12 +19,15 @@ const Dashboard: React.FC = () => {
   const tabs = [
     { id: 'overview', name: 'Trading Overview', icon: '📊' },
     { id: 'analysis', name: 'Market Analysis', icon: '🔍' },
+    { id: 'notifications', name: 'Notifications', icon: '🔔' },
   ];
   
   const renderTabContent = () => {
     switch (activeTab) {
       case 'analysis':
         return <MarketAnalysis />;
+      case 'notifications':
+        return <NotificationPanel />;
       case 'overview':
       default:
         return (
@@ -77,6 +82,11 @@ const Dashboard: React.FC = () => {
               <p className="mt-1 text-sm text-gray-600">
                 Monitor your trading bot performance and market analysis
               </p>
+            </div>
+            
+            {/* Notification Bell */}
+            <div className="flex items-center space-x-4">
+              <NotificationBell />
             </div>
           </div>
 

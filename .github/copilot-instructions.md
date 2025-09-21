@@ -7,7 +7,19 @@ This is a **production-ready autonomous cryptocurrency trading system** with 11 
 ### Core Architecture
 - **Backend*### Current System Context (September 21, 2025)
 
+### Immedia### Current System Context (September 21, 2025)
+
 ### Immediate System State
+- **11 Active Bots**: BTC-USD, ETH-USD, SOL-USD, XRP-USD, DOGE-USD, AVNT-USD, AERO-USD, SUI-USD, AVAX-USD, TOSHI-USD, PENGU-USD
+- **Single Database**: `/trader.db` at project root (3,929+ fills synced)
+- **Unified Dashboard**: Main dashboard at root route with stable charts and live data
+- **Cache Performance**: 80%+ hit rates eliminating API rate limits
+- **Real-time Updates**: 5-second polling across frontend components
+- **Background Processing**: Celery workers handling order sync every 30 seconds
+- **System-wide Optimization**: All 11 bots use ±0.05 thresholds (739% increase in trading activity)
+- **Frontend Signal Logic**: Fully corrected signal interpretation across all UI components
+- **Dual-Table Auto-Sync**: Both Trade and RawTrade tables update automatically on all new trades
+- **Automated Market Scanning**: Hourly market analysis with opportunity alerts every 30 minutesate
 - **11 Active Bots**: BTC-USD, ETH-USD, SOL-USD, XRP-USD, DOGE-USD, AVNT-USD, AERO-USD, SUI-USD, AVAX-USD, TOSHI-USD, PENGU-USD
 - **Single Database**: `/trader.db` at project root (3,929+ fills synced)
 - **Unified Dashboard**: Main dashboard at root route with stable charts and live data
@@ -176,6 +188,8 @@ curl "http://localhost:8000/api/v1/bots/" | jq '.[] | {name, status, current_com
 - **Celery Tasks**: `/backend/app/tasks/` - 30-second interval order sync
 - **Redis Queue**: Background processing for order monitoring, position reconciliation
 - **Position Reconciliation**: `/backend/app/services/position_reconciliation_service.py`
+- **Automated Market Analysis**: `/backend/app/tasks/market_analysis_tasks.py` - hourly comprehensive scans
+- **Opportunity Alerts**: Real-time monitoring for exceptional trading opportunities (score ≥12.0)
 
 ### Frontend Real-time Architecture
 - **Unified Main Dashboard**: Single dashboard at root route (`/`) with consolidated UX

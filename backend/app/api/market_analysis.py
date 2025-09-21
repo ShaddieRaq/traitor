@@ -9,6 +9,7 @@ import logging
 from ..core.database import get_db
 from ..models.models import Bot
 from ..services.market_analysis_service import MarketAnalysisService
+from ..tasks.market_analysis_tasks import periodic_market_scan, market_opportunity_alert
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,8 @@ router = APIRouter()
 
 @router.get("/analysis")
 def get_market_analysis(
-    limit: int = Query(15, ge=5, le=50, description="Number of candidates to analyze"),
+    limit: int = Query(50, ge=5, le=500, description="Number of candidates to analyze (max 500, ~313 USD pairs available)"),
+    include_gems: bool = Query(True, description="Include gem hunting for high-scoring low-volume pairs"),
     db: Session = Depends(get_db)
 ):
     """
@@ -37,7 +39,8 @@ def get_market_analysis(
         # Perform analysis
         results = analysis_service.analyze_potential_pairs(
             exclude_pairs=exclude_pairs,
-            limit=limit
+            limit=limit,
+            include_gems=include_gems
         )
         
         # Add context about excluded pairs
@@ -207,4 +210,75 @@ def scan_market_and_auto_create_bots(
     except Exception as e:
         logger.error(f"Error in scan and auto-create: {e}")
         raise HTTPException(status_code=500, detail=f"Scan and auto-create failed: {str(e)}")
+
+
+@router.post("/trigger-scan")
+def trigger_manual_market_scan():
+    """
+    Manually trigger a market scan task.
+    Useful for testing or immediate analysis outside the scheduled intervals.
+    """
+    try:
+        # Trigger the background task
+        task_result = periodic_market_scan.delay()
+        
+        return {
+            "success": True,
+            "message": "Market scan task triggered",
+            "task_id": task_result.id
+        }
+        
+    except Exception as e:
+        logger.error(f"Error triggering market scan: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to trigger scan: {str(e)}")
+
+
+@router.post("/trigger-opportunity-alert")
+def trigger_opportunity_alert(min_score: float = Query(12.0, ge=8.0, le=25.0)):
+    """
+    Manually trigger an opportunity alert check.
+    """
+    try:
+        # Trigger the background task
+        task_result = market_opportunity_alert.delay(min_score=min_score)
+        
+        return {
+            "success": True,
+            "message": f"Opportunity alert triggered for scores >= {min_score}",
+            "task_id": task_result.id
+        }
+        
+    except Exception as e:
+        logger.error(f"Error triggering opportunity alert: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to trigger alert: {str(e)}")
+
+
+@router.get("/automation-status")
+def get_market_analysis_automation_status():
+    """
+    Get the status of automated market analysis tasks.
+    """
+    try:
+        return {
+            "automated_scanning": {
+                "enabled": True,
+                "frequency": "Every 60 minutes",
+                "task_name": "periodic-market-scan",
+                "description": "Comprehensive analysis of top 25 trading pairs"
+            },
+            "opportunity_alerts": {
+                "enabled": True,
+                "frequency": "Every 30 minutes", 
+                "task_name": "market-opportunity-alert",
+                "description": "Alerts for exceptional opportunities (score >= 12.0)"
+            },
+            "manual_triggers": {
+                "scan_endpoint": "/api/v1/market-analysis/trigger-scan",
+                "alert_endpoint": "/api/v1/market-analysis/trigger-opportunity-alert"
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting automation status: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get status: {str(e)}")
 
