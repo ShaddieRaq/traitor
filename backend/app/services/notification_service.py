@@ -61,12 +61,14 @@ class NotificationService:
             priority = "critical" if max_score >= 18 else "high" if max_score >= 15 else "normal"
             
             # Store notification in database
+            from datetime import datetime
             notification = Notification(
                 type="market_opportunity",
                 title=title,
                 message=message,
                 priority=priority,
-                data=str({"opportunities": opportunities, "summary": scan_summary})
+                data=str({"opportunities": opportunities, "summary": scan_summary}),
+                created_at=datetime.utcnow()
             )
             
             self.db.add(notification)
@@ -84,11 +86,13 @@ class NotificationService:
     def create_system_alert(self, title: str, message: str, priority: str = "normal") -> None:
         """Create a system alert notification."""
         try:
+            from datetime import datetime
             notification = Notification(
                 type="system_alert",
                 title=title,
                 message=message,
-                priority=priority
+                priority=priority,
+                created_at=datetime.utcnow()
             )
             
             self.db.add(notification)
@@ -113,12 +117,14 @@ Trade executed for {bot_pair}:
 • Status: {trade_info.get('status', 'Unknown')}
             """.strip()
             
+            from datetime import datetime
             notification = Notification(
                 type="trade_alert",
                 title=title,
                 message=message,
                 priority="normal",
-                data=str(trade_info)
+                data=str(trade_info),
+                created_at=datetime.utcnow()
             )
             
             self.db.add(notification)

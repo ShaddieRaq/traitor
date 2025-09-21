@@ -21,6 +21,8 @@
 ## 📋 **CURRENT DOCUMENTATION**
 
 ### **System Status & Operations**
+- **[Dynamic Risk Adjustment Framework](current/DYNAMIC_RISK_ADJUSTMENT_FRAMEWORK_SEPTEMBER_21_2025.md)** - **NEW** - Automated position sizing based on performance signals
+
 - **[Project Status](current/PROJECT_STATUS.md)** - **PHASE A.2 COMPLETE** - System-wide threshold optimization successful
 - **[Project Roadmap Assessment](current/PROJECT_ROADMAP_ASSESSMENT_SEPTEMBER_2025.md)** - **UPDATED** - Phase A.2 complete, Phase A.3 next
 - **[System-Wide Threshold Optimization](current/SYSTEM_WIDE_THRESHOLD_OPTIMIZATION_SEPTEMBER_20_2025.md)** - **NEW** - Comprehensive optimization results

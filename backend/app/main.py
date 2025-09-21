@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api import bots, market, trades, bot_evaluation, websocket, bot_temperatures, coinbase_sync, trading_diagnosis, validation, market_analysis, raw_trades, positions, system_errors, websocket_prices, health_monitoring, market_data_cache, notifications
+from .api import bots, market, trades, bot_evaluation, websocket, bot_temperatures, coinbase_sync, trading_diagnosis, validation, market_analysis, raw_trades, positions, system_errors, websocket_prices, health_monitoring, market_data_cache, notifications, new_pairs
 from .core.config import settings
 from .core.database import engine, Base
 import logging
@@ -43,6 +43,7 @@ app.include_router(coinbase_sync.router, prefix="/api/v1/coinbase-sync", tags=["
 app.include_router(trading_diagnosis.router, prefix="/api/v1/diagnosis", tags=["diagnosis"])
 app.include_router(validation.router, prefix="/api/v1/validation", tags=["validation"])
 app.include_router(market_analysis.router, prefix="/api/v1/market-analysis", tags=["market-analysis"])
+app.include_router(new_pairs.router, prefix="/api/v1/new-pairs", tags=["new-pairs"])
 
 app.include_router(positions.router, prefix="/api/v1/positions", tags=["positions"])
 
@@ -57,6 +58,9 @@ app.include_router(health_monitoring.router, prefix="/api/v1/health", tags=["hea
 
 # Notifications API
 app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["notifications"])
+
+# New Pairs Detection API
+app.include_router(new_pairs.router, prefix="/api/v1/new-pairs", tags=["new-pairs"])
 
 # Position Reconciliation API
 from .api import position_reconciliation

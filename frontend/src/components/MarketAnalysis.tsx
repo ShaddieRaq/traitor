@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useMarketAnalysis } from '../hooks/useMarketAnalysis';
 import { useNotifications } from '../hooks/useNotifications';
+import NewPairsCard from './NewPairs/NewPairsCard';
 
 const MarketAnalysis: React.FC = () => {
   const [limit, setLimit] = useState(50);
@@ -88,6 +89,9 @@ const MarketAnalysis: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* New Pairs Detection Card */}
+      <NewPairsCard />
+      
       {/* Header */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex justify-between items-center mb-4">

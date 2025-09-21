@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/notifications")
+@router.get("/")
 def get_notifications(
     limit: int = Query(20, ge=1, le=100, description="Number of notifications to retrieve"),
     unread_only: bool = Query(False, description="Show only unread notifications"),
@@ -68,7 +68,7 @@ def mark_notification_read(
         raise HTTPException(status_code=500, detail=f"Failed to mark notification as read: {str(e)}")
 
 
-@router.get("/notifications/unread-count")
+@router.get("/unread-count")
 def get_unread_count(db: Session = Depends(get_db)):
     """
     Get count of unread notifications.

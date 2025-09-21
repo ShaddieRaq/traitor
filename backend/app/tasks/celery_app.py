@@ -5,7 +5,7 @@ celery_app = Celery(
     "trading_bot",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.tasks.trading_tasks", "app.tasks.data_tasks", "app.tasks.market_analysis_tasks"]
+    include=["app.tasks.trading_tasks", "app.tasks.data_tasks", "app.tasks.market_analysis_tasks", "app.tasks.new_pair_tasks"]
 )
 
 # Celery configuration
@@ -35,6 +35,10 @@ celery_app.conf.update(
         "market-opportunity-alert": {
             "task": "app.tasks.market_analysis_tasks.market_opportunity_alert",
             "schedule": 1800.0,  # Every 30 minutes - check for exceptional opportunities
+        },
+        "scan-for-new-pairs": {
+            "task": "app.tasks.new_pair_tasks.scan_for_new_pairs_task",
+            "schedule": 7200.0,  # Every 2 hours - detect newly listed pairs
         },
     },
 )

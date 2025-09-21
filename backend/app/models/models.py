@@ -147,6 +147,32 @@ class Notification(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class TradingPair(Base):
+    """Track trading pairs and detect new listings."""
+    __tablename__ = "trading_pairs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(String(20), unique=True, index=True, nullable=False)  # e.g., "BTC-USD"
+    base_currency_id = Column(String(10), nullable=False)  # e.g., "BTC"
+    quote_currency_id = Column(String(10), nullable=False)  # e.g., "USD"
+    base_name = Column(String(100))  # Full name like "Bitcoin"
+    status = Column(String(20), default="online")  # online, offline, delisted
+    trading_disabled = Column(Boolean, default=False)
+    is_disabled = Column(Boolean, default=False)
+    
+    # Tracking fields
+    first_seen = Column(DateTime(timezone=True), server_default=func.now())
+    last_updated = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    is_new_listing = Column(Boolean, default=True)  # Mark as new until processed
+    
+    # Market data snapshot at discovery
+    initial_price = Column(Float)
+    initial_volume_24h = Column(Float)
+    
+    def __repr__(self):
+        return f"<TradingPair {self.product_id}>"
+
+
 # Add back references
 Bot.signal_history = relationship("BotSignalHistory", back_populates="bot")
 Bot.trades = relationship("Trade", back_populates="bot")

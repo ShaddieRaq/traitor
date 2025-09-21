@@ -26,7 +26,7 @@ export const useNotifications = (limit: number = 20, unreadOnly: boolean = false
         limit: limit.toString(),
         unread_only: unreadOnly.toString()
       });
-      const response = await api.get(`/notifications/notifications?${params}`);
+      const response = await api.get(`/notifications/?${params}`);
       return response.data as NotificationsResponse;
     },
     refetchInterval: 10000, // Refresh every 10 seconds for real-time updates
