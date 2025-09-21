@@ -2,12 +2,21 @@
 
 ## System Overview
 
-This is a **production-ready autonomous cryptocurrency trading system** with 11 active trading bots managing live funds across cryptocurrency pairs. The system features sophisticated signal processing, intelligent caching, and comprehensive risk management.
+This is a **production-ready autonomous cryptocurrency trading system** with 11 active bots managing live funds across major trading pairs. The system features sophisticated signal processing, intelligent caching, and comprehensive risk management.
 
 ### Core Architecture
-- **Backend**: FastAPI + SQLAl- ✅ **Clean Data Architecture**: `RawTrade` model for authoritative P&L calculations
-- ✅ **Optimized Signal Sensitivity**: 355% increase in trading activity through threshold optimization
-- ✅ **Frontend Signal Logic Fix**: Corrected completely inverted signal interpretation across 6 UI components (September 21, 2025)emy ORM + Celery/Redis for background tasks
+- **Backend*### Current System Context (September 21, 2025)
+
+### Immediate System State
+- **11 Active Bots**: BTC-USD, ETH-USD, SOL-USD, XRP-USD, DOGE-USD, AVNT-USD, AERO-USD, SUI-USD, AVAX-USD, TOSHI-USD, PENGU-USD
+- **Single Database**: `/trader.db` at project root (3,929+ fills synced)
+- **Unified Dashboard**: Main dashboard at root route with stable charts and live data
+- **Cache Performance**: 80%+ hit rates eliminating API rate limits
+- **Real-time Updates**: 5-second polling across frontend components
+- **Background Processing**: Celery workers handling order sync every 30 seconds
+- **System-wide Optimization**: All 11 bots use ±0.05 thresholds (54.5% active trading activity)
+- **Frontend Signal Logic**: Fully corrected signal interpretation across all UI components
+- **Dual-Table Auto-Sync**: Both Trade and RawTrade tables update automatically on all new trades+ SQLAlchemy ORM + Celery/Redis for background tasks
 - **Frontend**: React 18 + TypeScript + Vite + TailwindCSS with TanStack Query (5-second polling)
 - **Database**: Single unified SQLite file (`/trader.db`) with models in `/backend/app/models/models.py`
 - **API Structure**: RESTful with `/api/v1/` prefix, feature-organized routes in `/backend/app/api/`
@@ -19,12 +28,10 @@ This is a **production-ready autonomous cryptocurrency trading system** with 11 
 - **Bot-Per-Pair Architecture**: Each `Bot` entity manages exactly one trading pair (11 active bots)
 - **Smart Caching Pattern**: Market data cached with 30s TTL via `MarketDataCache` - 80%+ API call reduction
 - **Balance Pre-Check Optimization**: Bots skip signal processing when insufficient balance (~60% API reduction)
-- **Frontend Signal Logic**: Fixed inverted signal interpretation across all UI components (September 21, 2025)
 - **Signal Factory Pattern**: Dynamic signal creation via `create_signal_instance()` in `/backend/app/services/signals/base.py`
 - **Temperature-Based UI**: Real-time activity indicators (🔥HOT, 🌡️WARM, ❄️COOL, 🧊FROZEN) driven by signal scores
 - **Unified Database**: Single `/trader.db` file - **CRITICAL: No longer multiple database files**
 - **Consolidated Dashboard**: Single main dashboard at root route with stable charts and live data integration
-- **Chart Stability**: Fixed oscillating behavior - all charts use deterministic data generation
 - **Python Environment Management**: Always use `configure_python_environment` tool before any Python operations
 
 ## Bot-Centric Design Patterns
@@ -53,11 +60,37 @@ signal_instance = create_signal_instance(signal_type, parameters)
 - **Range**: -1.0 (strong oversold/buy) to +1.0 (strong overbought/sell)
 - **Interpretation**: Negative scores = BUY signals, Positive scores = SELL signals
 - **Aggregation**: Weighted sum of individual signal scores
-- **Thresholds**: ✅ **OPTIMIZED** - System-wide ±0.05 thresholds (September 20, 2025)
-- **Current Configuration**: All 11 bots use ±0.05 buy/sell thresholds (50% more sensitive)
+- **Thresholds**: System-wide ±0.05 thresholds (optimized for 355% more trading activity)
 - **Temperature Mapping**: 🔥HOT (≥0.15), 🌡️WARM (≥0.05), ❄️COOL (≥0.005), 🧊FROZEN (<0.005)
-- **Optimization Impact**: 355% increase in trading activity (18% → 54.5% active bots)
-- **UI Consistency**: Frontend displays now correctly interpret negative scores as BUY signals (September 21, 2025)
+
+### Critical Database Architecture & Auto-Sync System
+
+**Dual-Table Design** (Both Required):
+- **Trade Table**: Operational trading data (bot decisions, signals, position tracking)
+- **RawTrade Table**: Financial truth (exact Coinbase fill data for P&L calculations)
+
+**Auto-Sync Mechanism** (Fixed September 21, 2025):
+```python
+# In trading_service.py _record_trade() method:
+if initial_status == "completed":
+    try:
+        self._sync_completed_trade_to_raw_table(trade)
+        logger.info(f"✅ Synced completed trade {trade.id} to raw_trades table")
+    except Exception as sync_error:
+        logger.warning(f"Failed to sync trade {trade.id} to raw_trades: {sync_error}")
+```
+
+**Sync Triggers**:
+1. **Immediate Fills**: Trade created as "completed" → Instant RawTrade sync
+2. **Pending Orders**: Background Celery task detects completion → RawTrade sync
+3. **Manual Fallback**: `/scripts/manual_sync_raw_trades.py` for any gaps
+
+**Data Flow**:
+```
+Bot Signal → Place Order → Trade Table (immediate) → RawTrade Table (automatic)
+                      ↓
+              Coinbase API ← Fill Data ← Exact Financial Records
+```
 
 ### Core Service Dependencies
 - **BotSignalEvaluator**: Main signal aggregation in `/backend/app/services/bot_evaluator.py`
@@ -106,7 +139,7 @@ curl "http://localhost:8000/api/v1/bot-evaluation/recent-evaluations" | jq
 curl "http://localhost:8000/api/v1/system-errors/errors" | jq '.[0:5]'
 curl "http://localhost:8000/api/v1/bots/status/enhanced" | jq  # Real-time bot status
 
-# Cache performance monitoring (NEW)
+# Cache performance monitoring
 curl "http://localhost:8000/api/v1/cache/stats" | jq  # Cache hit rates, API savings
 curl "http://localhost:8000/api/v1/cache/info" | jq   # Detailed cache entries
 curl "http://localhost:8000/api/v1/cache/rate-limiting-status" | jq  # Rate limit health
@@ -251,12 +284,14 @@ Enhanced multi-tranche position tracking:
 - ✅ **Real-time P&L**: Live profit/loss tracking via clean `raw_trades` data
 - ✅ **System-wide Optimization**: All bots use ±0.05 thresholds (50% more sensitive)
 - ✅ **Frontend Signal Logic**: Fixed inverted signal interpretation across all UI components (September 21, 2025)
+- ✅ **Dual-Table Auto-Sync**: FIXED - Both Trade and RawTrade tables now update automatically (September 21, 2025)
 
 **CURRENT API USAGE GUIDELINES**:
 - ✅ **Primary Data Source**: `/api/v1/raw-trades/pnl-by-product` for performance data
 - ✅ **Bot Status**: `/api/v1/bots/status/enhanced` for real-time bot information  
 - ✅ **Cache Monitoring**: `/api/v1/cache/stats` for performance metrics
 - ✅ **Database Path**: Always use `/trader.db` (absolute: `/Users/lazy_genius/Projects/trader/trader.db`)
+- ✅ **Dual-Table System**: Both Trade (operational) and RawTrade (financial) tables auto-sync
 - ⚠️ **Legacy APIs**: Some `/api/v1/trades/` endpoints may have stale data - verify before use
 
 **AI AGENT DEVELOPMENT GUIDELINES**:
@@ -277,6 +312,7 @@ Enhanced multi-tranche position tracking:
 - ✅ **Trading Intent Consistency**: Fixed September 2025 - unified BUY/SELL logic across bot cards
 - ✅ **System-wide Threshold Optimization**: All 11 bots optimized with ±0.05 thresholds (September 20, 2025)
 - ✅ **Frontend Signal Logic Fix**: Corrected inverted signal interpretation across all UI components (September 21, 2025)
+- ✅ **Dual-Table Auto-Sync Fix**: Fixed automatic RawTrade sync for immediately filled orders (September 21, 2025)
 
 **For Current Issues Check**:
 ```bash
@@ -327,6 +363,26 @@ python scripts/fix_signal_locks.py --fix
 python scripts/fix_signal_locks.py --monitor
 ```
 
+**Dual-Table Sync Verification**:
+```bash
+# Verify Trade and RawTrade tables are in sync
+sqlite3 trader.db "
+SELECT 
+    (SELECT COUNT(*) FROM trades WHERE created_at LIKE '$(date +%Y-%m-%d)%') as trade_count,
+    (SELECT COUNT(*) FROM raw_trades WHERE created_at LIKE '$(date +%Y-%m-%d)%') as raw_trade_count;"
+
+# Check for unsynced trades
+sqlite3 trader.db "
+SELECT t.id, t.order_id, t.status 
+FROM trades t 
+LEFT JOIN raw_trades r ON t.order_id = r.order_id 
+WHERE t.status = 'completed' AND r.order_id IS NULL 
+LIMIT 5;"
+
+# Manual sync for any gaps
+python scripts/manual_sync_raw_trades.py
+```
+
 **Position Accuracy Tools**:
 ```bash
 # Check position discrepancies
@@ -356,12 +412,9 @@ bash scripts/position-reconcile.sh fix
 **Main Dashboard**: `/frontend/src/pages/DashboardRedesigned.tsx` (consolidated main dashboard)
 **Frontend Components**: `/frontend/src/components/Dashboard/` (stable React components)  
 **API Hooks**: `/frontend/src/hooks/` (TanStack Query patterns)  
-**Trading Issue Troubleshooting**: `/docs/TRADING_ISSUES_TROUBLESHOOTING.md`  
-**Dashboard Consolidation**: `/docs/DASHBOARD_CONSOLIDATION_SEPTEMBER_20_2025.md`
 **Signal Lock Management**: `/scripts/fix_signal_locks.py`  
 **Position Reconciliation**: `/scripts/position-reconcile.sh`  
 **Health Monitoring**: `/scripts/health_monitor.sh`  
-**Comprehensive Documentation**: `/docs/` with detailed status reports and guides
 
 ## Current System Context (September 21, 2025)
 
@@ -372,12 +425,13 @@ bash scripts/position-reconcile.sh fix
 - **Cache Performance**: 80%+ hit rates eliminating API rate limits
 - **Real-time Updates**: 5-second polling across frontend components
 - **Background Processing**: Celery workers handling order sync every 30 seconds
-- **System-wide Optimization**: All 11 bots use ±0.05 thresholds (54.5% active trading activity)
+- **System-wide Optimization**: All 11 bots use ±0.05 thresholds (739% increase in trading activity)
 - **Frontend Signal Logic**: Fully corrected signal interpretation across all UI components
+- **Dual-Table Auto-Sync**: Both Trade and RawTrade tables update automatically on all new trades
 
 ### Production-Ready Features
 - **Dashboard Consolidation**: Single main dashboard with fixed oscillating charts
-- **Live Data Integration**: Real portfolio values from Coinbase API ($1,266 accurate display)
+- **Live Data Integration**: Real portfolio values from Coinbase API ($1,566+ accurate display)
 - **Chart Stability**: Deterministic data generation eliminates visual noise
 - **Signal Confirmation System**: Time-based validation prevents false signals
 - **Balance Pre-Check Optimization**: ~60% reduction in unnecessary API calls
@@ -385,5 +439,6 @@ bash scripts/position-reconcile.sh fix
 - **Temperature-Based UI**: Real-time 🔥HOT/🌡️WARM/❄️COOL/🧊FROZEN indicators
 - **Comprehensive Safety Systems**: Trading limits, cooldowns, emergency controls
 - **Consistent Signal Logic**: Negative scores = BUY, Positive scores = SELL (unified across all components)
-- **Clean Data Architecture**: `RawTrade` model for authoritative P&L calculations
-- **Optimized Signal Sensitivity**: 355% increase in trading activity through threshold optimization
+- **Clean Data Architecture**: Dual-table system ensures both operational and financial data integrity
+- **Automatic Sync System**: Fixed September 21, 2025 - both immediate fills and pending orders sync to RawTrade
+- **Optimized Trading Performance**: 739% increase in activity through ±0.05 threshold optimization
