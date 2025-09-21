@@ -2,10 +2,12 @@
 
 ## System Overview
 
-This is a **production-ready autonomous cryptocurrency trading system** with 11 active trading bots managing $XXX+ across multiple cryptocurrency pairs. The system achieved significant returns through sophisticated signal processing and risk management.
+This is a **production-ready autonomous cryptocurrency trading system** with 11 active trading bots managing live funds across cryptocurrency pairs. The system features sophisticated signal processing, intelligent caching, and comprehensive risk management.
 
 ### Core Architecture
-- **Backend**: FastAPI + SQLAlchemy ORM + Celery/Redis for background tasks
+- **Backend**: FastAPI + SQLAl- ✅ **Clean Data Architecture**: `RawTrade` model for authoritative P&L calculations
+- ✅ **Optimized Signal Sensitivity**: 355% increase in trading activity through threshold optimization
+- ✅ **Frontend Signal Logic Fix**: Corrected completely inverted signal interpretation across 6 UI components (September 21, 2025)emy ORM + Celery/Redis for background tasks
 - **Frontend**: React 18 + TypeScript + Vite + TailwindCSS with TanStack Query (5-second polling)
 - **Database**: Single unified SQLite file (`/trader.db`) with models in `/backend/app/models/models.py`
 - **API Structure**: RESTful with `/api/v1/` prefix, feature-organized routes in `/backend/app/api/`
@@ -17,12 +19,13 @@ This is a **production-ready autonomous cryptocurrency trading system** with 11 
 - **Bot-Per-Pair Architecture**: Each `Bot` entity manages exactly one trading pair (11 active bots)
 - **Smart Caching Pattern**: Market data cached with 30s TTL via `MarketDataCache` - 80%+ API call reduction
 - **Balance Pre-Check Optimization**: Bots skip signal processing when insufficient balance (~60% API reduction)
-- **Trading Intent Consistency**: Fixed September 2025 - unified BUY/SELL logic across all bot card sections
+- **Frontend Signal Logic**: Fixed inverted signal interpretation across all UI components (September 21, 2025)
 - **Signal Factory Pattern**: Dynamic signal creation via `create_signal_instance()` in `/backend/app/services/signals/base.py`
 - **Temperature-Based UI**: Real-time activity indicators (🔥HOT, 🌡️WARM, ❄️COOL, 🧊FROZEN) driven by signal scores
 - **Unified Database**: Single `/trader.db` file - **CRITICAL: No longer multiple database files**
 - **Consolidated Dashboard**: Single main dashboard at root route with stable charts and live data integration
 - **Chart Stability**: Fixed oscillating behavior - all charts use deterministic data generation
+- **Python Environment Management**: Always use `configure_python_environment` tool before any Python operations
 
 ## Bot-Centric Design Patterns
 
@@ -47,12 +50,14 @@ signal_instance = create_signal_instance(signal_type, parameters)
 - **MarketData**: OHLCV candlestick data for technical analysis
 
 ### Signal Scoring System
-- **Range**: -1.0 (strong sell) to +1.0 (strong buy)
+- **Range**: -1.0 (strong oversold/buy) to +1.0 (strong overbought/sell)
+- **Interpretation**: Negative scores = BUY signals, Positive scores = SELL signals
 - **Aggregation**: Weighted sum of individual signal scores
 - **Thresholds**: ✅ **OPTIMIZED** - System-wide ±0.05 thresholds (September 20, 2025)
 - **Current Configuration**: All 11 bots use ±0.05 buy/sell thresholds (50% more sensitive)
 - **Temperature Mapping**: 🔥HOT (≥0.15), 🌡️WARM (≥0.05), ❄️COOL (≥0.005), 🧊FROZEN (<0.005)
 - **Optimization Impact**: 355% increase in trading activity (18% → 54.5% active bots)
+- **UI Consistency**: Frontend displays now correctly interpret negative scores as BUY signals (September 21, 2025)
 
 ### Core Service Dependencies
 - **BotSignalEvaluator**: Main signal aggregation in `/backend/app/services/bot_evaluator.py`
@@ -153,15 +158,19 @@ curl "http://localhost:8000/api/v1/bots/" | jq '.[] | {name, status, current_com
 - **Component Structure**: `/frontend/src/pages/DashboardRedesigned.tsx` as main dashboard
 - **API Hooks**: Centralized in `/frontend/src/hooks/` using TanStack Query patterns
 
-**Critical Frontend Pattern**: All data hooks use aggressive polling:
+**Critical Frontend Pattern**: All data hooks use aggressive polling with consistent TanStack Query configuration:
 ```typescript
 export const useBotsStatus = () => {
   return useQuery({
     queryKey: ['bots', 'status'],
-    queryFn: () => api.get('/bots/status/summary'),
-    refetchInterval: 5000,
-    refetchIntervalInBackground: true,
-    staleTime: 0  // Always fetch fresh data
+    queryFn: async () => {
+      const response = await api.get('/bots/status/summary');
+      return response.data as BotStatus[];
+    },
+    refetchInterval: 5000, // Refresh every 5 seconds for real-time updates
+    refetchIntervalInBackground: true, // Continue polling when tab is in background
+    refetchOnWindowFocus: true, // Refetch when window comes back into focus
+    staleTime: 0 // Always consider data stale to force fresh fetches
   });
 };
 ```
@@ -232,7 +241,7 @@ Enhanced multi-tranche position tracking:
 
 ## Known Issues & Critical Context
 
-### ⚠️ CRITICAL AI AGENT WARNINGS - UPDATED SEPTEMBER 20, 2025
+### ⚠️ CRITICAL AI AGENT WARNINGS - UPDATED SEPTEMBER 21, 2025
 
 **SYSTEM ARCHITECTURE STATUS**:
 - ✅ **Single Database**: `/trader.db` is the authoritative database (no backend/trader.db split)
@@ -241,6 +250,7 @@ Enhanced multi-tranche position tracking:
 - ✅ **Rate Limiting Resolved**: Intelligent market data caching with 80%+ hit rates
 - ✅ **Real-time P&L**: Live profit/loss tracking via clean `raw_trades` data
 - ✅ **System-wide Optimization**: All bots use ±0.05 thresholds (50% more sensitive)
+- ✅ **Frontend Signal Logic**: Fixed inverted signal interpretation across all UI components (September 21, 2025)
 
 **CURRENT API USAGE GUIDELINES**:
 - ✅ **Primary Data Source**: `/api/v1/raw-trades/pnl-by-product` for performance data
@@ -255,6 +265,7 @@ Enhanced multi-tranche position tracking:
 - Database schema changes require manual column additions via SQLAlchemy
 - All 11 bots should be visible - if not, check unified database connection
 - When debugging, start with `./scripts/status.sh` for service health
+- **Signal Logic**: Negative scores = BUY signals, Positive scores = SELL signals (consistent across frontend/backend)
 
 ### Current Major Issues
 
@@ -265,6 +276,7 @@ Enhanced multi-tranche position tracking:
 - ✅ **Balance Pre-Check Optimization**: Bots skip signal processing when insufficient balance
 - ✅ **Trading Intent Consistency**: Fixed September 2025 - unified BUY/SELL logic across bot cards
 - ✅ **System-wide Threshold Optimization**: All 11 bots optimized with ±0.05 thresholds (September 20, 2025)
+- ✅ **Frontend Signal Logic Fix**: Corrected inverted signal interpretation across all UI components (September 21, 2025)
 
 **For Current Issues Check**:
 ```bash
@@ -294,8 +306,11 @@ curl "http://localhost:8000/api/v1/cache/stats" | jq
 # Development iteration testing
 ./scripts/quick-test.sh  
 
-# Targeted signal testing
+# Targeted signal testing with categories
 python tests/test_runner.py [rsi|ma|macd|aggregation|all]
+
+# Backend-specific test runner (from /backend directory)
+python tests/test_runner.py all  # Comprehensive signal validation with setup check
 ```
 
 ### Trading Issue Resolution Tools
@@ -348,7 +363,7 @@ bash scripts/position-reconcile.sh fix
 **Health Monitoring**: `/scripts/health_monitor.sh`  
 **Comprehensive Documentation**: `/docs/` with detailed status reports and guides
 
-## Current System Context (September 20, 2025)
+## Current System Context (September 21, 2025)
 
 ### Immediate System State
 - **11 Active Bots**: BTC-USD, ETH-USD, SOL-USD, XRP-USD, DOGE-USD, AVNT-USD, AERO-USD, SUI-USD, AVAX-USD, TOSHI-USD, PENGU-USD
@@ -358,6 +373,7 @@ bash scripts/position-reconcile.sh fix
 - **Real-time Updates**: 5-second polling across frontend components
 - **Background Processing**: Celery workers handling order sync every 30 seconds
 - **System-wide Optimization**: All 11 bots use ±0.05 thresholds (54.5% active trading activity)
+- **Frontend Signal Logic**: Fully corrected signal interpretation across all UI components
 
 ### Production-Ready Features
 - **Dashboard Consolidation**: Single main dashboard with fixed oscillating charts
@@ -368,5 +384,6 @@ bash scripts/position-reconcile.sh fix
 - **Multi-Tranche Position Management**: Enhanced `Trade.position_tranches` JSON tracking
 - **Temperature-Based UI**: Real-time 🔥HOT/🌡️WARM/❄️COOL/🧊FROZEN indicators
 - **Comprehensive Safety Systems**: Trading limits, cooldowns, emergency controls
+- **Consistent Signal Logic**: Negative scores = BUY, Positive scores = SELL (unified across all components)
 - **Clean Data Architecture**: `RawTrade` model for authoritative P&L calculations
 - **Optimized Signal Sensitivity**: 355% increase in trading activity through threshold optimization

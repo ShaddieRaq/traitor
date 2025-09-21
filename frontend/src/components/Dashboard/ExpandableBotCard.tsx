@@ -63,14 +63,14 @@ export const ExpandableBotCard: React.FC<ExpandableBotCardProps> = ({
   };
 
   const getActionColor = () => {
-    if (bot.current_combined_score > 0.1) return 'text-green-600';
-    if (bot.current_combined_score < -0.1) return 'text-red-600';
+    if (bot.current_combined_score < -0.1) return 'text-green-600';  // Fixed: Negative = BUY (green)
+    if (bot.current_combined_score > 0.1) return 'text-red-600';    // Fixed: Positive = SELL (red)
     return 'text-gray-600';
   };
 
   const getActionText = () => {
-    if (bot.current_combined_score > 0.1) return 'BUY';
-    if (bot.current_combined_score < -0.1) return 'SELL';
+    if (bot.current_combined_score < -0.1) return 'BUY';  // Fixed: Negative = BUY
+    if (bot.current_combined_score > 0.1) return 'SELL';  // Fixed: Positive = SELL
     return 'HOLD';
   };
 

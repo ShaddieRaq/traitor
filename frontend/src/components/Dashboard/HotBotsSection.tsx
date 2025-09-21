@@ -32,14 +32,14 @@ const HotBotCard: React.FC<HotBotCardProps> = ({ bot }) => {
   };
 
   const getActionIcon = () => {
-    if (bot.current_combined_score > 0.1) return '🟢 BUY SIGNAL';
-    if (bot.current_combined_score < -0.1) return '🔴 SELL SIGNAL';
+    if (bot.current_combined_score < -0.1) return '🟢 BUY SIGNAL';  // Fixed: Negative = BUY
+    if (bot.current_combined_score > 0.1) return '🔴 SELL SIGNAL';  // Fixed: Positive = SELL
     return '🟡 HOLD';
   };
 
   const getActionStyle = () => {
-    if (bot.current_combined_score > 0.1) return 'text-green-700 bg-green-100 border border-green-300';
-    if (bot.current_combined_score < -0.1) return 'text-red-700 bg-red-100 border border-red-300';
+    if (bot.current_combined_score < -0.1) return 'text-green-700 bg-green-100 border border-green-300';  // Fixed: Negative = BUY (green)
+    if (bot.current_combined_score > 0.1) return 'text-red-700 bg-red-100 border border-red-300';      // Fixed: Positive = SELL (red)
     return 'text-yellow-700 bg-yellow-100 border border-yellow-300';
   };
 
@@ -84,8 +84,8 @@ const HotBotCard: React.FC<HotBotCardProps> = ({ bot }) => {
         <div className="w-full bg-gray-300 rounded-full h-3 shadow-inner">
           <div 
             className={`h-3 rounded-full transition-all duration-500 shadow-sm ${
-              bot.current_combined_score > 0 ? 'bg-gradient-to-r from-green-400 to-green-500' : 
-              'bg-gradient-to-r from-red-400 to-red-500'
+              bot.current_combined_score < 0 ? 'bg-gradient-to-r from-green-400 to-green-500' :   // Fixed: Negative = BUY (green)
+              'bg-gradient-to-r from-red-400 to-red-500'                                       // Fixed: Positive = SELL (red)
             }`}
             style={{ width: `${Math.min(Math.abs(bot.current_combined_score) * 100, 100)}%` }}
           ></div>

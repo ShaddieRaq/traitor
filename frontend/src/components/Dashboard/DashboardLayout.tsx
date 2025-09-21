@@ -2,8 +2,7 @@ import React from 'react';
 import { DashboardGrid, GridArea } from './DashboardGrid';
 import PortfolioSummaryCard from './PortfolioSummaryCard';
 import SystemHealthCard from './SystemHealthCard';
-import HotBotsSection from './HotBotsSection';
-import BotGridSection from './BotGridSection';
+import UnifiedBotsList from './UnifiedBotsList';
 import UnifiedStatusBar from './UnifiedStatusBar';
 import StickyActivityPanel from '../Trading/StickyActivityPanel';
 import { useEnhancedBotsStatus } from '../../hooks/useBots';
@@ -48,14 +47,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             <SystemHealthCard />
           </GridArea>
 
-          {/* Important Information - High Visibility */}
-          <GridArea area="hotBots">
-            <HotBotsSection />
-          </GridArea>
-
-          {/* Supporting Information - Detailed View */}
-          <GridArea area="allBots">
-            <BotGridSection />
+          {/* Unified Bots List - Spans full width for comprehensive view */}
+          <GridArea area="hotBots" className="col-span-full">
+            <UnifiedBotsList />
           </GridArea>
         </DashboardGrid>
 

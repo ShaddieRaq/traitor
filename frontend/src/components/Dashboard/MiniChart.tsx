@@ -80,8 +80,8 @@ export const MiniChart: React.FC<MiniChartProps> = ({
             if (typeof value === 'number') {
               if (isSignalChart) {
                 // Special formatting for signal chart
-                if (value > 0.1) return `BUY Signal: ${value.toFixed(3)}`;
-                if (value < -0.1) return `SELL Signal: ${value.toFixed(3)}`;
+                if (value < -0.1) return `BUY Signal: ${value.toFixed(3)}`;   // Fixed: Negative = BUY
+                if (value > 0.1) return `SELL Signal: ${value.toFixed(3)}`;  // Fixed: Positive = SELL
                 return `HOLD Signal: ${value.toFixed(3)}`;
               }
               return value.toFixed(2);

@@ -35,14 +35,14 @@ const CompactBotCard: React.FC<CompactBotCardProps> = ({ bot }) => {
   };
 
   const getActionText = () => {
-    if (bot.current_combined_score > 0.1) return 'BUY';
-    if (bot.current_combined_score < -0.1) return 'SELL';
+    if (bot.current_combined_score < -0.1) return 'BUY';  // Fixed: Negative = BUY
+    if (bot.current_combined_score > 0.1) return 'SELL';  // Fixed: Positive = SELL
     return 'HOLD';
   };
 
   const getActionBadge = () => {
-    if (bot.current_combined_score > 0.1) return 'bg-green-100 text-green-800 border-green-300';
-    if (bot.current_combined_score < -0.1) return 'bg-red-100 text-red-800 border-red-300';
+    if (bot.current_combined_score < -0.1) return 'bg-green-100 text-green-800 border-green-300';  // Fixed: Negative = BUY (green)
+    if (bot.current_combined_score > 0.1) return 'bg-red-100 text-red-800 border-red-300';      // Fixed: Positive = SELL (red)
     return 'bg-gray-100 text-gray-700 border-gray-300';
   };
 
@@ -87,8 +87,8 @@ const CompactBotCard: React.FC<CompactBotCardProps> = ({ bot }) => {
         <div className="w-full bg-gray-200 rounded-full h-2">
           <div 
             className={`h-2 rounded-full transition-all duration-300 ${
-              bot.current_combined_score > 0 ? 'bg-gradient-to-r from-green-400 to-green-500' : 
-              'bg-gradient-to-r from-red-400 to-red-500'
+              bot.current_combined_score < 0 ? 'bg-gradient-to-r from-green-400 to-green-500' :   // Fixed: Negative = BUY (green)
+              'bg-gradient-to-r from-red-400 to-red-500'                                       // Fixed: Positive = SELL (red)
             }`}
             style={{ width: `${Math.min(Math.abs(bot.current_combined_score) * 100, 100)}%` }}
           ></div>
