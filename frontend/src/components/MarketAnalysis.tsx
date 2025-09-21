@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
-import { useMarketAnalysis, MarketAnalysisCandidate } from '../hooks/useMarketAnalysis';
+import { useMarketAnalysis } from '../hooks/useMarketAnalysis';
 import { useNotifications } from '../hooks/useNotifications';
-import { useBots } from '../hooks/useBots';
 
 const MarketAnalysis: React.FC = () => {
   const [limit, setLimit] = useState(50);
   const [includeGems, setIncludeGems] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
   const { data: analysis, isLoading, error, refetch } = useMarketAnalysis(limit, includeGems);
-  const { data: bots } = useBots();
   const { data: notificationsData } = useNotifications(50, false);
 
   const getRiskColor = (color: string) => {
@@ -231,32 +229,40 @@ const MarketAnalysis: React.FC = () => {
       {/* Detailed Analysis Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Detailed Analysis</h3>
-          <p className="text-sm text-gray-600 mt-1">
-            Excluding current bot pairs: {analysis.excluded_pairs.join(', ')}
-          </p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Detailed Analysis</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Excluding current bot pairs: {analysis.excluded_pairs.join(', ')}
+              </p>
+            </div>
+            <div className="text-sm text-gray-500">
+              {analysis.candidates.length} results • Scroll to see all
+            </div>
+          </div>
         </div>
         
-        <div className="overflow-x-auto">
+        {/* Fixed height scrollable container */}
+        <div className="overflow-auto max-h-96">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 sticky top-0 z-10">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
                   Trading Pair
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
                   Price & Volume
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
                   24h Changes
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
                   Scores
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
                   Risk & Recommendation
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
                   Total Score
                 </th>
               </tr>
