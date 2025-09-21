@@ -661,6 +661,14 @@ class TradingService:
             # Phase 4.1.3: Update position status based on new trade
             self.position_service.update_position_status(bot.id, trade)
             
+            # CRITICAL FIX: Sync completed trades to raw_trades table immediately
+            if initial_status == "completed":
+                try:
+                    self._sync_completed_trade_to_raw_table(trade)
+                    logger.info(f"✅ Synced completed trade {trade.id} to raw_trades table")
+                except Exception as sync_error:
+                    logger.warning(f"Failed to sync trade {trade.id} to raw_trades: {sync_error}")
+            
             # If marked for monitoring, schedule immediate follow-up
             if order_result.get('requires_monitoring'):
                 self._schedule_order_monitoring(trade.order_id, trade.id)
@@ -668,14 +676,6 @@ class TradingService:
             # Broadcast pending order creation via WebSocket if order is pending
             if initial_status == "pending":
                 self._broadcast_pending_order_created(trade)
-            
-            logger.info(f"💾 Trade recorded: ID {trade.id}, Status: {initial_status}, Tranche #{tranche_number}")
-            return trade
-            
-            # If marked for monitoring, schedule immediate follow-up
-            if order_result.get('requires_monitoring'):
-                self._schedule_order_monitoring(trade.order_id, trade.id)
-                logger.info(f"� Scheduled monitoring for order {trade.order_id}")
             
             logger.info(f"💾 Trade recorded: ID {trade.id}, Status: {initial_status}, Tranche #{tranche_number}")
             return trade
