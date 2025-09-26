@@ -222,6 +222,41 @@ export const ExpandableBotCard: React.FC<ExpandableBotCardProps> = ({
             </div>
           </div>
 
+          {/* Trading Configuration Summary */}
+          <div className="p-4 border-b border-gray-200">
+            <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+              <Activity className="h-4 w-4 mr-2" />
+              Trading Configuration
+            </h4>
+            
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Signal Thresholds:</span>
+                <span className="font-mono text-gray-800">
+                  {bot.trading_thresholds ? 
+                    `${bot.trading_thresholds.buy_threshold}/${bot.trading_thresholds.sell_threshold}` : 
+                    '±0.05'
+                  }
+                </span>
+              </div>
+              
+              <div className="flex justify-between">
+                <span className="text-gray-600">Price Step:</span>
+                <span className="font-mono text-gray-800">{bot.trade_step_pct}%</span>
+              </div>
+              
+              <div className="flex justify-between">
+                <span className="text-gray-600">Position Size:</span>
+                <span className="font-mono text-gray-800">${bot.position_size_usd}</span>
+              </div>
+              
+              <div className="flex justify-between">
+                <span className="text-gray-600">Cooldown:</span>
+                <span className="font-mono text-gray-800">{bot.cooldown_minutes}m</span>
+              </div>
+            </div>
+          </div>
+
           {/* Performance Metrics */}
           <div className="p-4 border-b border-gray-200">
             <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">

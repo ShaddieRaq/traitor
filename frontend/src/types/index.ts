@@ -1,4 +1,10 @@
-// Signal Configuration Types
+// Signal Configuration
+export interface SignalConfiguration {
+  rsi: RSISignalConfig;
+  moving_average: MovingAverageSignalConfig;
+  macd: MACDSignalConfig;
+  trading_thresholds?: TradingThresholds;
+}
 export interface RSISignalConfig {
   enabled: boolean;
   weight: number;
@@ -26,6 +32,14 @@ export interface SignalConfiguration {
   rsi: RSISignalConfig;
   moving_average: MovingAverageSignalConfig;
   macd: MACDSignalConfig;
+  trading_thresholds?: TradingThresholds;
+}
+
+export interface TradingThresholds {
+  buy_threshold: number;
+  sell_threshold: number;
+  optimization_applied?: boolean;
+  applied_date?: string;
 }
 
 export interface Bot {
@@ -39,9 +53,10 @@ export interface Bot {
   stop_loss_pct: number;
   take_profit_pct: number;
   confirmation_minutes: number;
-  trade_step_pct: number;
+  trade_step_pct: number;  // Trade safety - minimum price movement between trades
   cooldown_minutes: number;
   signal_config: SignalConfiguration;
+  trading_thresholds?: TradingThresholds;  // Actual signal evaluation thresholds
   current_position_size: number;
   current_position_entry_price?: number;
   current_combined_score: number;

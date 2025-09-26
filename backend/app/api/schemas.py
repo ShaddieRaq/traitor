@@ -130,6 +130,14 @@ class BotUpdate(BaseModel):
         return v
 
 
+class TradingThresholds(BaseModel):
+    """Trading thresholds extracted from signal_config"""
+    buy_threshold: float
+    sell_threshold: float
+    optimization_applied: Optional[bool] = None
+    applied_date: Optional[str] = None
+
+
 class BotResponse(BaseModel):
     id: int
     name: str
@@ -144,6 +152,7 @@ class BotResponse(BaseModel):
     trade_step_pct: float
     cooldown_minutes: int
     signal_config: Dict[str, Any]
+    trading_thresholds: Optional[TradingThresholds]  # Extracted thresholds for UI
     current_position_size: float
     current_position_entry_price: Optional[float]
     current_combined_score: float

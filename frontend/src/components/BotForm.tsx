@@ -22,10 +22,14 @@ const BotForm: React.FC<BotFormProps> = ({ bot, onSubmit, onCancel, isLoading = 
   const [stopLossPct, setStopLossPct] = useState(bot?.stop_loss_pct || 5);
   const [takeProfitPct, setTakeProfitPct] = useState(bot?.take_profit_pct || 10);
   const [tradeStepPct, setTradeStepPct] = useState(bot?.trade_step_pct || 2);
-  const [cooldownMinutes, setCooldownMinutes] = useState(bot?.cooldown_minutes || 15);
+  const [cooldownMinutes, setCooldownMinutes] = useState(bot?.cooldown_minutes || 30);
 
-  // Signal configuration state
-  const [rsiConfig, setRsiConfig] = useState<RSISignalConfig>(() => ({
+  // Trading thresholds - CRITICAL: These control when trades actually trigger
+  const [buyThreshold, setBuyThreshold] = useState(bot?.signal_config?.trading_thresholds?.buy_threshold || -0.05);
+  const [sellThreshold, setSellThreshold] = useState(bot?.signal_config?.trading_thresholds?.sell_threshold || 0.05);
+
+  // Signal configuration states
+  const [rsiConfig, setRsiConfig] = useState(() => ({
     enabled: bot?.signal_config?.rsi?.enabled || false,
     weight: bot?.signal_config?.rsi?.weight || 0.33,
     period: bot?.signal_config?.rsi?.period || 14,
@@ -113,7 +117,11 @@ const BotForm: React.FC<BotFormProps> = ({ bot, onSubmit, onCancel, isLoading = 
     const signalConfig: SignalConfiguration = {
       rsi: rsiConfig,
       moving_average: maConfig,
-      macd: macdConfig
+      macd: macdConfig,
+      trading_thresholds: {
+        buy_threshold: buyThreshold,
+        sell_threshold: sellThreshold
+      }
     };
 
     const formData: BotCreate = {
@@ -548,6 +556,58 @@ const BotForm: React.FC<BotFormProps> = ({ bot, onSubmit, onCancel, isLoading = 
                   step="1"
                 />
                 <p className="text-xs text-gray-500 mt-1">Wait time between trades</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Trading Thresholds Configuration */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium text-gray-900">Trading Thresholds</h3>
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <p className="text-sm text-blue-800 mb-3">
+                <strong>Critical:</strong> These thresholds control when trades are actually triggered. 
+                Negative values signal BUY opportunities, positive values signal SELL opportunities.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Buy Threshold
+                  </label>
+                  <input
+                    type="number"
+                    value={buyThreshold}
+                    onChange={(e) => setBuyThreshold(Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="-1"
+                    max="0"
+                    step="0.01"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Trigger BUY when signal ≤ this value (e.g., -0.05)</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Sell Threshold
+                  </label>
+                  <input
+                    type="number"
+                    value={sellThreshold}
+                    onChange={(e) => setSellThreshold(Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Trigger SELL when signal ≥ this value (e.g., 0.05)</p>
+                </div>
+              </div>
+
+              <div className="mt-3">
+                <p className="text-xs text-gray-600">
+                  <strong>Current System Default:</strong> ±0.05 thresholds (optimized for maximum trading activity).
+                  Lower absolute values = more sensitive trading, higher absolute values = more conservative.
+                </p>
               </div>
             </div>
           </div>

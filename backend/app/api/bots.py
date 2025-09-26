@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 import json
 import logging
 from ..core.database import get_db
 from ..models.models import Bot
-from ..api.schemas import BotCreate, BotUpdate, BotResponse, BotStatusResponse, EnhancedBotStatusResponse
+from ..api.schemas import BotCreate, BotUpdate, BotResponse, BotStatusResponse, EnhancedBotStatusResponse, TradingThresholds
 from ..utils.temperature import calculate_bot_temperature
 
 logger = logging.getLogger(__name__)
@@ -13,19 +13,53 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def extract_trading_thresholds(signal_config: dict) -> Optional[TradingThresholds]:
+    """Extract trading thresholds from signal_config for UI display."""
+    try:
+        if not signal_config or 'trading_thresholds' not in signal_config:
+            # Return default thresholds
+            return TradingThresholds(
+                buy_threshold=-0.1,
+                sell_threshold=0.1
+            )
+        
+        thresholds_data = signal_config['trading_thresholds']
+        return TradingThresholds(
+            buy_threshold=thresholds_data.get('buy_threshold', -0.1),
+            sell_threshold=thresholds_data.get('sell_threshold', 0.1),
+            optimization_applied=thresholds_data.get('optimization_applied'),
+            applied_date=thresholds_data.get('applied_date')
+        )
+    except Exception as e:
+        logger.warning(f"Error extracting trading thresholds: {e}")
+        return TradingThresholds(
+            buy_threshold=-0.1,
+            sell_threshold=0.1
+        )
+
+
+def prepare_bot_response(bot: Bot) -> Bot:
+    """Prepare bot for response by converting signal_config and adding trading_thresholds."""
+    # Convert signal_config from JSON string to dict
+    try:
+        signal_config = json.loads(bot.signal_config) if bot.signal_config else {}
+        bot.signal_config = signal_config
+    except json.JSONDecodeError:
+        bot.signal_config = {}
+    
+    # Extract trading thresholds for UI
+    bot.trading_thresholds = extract_trading_thresholds(bot.signal_config)
+    
+    return bot
+
+
 @router.get("/", response_model=List[BotResponse])
 def get_bots(db: Session = Depends(get_db)):
     """Get all bots."""
     bots = db.query(Bot).all()
     
-    # Convert signal_config from JSON string to dict
-    for bot in bots:
-        try:
-            bot.signal_config = json.loads(bot.signal_config) if bot.signal_config else {}
-        except json.JSONDecodeError:
-            bot.signal_config = {}
-    
-    return bots
+    # Prepare bots for response with trading thresholds
+    return [prepare_bot_response(bot) for bot in bots]
 
 
 @router.post("/", response_model=BotResponse)
@@ -76,13 +110,7 @@ def get_bot(bot_id: int, db: Session = Depends(get_db)):
     if not bot:
         raise HTTPException(status_code=404, detail="Bot not found")
     
-    # Convert signal_config from JSON string to dict
-    try:
-        bot.signal_config = json.loads(bot.signal_config) if bot.signal_config else {}
-    except json.JSONDecodeError:
-        bot.signal_config = {}
-    
-    return bot
+    return prepare_bot_response(bot)
 
 
 @router.put("/{bot_id}", response_model=BotResponse)

@@ -217,7 +217,8 @@ class MarketAnalysisService:
             }
             
         except Exception as e:
-            logger.error(f"Error analyzing {product.get('product_id', 'unknown')}: {e}")
+            product_id = getattr(product, 'product_id', None) or (product.get('product_id', 'unknown') if hasattr(product, 'get') else 'unknown')
+            logger.error(f"Error analyzing {product_id}: {e}")
             return None
     
     def _get_liquidity_analysis(self, volume_million: float) -> str:
