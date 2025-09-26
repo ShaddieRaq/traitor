@@ -171,9 +171,97 @@ class BotSignalEvaluator:
         
         evaluation_result['confirmation_status'] = confirmation_status
         
+        # Phase 3A: Signal Performance Tracking - Record individual signal predictions
+        try:
+            from .signal_performance_tracker import get_signal_performance_tracker
+            from .trend_detection_engine import get_trend_engine
+            
+            # Get current market regime (if trend detection enabled)
+            regime = "UNKNOWN"
+            if getattr(bot, 'use_trend_detection', False):
+                try:
+                    trend_engine = get_trend_engine()
+                    regime_data = trend_engine.analyze_trend(bot.pair)
+                    regime = regime_data.get('regime', 'UNKNOWN')
+                except Exception as e:
+                    logger.debug(f"Failed to get regime for performance tracking: {e}")
+            
+            # Record predictions for each signal
+            performance_tracker = get_signal_performance_tracker(self.db)
+            for signal_name, signal_result in signal_results.items():
+                try:
+                    from .signal_performance_tracker import SignalPrediction
+                    
+                    # Create prediction record
+                    prediction = SignalPrediction(
+                        timestamp=pd.Timestamp.now().to_pydatetime(),
+                        pair=bot.pair,
+                        regime=regime,
+                        signal_type=signal_name,
+                        signal_score=signal_result['score'],
+                        prediction=signal_result['action'],
+                        confidence=signal_result['confidence']
+                    )
+                    
+                    # Record the prediction for later performance evaluation
+                    performance_tracker.record_signal_prediction(prediction)
+                    
+                    logger.debug(
+                        f"📊 Recorded signal prediction: {signal_name} → {signal_result['action']} "
+                        f"(score: {signal_result['score']:.3f}, confidence: {signal_result['confidence']:.3f})"
+                    )
+                    
+                except Exception as prediction_error:
+                    logger.warning(f"Failed to record signal prediction for {signal_name}: {prediction_error}")
+                    
+        except Exception as tracking_error:
+            logger.warning(f"Signal performance tracking failed: {tracking_error}")
+        
         # Save signal history for confirmation tracking
         if self.enable_confirmation:
             self.save_signal_history(bot, evaluation_result, current_price)
+        
+        # Phase 2: Position Sizing Intelligence - Calculate dynamic position sizes
+        if getattr(bot, 'use_position_sizing', False) and action in ['buy', 'sell']:
+            try:
+                from .position_sizing_engine import get_position_sizing_engine
+                sizing_engine = get_position_sizing_engine()
+                
+                position_sizing_analysis = sizing_engine.calculate_position_size(
+                    base_position_size=bot.position_size_usd,
+                    product_id=bot.pair,
+                    signal_confidence=overall_confidence
+                )
+                
+                evaluation_result['position_sizing'] = position_sizing_analysis
+                logger.info(
+                    f"💰 Position sizing for {bot.pair}: ${bot.position_size_usd} → "
+                    f"${position_sizing_analysis['final_position_size']} "
+                    f"({position_sizing_analysis['total_multiplier']:.2f}x)"
+                )
+                
+            except Exception as e:
+                logger.warning(f"Position sizing calculation failed for {bot.pair}: {e}")
+                evaluation_result['position_sizing'] = {
+                    'error': str(e),
+                    'base_position_size': bot.position_size_usd,
+                    'final_position_size': bot.position_size_usd,  # Fallback to base size
+                    'total_multiplier': 1.0
+                }
+        else:
+            # Static position sizing for non-position-sizing bots or hold actions
+            use_position_sizing = getattr(bot, 'use_position_sizing', False)
+            if use_position_sizing:
+                rationale = f'Static position sizing (action={action}, position sizing only applies to buy/sell)'
+            else:
+                rationale = 'Static position sizing (use_position_sizing=False)'
+            
+            evaluation_result['position_sizing'] = {
+                'base_position_size': bot.position_size_usd,
+                'final_position_size': bot.position_size_usd,
+                'total_multiplier': 1.0,
+                'sizing_rationale': rationale
+            }
         
         # Phase 4.2.1: Automatic trade execution on confirmed signals
         if self._should_execute_automatic_trade(bot, evaluation_result):
@@ -946,13 +1034,19 @@ class BotSignalEvaluator:
             current_temperature = calculate_bot_temperature(current_score)
             logger.info(f"🌡️ Using temperature: {current_temperature} (score: {current_score})")
             
-            # Execute trade with intelligent sizing (Phase 4.1.3 integration)
+            # Execute trade with intelligent sizing (Phase 2 + 4.1.3 integration)
+            # Use calculated position size if available, otherwise fall back to auto-sizing
+            calculated_size = None
+            if 'position_sizing' in evaluation_result and evaluation_result['position_sizing'].get('final_position_size'):
+                calculated_size = evaluation_result['position_sizing']['final_position_size']
+                logger.info(f"💰 Using Phase 2 calculated position size: ${calculated_size}")
+            
             trade_result = trading_service.execute_trade(
                 bot_id=bot.id,
                 side=action.upper(),  # Convert to uppercase ('BUY' or 'SELL')
-                size_usd=None,  # Let intelligent sizing handle it
+                size_usd=calculated_size,  # Use Phase 2 calculated size or None for auto-sizing
                 current_temperature=current_temperature,  # Pass current temperature
-                auto_size=True  # Use intelligent sizing from Phase 4.1.3
+                auto_size=(calculated_size is None)  # Only use auto-sizing if we don't have calculated size
             )
             
             # Log trade execution result with proper classification

@@ -121,6 +121,7 @@ class BotUpdate(BaseModel):
     cooldown_minutes: Optional[int] = None
     signal_config: Optional[SignalConfigurationSchema] = None
     use_trend_detection: Optional[bool] = None  # Phase 1: Market Regime Intelligence
+    use_position_sizing: Optional[bool] = None  # Phase 2: Position Sizing Intelligence
 
     @field_validator('signal_config', mode='before')
     @classmethod
@@ -161,6 +162,7 @@ class BotResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime]
     use_trend_detection: Optional[bool] = None  # Phase 1: Market Regime Intelligence
+    use_position_sizing: Optional[bool] = None  # Phase 2: Position Sizing Intelligence
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -234,6 +236,20 @@ class TimeframeAnalysis(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PositionSizingAnalysis(BaseModel):
+    """Position sizing analysis data."""
+    base_position_size: float
+    final_position_size: float
+    total_multiplier: float
+    sizing_rationale: str
+    regime_analysis: Optional[Dict[str, Any]] = None
+    multiplier_breakdown: Optional[Dict[str, Any]] = None
+    calculation_timestamp: Optional[str] = None
+    error: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
 class TrendAnalysisResponse(BaseModel):
     """Trend analysis data for regime-aware trading."""
     product_id: str = Field(description="Trading pair analyzed")
@@ -269,6 +285,10 @@ class EnhancedBotStatusResponse(BaseModel):
     # Phase 1: Market Regime Intelligence - Trend Detection
     trend_analysis: Optional[TrendAnalysisResponse] = None
     use_trend_detection: bool = False
+    
+    # Phase 2: Position Sizing Intelligence - Dynamic Position Sizing
+    position_sizing: Optional[PositionSizingAnalysis] = None
+    use_position_sizing: bool = False
     
     model_config = ConfigDict(from_attributes=True)
 

@@ -34,6 +34,9 @@ class Bot(Base):
     # Phase 1: Market Regime Intelligence - Trend Detection
     use_trend_detection = Column(Boolean, default=False)  # Enable/disable trend-based regime adaptation
     
+    # Phase 2: Position Sizing Intelligence - Dynamic Position Sizing
+    use_position_sizing = Column(Boolean, default=False)  # Enable/disable regime-adaptive position sizing
+    
     # Current state
     current_position_size = Column(Float, default=0.0)
     current_position_entry_price = Column(Float)
@@ -176,6 +179,113 @@ class TradingPair(Base):
         return f"<TradingPair {self.product_id}>"
 
 
+class SignalPredictionRecord(Base):
+    """
+    Phase 3A: Signal performance tracking - Individual signal predictions
+    Store each signal prediction for later performance evaluation
+    """
+    __tablename__ = "signal_predictions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    
+    # Signal context
+    pair = Column(String(20), index=True)
+    regime = Column(String(20), index=True)  # TRENDING, RANGING, CHOPPY, etc.
+    signal_type = Column(String(50), index=True)  # RSI, MA_Crossover, MACD
+    
+    # Prediction details
+    signal_score = Column(Float)
+    prediction = Column(String(10))  # buy, sell, hold
+    confidence = Column(Float)
+    
+    # Outcome evaluation (filled later)
+    actual_price_change_pct = Column(Float)  # Actual price change over evaluation period
+    outcome = Column(String(20))  # true_positive, false_positive, true_negative, false_negative
+    evaluation_timestamp = Column(DateTime(timezone=True))
+    
+    # Trade execution details (if applicable)
+    trade_executed = Column(Boolean, default=False)
+    trade_id = Column(Integer, ForeignKey("trades.id"))
+    trade_pnl_usd = Column(Float)  # P&L if trade was executed
+    
+    # Metadata
+    evaluation_period_minutes = Column(Integer, default=60)  # How long after to evaluate outcome
+    
+    def __repr__(self):
+        return f"<SignalPrediction {self.signal_type} {self.pair} {self.prediction}>"
+
+
+class SignalPerformanceMetrics(Base):
+    """
+    Phase 3A: Aggregated signal performance metrics by pair, regime, and signal type
+    Calculated periodically from SignalPredictionRecord data
+    """
+    __tablename__ = "signal_performance_metrics"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Performance context
+    pair = Column(String(20), index=True)
+    regime = Column(String(20), index=True)
+    signal_type = Column(String(50), index=True)
+    
+    # Performance metrics
+    total_predictions = Column(Integer, default=0)
+    accuracy = Column(Float, default=0.0)  # % correct predictions
+    precision = Column(Float, default=0.0)  # % positive predictions that were correct
+    recall = Column(Float, default=0.0)  # % opportunities that were caught
+    avg_confidence = Column(Float, default=0.0)
+    avg_pnl_usd = Column(Float, default=0.0)  # Average P&L when trades executed
+    
+    # Time ranges
+    calculation_period_days = Column(Integer, default=30)
+    last_updated = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    
+    # Metadata
+    min_samples_required = Column(Integer, default=20)
+    is_reliable = Column(Boolean, default=False)  # True if enough samples for reliability
+    
+    def __repr__(self):
+        return f"<SignalPerformanceMetrics {self.signal_type} {self.pair} {self.regime} {self.accuracy:.2f}>"
+
+
+class AdaptiveSignalWeights(Base):
+    """
+    Phase 3B: Store adaptive signal weights calculated from performance metrics
+    Used by bots to dynamically adjust signal importance
+    """
+    __tablename__ = "adaptive_signal_weights"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    bot_id = Column(Integer, ForeignKey("bots.id"), index=True)
+    
+    # Context
+    pair = Column(String(20), index=True)
+    regime = Column(String(20), index=True)
+    
+    # Adaptive weights (JSON format for flexibility)
+    signal_weights = Column(JSON)  # {"RSI": 0.35, "MA_Crossover": 0.40, "MACD": 0.25}
+    default_weights = Column(JSON)  # Original weights for comparison
+    
+    # Performance basis
+    weight_calculation_method = Column(String(50), default="performance_weighted")
+    performance_period_days = Column(Integer, default=30)
+    confidence_score = Column(Float, default=0.0)  # How confident we are in these weights
+    
+    # Metadata
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_used = Column(DateTime(timezone=True))
+    usage_count = Column(Integer, default=0)
+    
+    # Relationships
+    bot = relationship("Bot", back_populates="adaptive_weights")
+    
+    def __repr__(self):
+        return f"<AdaptiveSignalWeights Bot{self.bot_id} {self.regime}>"
+
+
 # Add back references
 Bot.signal_history = relationship("BotSignalHistory", back_populates="bot")
 Bot.trades = relationship("Trade", back_populates="bot")
+Bot.adaptive_weights = relationship("AdaptiveSignalWeights", back_populates="bot")

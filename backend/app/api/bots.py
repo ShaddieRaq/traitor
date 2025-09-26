@@ -547,6 +547,24 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                 except Exception as e:
                     logger.warning(f"⚠️  Failed to get trend analysis for {bot.pair}: {e}")
             
+            # Phase 2: Add position sizing analysis if enabled for this bot
+            position_sizing = None
+            if getattr(bot, 'use_position_sizing', False):
+                try:
+                    from ..services.position_sizing_engine import get_position_sizing_engine
+                    sizing_engine = get_position_sizing_engine()
+                    
+                    position_sizing_data = sizing_engine.calculate_position_size(
+                        base_position_size=bot.position_size_usd,
+                        product_id=bot.pair,
+                        signal_confidence=confidence,
+                        override_regime=trend_analysis if trend_analysis else None
+                    )
+                    position_sizing = position_sizing_data
+                    logger.info(f"💰 Position sizing for {bot.pair}: ${position_sizing_data['final_position_size']:.2f} ({position_sizing_data['total_multiplier']:.2f}x)")
+                except Exception as e:
+                    logger.warning(f"⚠️  Failed to get position sizing for {bot.pair}: {e}")
+            
             enhanced_status_list.append(EnhancedBotStatusResponse(
                 id=bot.id,
                 name=bot.name,
@@ -561,7 +579,9 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                 trade_readiness=trade_readiness,
                 last_trade=last_trade,
                 trend_analysis=trend_analysis,
-                use_trend_detection=getattr(bot, 'use_trend_detection', False)
+                use_trend_detection=getattr(bot, 'use_trend_detection', False),
+                position_sizing=position_sizing,
+                use_position_sizing=getattr(bot, 'use_position_sizing', False)
             ))
             
         except Exception as e:
@@ -581,7 +601,9 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                 trade_readiness=TradeReadiness(status="no_signal", can_trade=False),
                 last_trade=None,
                 trend_analysis=None,
-                use_trend_detection=getattr(bot, 'use_trend_detection', False)
+                use_trend_detection=getattr(bot, 'use_trend_detection', False),
+                position_sizing=None,
+                use_position_sizing=getattr(bot, 'use_position_sizing', False)
             ))
     
     return enhanced_status_list

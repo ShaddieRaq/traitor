@@ -69,6 +69,10 @@ app.include_router(new_pairs.router, prefix="/api/v1/new-pairs", tags=["new-pair
 from .api import position_reconciliation
 app.include_router(position_reconciliation.router, prefix="/api/v1/position-reconciliation", tags=["position-reconciliation"])
 
+# Phase 3A: Signal Performance Analytics API
+from .api import signal_performance
+app.include_router(signal_performance.router, prefix="/api/v1/signal-performance", tags=["signal-performance"])
+
 
 @app.get("/")
 def read_root():

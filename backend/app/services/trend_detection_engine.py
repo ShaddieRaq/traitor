@@ -122,14 +122,14 @@ class TrendDetectionEngine:
         
         result = {
             'product_id': product_id,
-            'trend_strength': round(trend_strength, 4),
-            'confidence': round(confidence, 4),
+            'trend_strength': float(trend_strength),
+            'confidence': float(confidence),
             'regime': regime,
             'timeframe_analysis': timeframe_analysis,
-            'volume_confirmation': volume_confirmation,
+            'volume_confirmation': bool(volume_confirmation),
             'moving_average_alignment': ma_alignment,
             'analysis_timestamp': datetime.utcnow().isoformat(),
-            'cache_ttl_seconds': self._cache_ttl
+            'cache_ttl_seconds': int(self._cache_ttl)
         }
         
         logger.info(f"✅ Trend analysis complete for {product_id}: "
@@ -170,11 +170,11 @@ class TrendDetectionEngine:
                 momentum = self._calculate_momentum(data)
                 
                 analysis[timeframe] = {
-                    'momentum': round(momentum, 4),
-                    'data_points': len(data),
+                    'momentum': float(momentum),
+                    'data_points': int(len(data)),
                     'timeframe_name': config['name'],
-                    'price_change_pct': round(self._calculate_price_change_pct(data), 4),
-                    'volatility': round(data['close'].pct_change().std() * 100, 4) if len(data) > 1 else 0.0
+                    'price_change_pct': float(self._calculate_price_change_pct(data)),
+                    'volatility': float(data['close'].pct_change().std() * 100) if len(data) > 1 else 0.0
                 }
                 
             except Exception as e:
