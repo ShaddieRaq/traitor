@@ -2,33 +2,26 @@
 
 ## System Overview
 
-This is a **production-ready autonomous cryptocurrency trading system** with 11 active bots managing live funds across major trading pairs. The system features sophisticated signal processing, intelligent caching, and comprehensive risk management.
+This is a **production-ready autonomous cryptocurrency trading system** with 11 active bots managing live funds across major trading pairs. The system features so# Check bot visibility (should see 12 bots)
+curl -s "http://localhost:8000/api/v1/bots/" | jq 'length'isticated signal processing, intelligent caching, and comprehensive risk management.
 
 ### Core Architecture
-- **Backend*### Current System Context (September 21, 2025)
-
-### Immedia### Current System Context (September 21, 2025)
+- **Backend*### Current System Context (September 26, 2025)
 
 ### Immediate System State
-- **11 Active Bots**: BTC-USD, ETH-USD, SOL-USD, XRP-USD, DOGE-USD, AVNT-USD, AERO-USD, SUI-USD, AVAX-USD, TOSHI-USD, PENGU-USD
-- **Single Database**: `/trader.db` at project root (3,929+ fills synced)
+- **12 Active Bots**: BTC-USD, ETH-USD, SOL-USD, XRP-USD, DOGE-USD, AVNT-USD, AERO-USD, SUI-USD, AVAX-USD, TOSHI-USD, PENGU-USD, ADA-USD
+- **Single Database**: `/trader.db` at project root (production database with live trades)
 - **Unified Dashboard**: Main dashboard at root route with stable charts and live data
 - **Cache Performance**: 80%+ hit rates eliminating API rate limits
 - **Real-time Updates**: 5-second polling across frontend components
 - **Background Processing**: Celery workers handling order sync every 30 seconds
-- **System-wide Optimization**: All 11 bots use ±0.05 thresholds (739% increase in trading activity)
+- **System-wide Optimization**: All 12 bots use ±0.05 thresholds for optimal trading sensitivity
 - **Frontend Signal Logic**: Fully corrected signal interpretation across all UI components
 - **Dual-Table Auto-Sync**: Both Trade and RawTrade tables update automatically on all new trades
-- **Automated Market Scanning**: Hourly market analysis with opportunity alerts every 30 minutesate
-- **11 Active Bots**: BTC-USD, ETH-USD, SOL-USD, XRP-USD, DOGE-USD, AVNT-USD, AERO-USD, SUI-USD, AVAX-USD, TOSHI-USD, PENGU-USD
-- **Single Database**: `/trader.db` at project root (3,929+ fills synced)
-- **Unified Dashboard**: Main dashboard at root route with stable charts and live data
-- **Cache Performance**: 80%+ hit rates eliminating API rate limits
-- **Real-time Updates**: 5-second polling across frontend components
-- **Background Processing**: Celery workers handling order sync every 30 seconds
-- **System-wide Optimization**: All 11 bots use ±0.05 thresholds (54.5% active trading activity)
-- **Frontend Signal Logic**: Fully corrected signal interpretation across all UI components
-- **Dual-Table Auto-Sync**: Both Trade and RawTrade tables update automatically on all new trades+ SQLAlchemy ORM + Celery/Redis for background tasks
+- **System Recovery**: Operational after September 22 system issues (Docker/Redis resolved)
+
+### Core Architecture
+- **Backend**: FastAPI + SQLAlchemy ORM + Celery/Redis for background tasks
 - **Frontend**: React 18 + TypeScript + Vite + TailwindCSS with TanStack Query (5-second polling)
 - **Database**: Single unified SQLite file (`/trader.db`) with models in `/backend/app/models/models.py`
 - **API Structure**: RESTful with `/api/v1/` prefix, feature-organized routes in `/backend/app/api/`
@@ -37,7 +30,7 @@ This is a **production-ready autonomous cryptocurrency trading system** with 11 
 - **Caching Layer**: Market data caching with 30-second TTL achieving 80%+ hit rates (eliminates rate limiting)
 
 ### Essential Development Context
-- **Bot-Per-Pair Architecture**: Each `Bot` entity manages exactly one trading pair (11 active bots)
+- **Bot-Per-Pair Architecture**: Each `Bot` entity manages exactly one trading pair (12 active bots)
 - **Smart Caching Pattern**: Market data cached with 30s TTL via `MarketDataCache` - 80%+ API call reduction
 - **Balance Pre-Check Optimization**: Bots skip signal processing when insufficient balance (~60% API reduction)
 - **Signal Factory Pattern**: Dynamic signal creation via `create_signal_instance()` in `/backend/app/services/signals/base.py`
@@ -45,6 +38,40 @@ This is a **production-ready autonomous cryptocurrency trading system** with 11 
 - **Unified Database**: Single `/trader.db` file - **CRITICAL: No longer multiple database files**
 - **Consolidated Dashboard**: Single main dashboard at root route with stable charts and live data integration
 - **Python Environment Management**: Always use `configure_python_environment` tool before any Python operations
+
+## 🚀 ACTIVE DEVELOPMENT: Market Regime Intelligence - PHASE 1 COMPLETE (Sept 26, 2025)
+
+### Phase 1 Market Regime Intelligence Framework - ✅ DEPLOYED
+**Status**: **COMPLETE** - All 12 bots using regime-adaptive trading thresholds
+**Timeline**: September 26, 2025 (Completed in 1 day)
+**Strategy**: Automatic parameter adjustment based on market regime detection
+
+#### **Phase 1 FULL DEPLOYMENT:**
+- **1A: Core Engine** - ✅ TrendDetectionEngine service with multi-timeframe momentum analysis  
+- **1B: Integration** - ✅ API endpoints (`/api/v1/trends/`), Bot model updates, evaluation integration
+- **1C: Testing** - ✅ BTC-USD validation, regime classification accuracy confirmed
+- **1D: Automation** - ✅ Dynamic threshold adjustment, confidence weighting, system-wide deployment
+
+#### **Technical Implementation Results:**
+- **Regime-Adaptive Thresholds**: 
+  - STRONG_TRENDING: ±0.02 (most responsive)
+  - TRENDING: ±0.03 (responsive) ← Currently active for BTC/ETH/SOL
+  - RANGING: ±0.08 (conservative)
+  - CHOPPY: ±0.12 (very conservative)
+- **System-Wide Deployment**: All 12 bots (`use_trend_detection=true`)
+- **Performance**: Multi-timeframe analysis cached 5 minutes, integrated with existing signal system
+- **Data Sources**: Multi-timeframe (5min, 1hour, daily) OHLCV from existing CoinbaseService
+- **Current Regime**: TRENDING market conditions across major pairs (bearish trend)
+
+#### **Outcome**: 
+✅ **MISSION ACCOMPLISHED** - Static ±0.05 thresholds replaced with intelligent regime-adaptive parameters. All 12 bots now automatically optimize sensitivity for trending vs ranging market conditions.
+
+## 🎯 NEXT PHASE: Phase 2 Position Sizing Intelligence (Upcoming)
+
+### Phase 2 Implementation Plan
+**Objective**: Adaptive position sizing based on market volatility and trend strength
+**Timeline**: TBD
+**Strategy**: Dynamic position size adjustment based on regime confidence and volatility analysis
 
 ## Bot-Centric Design Patterns
 
@@ -204,6 +231,8 @@ curl "http://localhost:8000/api/v1/bots/" | jq '.[] | {name, status, current_com
 - **Error Handling**: Toast notifications with extended display for errors
 - **Component Structure**: `/frontend/src/pages/DashboardRedesigned.tsx` as main dashboard
 - **API Hooks**: Centralized in `/frontend/src/hooks/` using TanStack Query patterns
+- **System Health Monitoring**: Enhanced `SystemHealthPanel` with live logs, health scores, and critical event tracking
+- **Real-time Diagnostics**: `/api/v1/diagnosis/trading-diagnosis` for comprehensive bot health analysis
 
 **Critical Frontend Pattern**: All data hooks use aggressive polling with consistent TanStack Query configuration:
 ```typescript
@@ -249,9 +278,28 @@ curl -s "http://localhost:8000/api/v1/bots/" | jq 'length'
 ### Development Workflow Patterns
 - **Always use `./scripts/test-workflow.sh`** after any significant changes
 - **Use `./scripts/quick-test.sh`** for rapid iteration during development
-- **Check `./scripts/status.sh`** when services seem unresponsive
+- **Check `./scripts/status.sh`** when services seem unresponsive - **ALWAYS CHECK THIS FIRST**
 - **Monitor `./scripts/logs.sh`** for real-time debugging
 - **Database changes**: Manual SQLAlchemy migrations only (no automatic migrations)
+- **Docker Dependency**: System requires Docker for Redis - verify `docker --version` before debugging
+- **Recovery Pattern**: If system broken, never restart without `./scripts/status.sh` first
+
+### Critical Recovery Procedures (Post-September 22 Learning)
+```bash
+# If system appears broken (services won't start):
+# 1. ALWAYS check system health first (don't restart blindly)
+./scripts/status.sh
+
+# 2. Verify Docker is available (critical for Redis)
+docker --version && docker-compose --version
+
+# 3. If Docker missing, system cannot start - human intervention required
+# 4. Safe restart sequence only after health check
+./scripts/stop.sh && ./scripts/start.sh
+
+# 5. Verify recovery
+curl "http://localhost:8000/api/v1/bots/" | jq 'length'  # Should return 12
+```
 
 ## Project-Specific Patterns & Conventions
 
@@ -288,17 +336,25 @@ Enhanced multi-tranche position tracking:
 
 ## Known Issues & Critical Context
 
-### ⚠️ CRITICAL AI AGENT WARNINGS - UPDATED SEPTEMBER 21, 2025
+**⚠️ CRITICAL AI AGENT WARNINGS - UPDATED SEPTEMBER 26, 2025**
+
+**DEVELOPMENT PHILOSOPHY - NO BUGS ALLOWED**:
+- 🚨 **NEVER MOVE TO NEXT PHASE WITH BROKEN CODE**: If you introduce a bug, you MUST fix it before proceeding
+- 🚨 **WORK IS NOT COMPLETE IF NEW BUGS EXIST**: Adding features while leaving bugs is unacceptable development practice
+- 🚨 **TEST EVERY NEW ENDPOINT/FEATURE**: Never assume new code works - always verify with actual API calls
+- 🚨 **SCHEMA VALIDATION REQUIRED**: When creating APIs, ensure Pydantic schemas match actual response structure exactly
+- 🚨 **IMMEDIATE BUG FIXING**: When APIs return "Internal Server Error", stop all other work and fix the error first
 
 **SYSTEM ARCHITECTURE STATUS**:
 - ✅ **Single Database**: `/trader.db` is the authoritative database (no backend/trader.db split)
 - ✅ **Unified Configuration**: All services use main database at project root
-- ✅ **11 Active Bots**: All bots operational across major trading pairs (BTC, ETH, SOL, XRP, DOGE, AVNT, AERO, SUI, AVAX, TOSHI, PENGU)
+- ✅ **12 Active Bots**: All bots operational including new ADA-USD bot (BTC, ETH, SOL, XRP, DOGE, AVNT, AERO, SUI, AVAX, TOSHI, PENGU, ADA)
 - ✅ **Rate Limiting Resolved**: Intelligent market data caching with 80%+ hit rates
 - ✅ **Real-time P&L**: Live profit/loss tracking via clean `raw_trades` data
 - ✅ **System-wide Optimization**: All bots use ±0.05 thresholds (50% more sensitive)
-- ✅ **Frontend Signal Logic**: Fixed inverted signal interpretation across all UI components (September 21, 2025)
-- ✅ **Dual-Table Auto-Sync**: FIXED - Both Trade and RawTrade tables now update automatically (September 21, 2025)
+- ✅ **Frontend Signal Logic**: Fixed inverted signal interpretation across all UI components
+- ✅ **Dual-Table Auto-Sync**: Both Trade and RawTrade tables update automatically
+- ⚠️ **Recent System Recovery**: September 22 Docker/Redis issues resolved - system operational
 
 **CURRENT API USAGE GUIDELINES**:
 - ✅ **Primary Data Source**: `/api/v1/raw-trades/pnl-by-product` for performance data
@@ -309,24 +365,31 @@ Enhanced multi-tranche position tracking:
 - ⚠️ **Legacy APIs**: Some `/api/v1/trades/` endpoints may have stale data - verify before use
 
 **AI AGENT DEVELOPMENT GUIDELINES**:
-- Always verify API endpoints return data before suggesting them
+- Always run `./scripts/status.sh` first to verify system health
 - Use `configure_python_environment` tool before Python operations
 - Database schema changes require manual column additions via SQLAlchemy
-- All 11 bots should be visible - if not, check unified database connection
-- When debugging, start with `./scripts/status.sh` for service health
+- All 12 bots should be visible - if not, check unified database connection
+- When debugging, start with system health checks, not service restarts
 - **Signal Logic**: Negative scores = BUY signals, Positive scores = SELL signals (consistent across frontend/backend)
+- **Docker Dependencies**: System requires Docker for Redis - do not attempt fixes without proper Docker setup
+- 🚨 **BUG-FREE DEVELOPMENT**: Never introduce new features while bugs exist - fix all issues before proceeding
+- 🚨 **SCHEMA MATCHING**: Pydantic response models must exactly match actual API response structure
+- 🚨 **IMMEDIATE TESTING**: Every new API endpoint must be tested with actual HTTP calls before considering work complete
 
 ### Current Major Issues
 
-**System Status**: ✅ **ALL MAJOR ISSUES RESOLVED**
+**System Status**: ✅ **ALL MAJOR ISSUES RESOLVED** (Post-September 22 Recovery)
+- ✅ **Docker/Redis Setup**: System requires Docker for Redis container - properly configured
+- ✅ **Service Management**: All services start reliably via `./scripts/start.sh`
 - ✅ **Rate Limiting**: Intelligent market data caching eliminates 429 errors (80%+ API reduction)
 - ✅ **Order Synchronization**: 30-second Celery task handles automatic updates
 - ✅ **Database Integrity**: Single unified database with clean `raw_trades` data
 - ✅ **Balance Pre-Check Optimization**: Bots skip signal processing when insufficient balance
 - ✅ **Trading Intent Consistency**: Fixed September 2025 - unified BUY/SELL logic across bot cards
-- ✅ **System-wide Threshold Optimization**: All 11 bots optimized with ±0.05 thresholds (September 20, 2025)
-- ✅ **Frontend Signal Logic Fix**: Corrected inverted signal interpretation across all UI components (September 21, 2025)
-- ✅ **Dual-Table Auto-Sync Fix**: Fixed automatic RawTrade sync for immediately filled orders (September 21, 2025)
+- ✅ **System-wide Threshold Optimization**: All 12 bots optimized with ±0.05 thresholds
+- ✅ **Frontend Signal Logic Fix**: Corrected inverted signal interpretation across all UI components
+- ✅ **Dual-Table Auto-Sync Fix**: Fixed automatic RawTrade sync for immediately filled orders
+- ✅ **ADA-USD Bot Addition**: 12th bot successfully integrated with standard configuration
 
 **For Current Issues Check**:
 ```bash
@@ -430,18 +493,19 @@ bash scripts/position-reconcile.sh fix
 **Position Reconciliation**: `/scripts/position-reconcile.sh`  
 **Health Monitoring**: `/scripts/health_monitor.sh`  
 
-## Current System Context (September 21, 2025)
+### Current System Context (September 26, 2025)
 
 ### Immediate System State
-- **11 Active Bots**: BTC-USD, ETH-USD, SOL-USD, XRP-USD, DOGE-USD, AVNT-USD, AERO-USD, SUI-USD, AVAX-USD, TOSHI-USD, PENGU-USD
-- **Single Database**: `/trader.db` at project root (3,606+ trades)
+- **12 Active Bots**: BTC-USD, ETH-USD, SOL-USD, XRP-USD, DOGE-USD, AVNT-USD, AERO-USD, SUI-USD, AVAX-USD, TOSHI-USD, PENGU-USD, ADA-USD
+- **Single Database**: `/trader.db` at project root (production database with live trades)
 - **Unified Dashboard**: Main dashboard at root route with stable charts and live data
 - **Cache Performance**: 80%+ hit rates eliminating API rate limits
 - **Real-time Updates**: 5-second polling across frontend components
 - **Background Processing**: Celery workers handling order sync every 30 seconds
-- **System-wide Optimization**: All 11 bots use ±0.05 thresholds (739% increase in trading activity)
+- **System-wide Optimization**: All 12 bots use ±0.05 thresholds for optimal trading sensitivity
 - **Frontend Signal Logic**: Fully corrected signal interpretation across all UI components
 - **Dual-Table Auto-Sync**: Both Trade and RawTrade tables update automatically on all new trades
+- **System Recovery**: Operational after September 22 system issues (Docker/Redis resolved)
 
 ### Production-Ready Features
 - **Dashboard Consolidation**: Single main dashboard with fixed oscillating charts
@@ -456,3 +520,4 @@ bash scripts/position-reconcile.sh fix
 - **Clean Data Architecture**: Dual-table system ensures both operational and financial data integrity
 - **Automatic Sync System**: Fixed September 21, 2025 - both immediate fills and pending orders sync to RawTrade
 - **Optimized Trading Performance**: 739% increase in activity through ±0.05 threshold optimization
+- **12-Bot Architecture**: Comprehensive coverage including major coins (BTC, ETH, SOL) and emerging tokens (ADA, PENGU, TOSHI)

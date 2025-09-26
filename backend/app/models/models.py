@@ -31,6 +31,9 @@ class Bot(Base):
     # Performance optimization settings
     skip_signals_on_low_balance = Column(Boolean, default=False)  # Skip signal processing when balance insufficient
     
+    # Phase 1: Market Regime Intelligence - Trend Detection
+    use_trend_detection = Column(Boolean, default=False)  # Enable/disable trend-based regime adaptation
+    
     # Current state
     current_position_size = Column(Float, default=0.0)
     current_position_entry_price = Column(Float)

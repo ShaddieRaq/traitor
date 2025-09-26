@@ -120,6 +120,7 @@ class BotUpdate(BaseModel):
     trade_step_pct: Optional[float] = None
     cooldown_minutes: Optional[int] = None
     signal_config: Optional[SignalConfigurationSchema] = None
+    use_trend_detection: Optional[bool] = None  # Phase 1: Market Regime Intelligence
 
     @field_validator('signal_config', mode='before')
     @classmethod
@@ -159,6 +160,7 @@ class BotResponse(BaseModel):
     signal_confirmation_start: Optional[datetime]
     created_at: datetime
     updated_at: Optional[datetime]
+    use_trend_detection: Optional[bool] = None  # Phase 1: Market Regime Intelligence
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -220,6 +222,33 @@ class BotStatusResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# Phase 1: Market Regime Intelligence - Trend Detection Schema
+class TimeframeAnalysis(BaseModel):
+    """Individual timeframe analysis data."""
+    momentum: float
+    data_points: int
+    timeframe_name: str
+    price_change_pct: float
+    volatility: float
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TrendAnalysisResponse(BaseModel):
+    """Trend analysis data for regime-aware trading."""
+    product_id: str = Field(description="Trading pair analyzed")
+    trend_strength: float = Field(description="Trend strength (-1.0 to +1.0)")
+    confidence: float = Field(description="Analysis confidence (0 to 1.0)")
+    regime: str = Field(description="Market regime (STRONG_TRENDING, TRENDING, RANGING, CHOPPY)")
+    moving_average_alignment: str = Field(description="MA alignment (BULLISH, BEARISH, NEUTRAL)")
+    volume_confirmation: bool = Field(description="Whether volume confirms the trend")
+    analysis_timestamp: str = Field(description="When analysis was performed")
+    cache_ttl_seconds: int = Field(description="Cache TTL in seconds")
+    timeframe_analysis: Dict[str, TimeframeAnalysis] = Field(description="Multi-timeframe analysis")
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
 class EnhancedBotStatusResponse(BaseModel):
     """Enhanced bot status with trading visibility."""
     id: int
@@ -236,6 +265,10 @@ class EnhancedBotStatusResponse(BaseModel):
     confirmation: ConfirmationStatus
     trade_readiness: TradeReadiness
     last_trade: Optional[LastTradeInfo] = None
+    
+    # Phase 1: Market Regime Intelligence - Trend Detection
+    trend_analysis: Optional[TrendAnalysisResponse] = None
+    use_trend_detection: bool = False
     
     model_config = ConfigDict(from_attributes=True)
 

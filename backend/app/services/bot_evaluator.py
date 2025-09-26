@@ -323,27 +323,71 @@ class BotSignalEvaluator:
         """
         Determine trading action based on overall score and bot-specific thresholds.
         
+        Phase 1D: Market Regime Intelligence - Dynamic thresholds based on trend regime.
         Supports per-bot threshold configuration via signal_config.trading_thresholds
         Falls back to default thresholds if not configured.
         """
         
-        # Check for bot-specific thresholds in signal_config
-        try:
-            signal_config = json.loads(bot.signal_config) if isinstance(bot.signal_config, str) else bot.signal_config
-            if signal_config and 'trading_thresholds' in signal_config:
-                thresholds = signal_config['trading_thresholds']
-                buy_threshold = thresholds.get('buy_threshold', -0.1)
-                sell_threshold = thresholds.get('sell_threshold', 0.1)
-                logger.info(f"Using custom thresholds for {bot.pair}: buy={buy_threshold}, sell={sell_threshold}")
-            else:
-                # Default thresholds
-                buy_threshold = -0.1  # Lowered for testing (was -0.3)
-                sell_threshold = 0.1   # Lowered for testing (was 0.3)
-        except Exception as e:
-            # Fallback to default if any error
-            buy_threshold = -0.1  # Lowered for testing (was -0.3)
-            sell_threshold = 0.1   # Lowered for testing (was 0.3)
-            logger.warning(f"Error reading thresholds for {bot.pair}, using defaults: {e}")
+        # Phase 1D: Check if this bot uses trend-adaptive thresholds
+        if getattr(bot, 'use_trend_detection', False):
+            try:
+                from .trend_detection_engine import get_trend_engine
+                trend_engine = get_trend_engine()
+                regime_data = trend_engine.analyze_trend(bot.pair)
+                
+                # Dynamic thresholds based on market regime
+                if regime_data['regime'] == 'STRONG_TRENDING':
+                    # Very tight thresholds for strong trends - most responsive
+                    buy_threshold = -0.02
+                    sell_threshold = 0.02
+                    regime_reason = f"STRONG_TRENDING ({regime_data['trend_strength']:.3f})"
+                elif regime_data['regime'] == 'TRENDING':
+                    # Tight thresholds for trending markets - more responsive
+                    buy_threshold = -0.03
+                    sell_threshold = 0.03
+                    regime_reason = f"TRENDING ({regime_data['trend_strength']:.3f})"
+                elif regime_data['regime'] == 'RANGING':
+                    # Loose thresholds for ranging markets - less noise
+                    buy_threshold = -0.08
+                    sell_threshold = 0.08
+                    regime_reason = f"RANGING ({regime_data['trend_strength']:.3f})"
+                elif regime_data['regime'] == 'CHOPPY':
+                    # Very loose thresholds for choppy markets - avoid false signals
+                    buy_threshold = -0.12
+                    sell_threshold = 0.12
+                    regime_reason = f"CHOPPY ({regime_data['trend_strength']:.3f})"
+                else:
+                    # Fallback to moderate thresholds
+                    buy_threshold = -0.05
+                    sell_threshold = 0.05
+                    regime_reason = f"UNKNOWN ({regime_data['trend_strength']:.3f})"
+                
+                logger.info(f"🎯 Regime-adaptive thresholds for {bot.pair}: {regime_reason} → buy={buy_threshold}, sell={sell_threshold}")
+                
+            except Exception as e:
+                logger.warning(f"⚠️  Failed to get trend regime for {bot.pair}, using static thresholds: {e}")
+                # Fallback to static threshold logic
+                buy_threshold = -0.05
+                sell_threshold = 0.05
+        else:
+            # Original static threshold logic for non-regime bots
+            # Check for bot-specific thresholds in signal_config
+            try:
+                signal_config = json.loads(bot.signal_config) if isinstance(bot.signal_config, str) else bot.signal_config
+                if signal_config and 'trading_thresholds' in signal_config:
+                    thresholds = signal_config['trading_thresholds']
+                    buy_threshold = thresholds.get('buy_threshold', -0.1)
+                    sell_threshold = thresholds.get('sell_threshold', 0.1)
+                    logger.info(f"Using custom thresholds for {bot.pair}: buy={buy_threshold}, sell={sell_threshold}")
+                else:
+                    # Default thresholds for static bots
+                    buy_threshold = -0.05  # System-wide optimized threshold
+                    sell_threshold = 0.05   # System-wide optimized threshold
+            except Exception as e:
+                # Fallback to default if any error
+                buy_threshold = -0.05
+                sell_threshold = 0.05
+                logger.warning(f"Error reading thresholds for {bot.pair}, using defaults: {e}")
         
         if overall_score <= buy_threshold:
             return 'buy'

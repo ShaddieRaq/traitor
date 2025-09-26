@@ -314,9 +314,10 @@ def get_bot_confirmation_status(bot_id: int, db: Session = Depends(get_db)):
 
 @router.get("/status/enhanced", response_model=List[EnhancedBotStatusResponse])
 def get_enhanced_bots_status(db: Session = Depends(get_db)):
-    """Get enhanced bot status with trading visibility for Phase 4.3."""
+    """Get enhanced bot status with trading visibility for Phase 4.3 + Phase 1 trend detection."""
     from ..services.bot_evaluator import get_bot_evaluator
     from ..services.coinbase_service import coinbase_service
+    from ..services.trend_detection_engine import get_trend_engine  # Phase 1 addition
     from ..models.models import Trade
     from ..api.schemas import EnhancedBotStatusResponse, TradingIntent, ConfirmationStatus, TradeReadiness, LastTradeInfo
     from ..utils.temperature import calculate_bot_temperature
@@ -325,6 +326,7 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
     
     bots = db.query(Bot).all()
     evaluator = get_bot_evaluator(db)
+    trend_engine = get_trend_engine()  # Phase 1: Initialize trend detection engine
     
     # Get fresh market data for all unique trading pairs
     market_data_cache = {}
@@ -535,6 +537,16 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                     minutes_ago=minutes_ago
                 )
             
+            # Phase 1: Add trend analysis if enabled for this bot
+            trend_analysis = None
+            if getattr(bot, 'use_trend_detection', False):
+                try:
+                    trend_data = trend_engine.analyze_trend(bot.pair)
+                    trend_analysis = trend_data  # trend_data is already a dict matching TrendAnalysisResponse
+                    logger.info(f"✅ Trend analysis for {bot.pair}: {trend_data['regime']} ({trend_data['strength']:.3f})")
+                except Exception as e:
+                    logger.warning(f"⚠️  Failed to get trend analysis for {bot.pair}: {e}")
+            
             enhanced_status_list.append(EnhancedBotStatusResponse(
                 id=bot.id,
                 name=bot.name,
@@ -547,7 +559,9 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                 trading_intent=trading_intent,
                 confirmation=confirmation,
                 trade_readiness=trade_readiness,
-                last_trade=last_trade
+                last_trade=last_trade,
+                trend_analysis=trend_analysis,
+                use_trend_detection=getattr(bot, 'use_trend_detection', False)
             ))
             
         except Exception as e:
@@ -565,7 +579,9 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                 trading_intent=TradingIntent(next_action="hold", signal_strength=0.0, confidence=0.0, distance_to_threshold=1.0),
                 confirmation=ConfirmationStatus(is_active=False),
                 trade_readiness=TradeReadiness(status="no_signal", can_trade=False),
-                last_trade=None
+                last_trade=None,
+                trend_analysis=None,
+                use_trend_detection=getattr(bot, 'use_trend_detection', False)
             ))
     
     return enhanced_status_list
