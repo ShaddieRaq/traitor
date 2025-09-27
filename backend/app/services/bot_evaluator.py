@@ -172,6 +172,7 @@ class BotSignalEvaluator:
         evaluation_result['confirmation_status'] = confirmation_status
         
         # Phase 3A: Signal Performance Tracking - Record individual signal predictions
+        logger.info(f"📊 Starting signal performance tracking for {bot.pair}, signals: {list(signal_results.keys())}")
         try:
             from .signal_performance_tracker import get_signal_performance_tracker
             from .trend_detection_engine import get_trend_engine
@@ -206,7 +207,7 @@ class BotSignalEvaluator:
                     # Record the prediction for later performance evaluation
                     performance_tracker.record_signal_prediction(prediction)
                     
-                    logger.debug(
+                    logger.info(
                         f"📊 Recorded signal prediction: {signal_name} → {signal_result['action']} "
                         f"(score: {signal_result['score']:.3f}, confidence: {signal_result['confidence']:.3f})"
                     )

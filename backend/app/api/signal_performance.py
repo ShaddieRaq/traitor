@@ -300,3 +300,118 @@ def get_performance_report(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate report: {str(e)}")
+
+
+@router.post("/adaptive-weighting/update-bot-weights/{bot_id}")
+def trigger_bot_weight_update(bot_id: int, db: Session = Depends(get_db)):
+    """
+    Manually trigger weight update for a specific bot.
+    
+    This endpoint allows manual triggering of Phase 3B weight updates
+    for testing and immediate application of performance insights.
+    """
+    try:
+        from ..services.adaptive_signal_weighting import get_adaptive_weighting_service
+        
+        weighting_service = get_adaptive_weighting_service()
+        result = weighting_service.process_bot_weight_update(bot_id)
+        
+        if result['success']:
+            return {
+                "success": True,
+                "message": result['message'],
+                "bot_id": bot_id,
+                "old_weights": result['old_weights'],
+                "new_weights": result['new_weights'],
+                "performance_metrics": result['performance_metrics'],
+                "timestamp": result['timestamp']
+            }
+        else:
+            return {
+                "success": False,
+                "message": result['message'],
+                "bot_id": bot_id,
+                "timestamp": result['timestamp']
+            }
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update bot weights: {str(e)}")
+
+
+@router.post("/adaptive-weighting/update-all-bots")
+def trigger_all_bots_weight_update(db: Session = Depends(get_db)):
+    """
+    Trigger weight updates for all eligible bots.
+    
+    This endpoint manually triggers the background process that
+    checks and updates weights for all bots that meet the criteria.
+    """
+    try:
+        from ..tasks.adaptive_weighting_tasks import update_all_eligible_bots_weights_task
+        
+        # Trigger the Celery task
+        task_result = update_all_eligible_bots_weights_task.delay()
+        
+        return {
+            "success": True,
+            "message": "Weight update task triggered for all eligible bots",
+            "task_id": task_result.id,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to trigger weight updates: {str(e)}")
+
+
+@router.get("/adaptive-weighting/status")
+def get_adaptive_weighting_status(db: Session = Depends(get_db)):
+    """
+    Get status of adaptive weighting system across all bots.
+    
+    Returns overview of which bots are eligible for weight updates,
+    recent update history, and system health.
+    """
+    try:
+        from ..services.adaptive_signal_weighting import get_adaptive_weighting_service
+        from ..models.models import Bot, AdaptiveSignalWeights
+        
+        weighting_service = get_adaptive_weighting_service()
+        
+        # Get all active bots
+        active_bots = db.query(Bot).filter(Bot.status == 'RUNNING').all()
+        
+        bot_status = []
+        total_eligible = 0
+        
+        for bot in active_bots:
+            should_update, reason = weighting_service.should_update_weights(bot, db)
+            
+            # Get last update info
+            last_update = db.query(AdaptiveSignalWeights).filter(
+                AdaptiveSignalWeights.bot_id == bot.id
+            ).order_by(AdaptiveSignalWeights.created_at.desc()).first()
+            
+            bot_info = {
+                "bot_id": bot.id,
+                "name": bot.name,
+                "pair": bot.pair,
+                "eligible_for_update": should_update,
+                "reason": reason,
+                "last_update": last_update.created_at.isoformat() if last_update else None,
+                "last_update_performance": last_update.confidence_score if last_update else None
+            }
+            
+            bot_status.append(bot_info)
+            if should_update:
+                total_eligible += 1
+        
+        return {
+            "success": True,
+            "total_bots": len(active_bots),
+            "eligible_for_update": total_eligible,
+            "bot_details": bot_status,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get weighting status: {str(e)}")

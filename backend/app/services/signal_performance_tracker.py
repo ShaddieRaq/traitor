@@ -16,6 +16,7 @@ from enum import Enum
 import json
 import numpy as np
 from collections import defaultdict, deque
+from sqlalchemy import and_
 
 logger = logging.getLogger(__name__)
 
@@ -109,8 +110,8 @@ class SignalPerformanceTracker:
                 self.db.add(db_record)
                 self.db.commit()
                 
-                logger.debug(
-                    f"📊 Recorded signal prediction to database: {prediction.signal_type} for {prediction.pair} "
+                logger.info(
+                    f"✅ COMMITTED signal prediction to database: {prediction.signal_type} for {prediction.pair} "
                     f"in {prediction.regime} regime → {prediction.prediction} (confidence: {prediction.confidence:.3f})"
                 )
                 
@@ -417,6 +418,133 @@ class SignalPerformanceTracker:
                 }
         
         return report
+    
+    def calculate_and_store_performance_metrics(self, pair_filter: str = None, 
+                                              regime_filter: str = None) -> int:
+        """
+        Calculate performance metrics from prediction records and store in database.
+        
+        This addresses the gap where signal_performance_metrics table is empty.
+        
+        Args:
+            pair_filter: Optional pair filter
+            regime_filter: Optional regime filter
+            
+        Returns:
+            Number of metrics calculated and stored
+        """
+        if not self.db:
+            raise RuntimeError("Database session required for performance metrics calculation")
+        
+        try:
+            from ..models.models import SignalPredictionRecord, SignalPerformanceMetrics
+            
+            # Get unique combinations of (pair, regime, signal_type) with evaluated predictions
+            query = self.db.query(
+                SignalPredictionRecord.pair,
+                SignalPredictionRecord.regime,
+                SignalPredictionRecord.signal_type
+            ).filter(
+                SignalPredictionRecord.outcome.isnot(None)  # Only evaluated predictions
+            ).distinct()
+            
+            # Apply filters if provided
+            if pair_filter:
+                query = query.filter(SignalPredictionRecord.pair == pair_filter)
+            if regime_filter:
+                query = query.filter(SignalPredictionRecord.regime == regime_filter)
+            
+            combinations = query.all()
+            metrics_calculated = 0
+            
+            for combo in combinations:
+                pair, regime, signal_type = combo.pair, combo.regime, combo.signal_type
+                
+                # Get all predictions for this combination
+                predictions = self.db.query(SignalPredictionRecord).filter(
+                    and_(
+                        SignalPredictionRecord.pair == pair,
+                        SignalPredictionRecord.regime == regime,
+                        SignalPredictionRecord.signal_type == signal_type,
+                        SignalPredictionRecord.outcome.isnot(None)
+                    )
+                ).all()
+                
+                if len(predictions) < 5:  # Skip if insufficient data
+                    continue
+                
+                # Calculate metrics
+                total_predictions = len(predictions)
+                correct_predictions = sum(1 for p in predictions 
+                                        if p.outcome in ['true_positive', 'true_negative'])
+                accuracy = correct_predictions / total_predictions
+                
+                # Calculate precision for buy/sell signals
+                positive_predictions = [p for p in predictions if p.prediction in ['buy', 'sell']]
+                correct_positive = sum(1 for p in positive_predictions if p.outcome == 'true_positive')
+                precision = correct_positive / len(positive_predictions) if positive_predictions else 0.0
+                
+                # Calculate recall (how many actual opportunities were caught)
+                # For simplicity, using true_positive / (true_positive + false_negative)
+                true_positives = sum(1 for p in predictions if p.outcome == 'true_positive')
+                false_negatives = sum(1 for p in predictions if p.outcome == 'false_negative')
+                recall = true_positives / (true_positives + false_negatives) if (true_positives + false_negatives) > 0 else 0.0
+                
+                # Calculate averages
+                avg_confidence = np.mean([p.confidence for p in predictions])
+                pnl_predictions = [p for p in predictions if p.trade_pnl is not None]
+                avg_pnl = np.mean([p.trade_pnl for p in pnl_predictions]) if pnl_predictions else 0.0
+                
+                # Check if record already exists
+                existing_record = self.db.query(SignalPerformanceMetrics).filter(
+                    and_(
+                        SignalPerformanceMetrics.pair == pair,
+                        SignalPerformanceMetrics.regime == regime,
+                        SignalPerformanceMetrics.signal_type == signal_type
+                    )
+                ).first()
+                
+                if existing_record:
+                    # Update existing record
+                    existing_record.accuracy = float(accuracy)
+                    existing_record.precision = float(precision)
+                    existing_record.recall = float(recall)
+                    existing_record.total_predictions = total_predictions
+                    existing_record.avg_confidence = float(avg_confidence)
+                    existing_record.avg_pnl_usd = float(avg_pnl)
+                    existing_record.last_updated = datetime.utcnow()
+                else:
+                    # Create new record
+                    new_record = SignalPerformanceMetrics(
+                        pair=pair,
+                        regime=regime,
+                        signal_type=signal_type,
+                        accuracy=float(accuracy),
+                        precision=float(precision),
+                        recall=float(recall),
+                        total_predictions=total_predictions,
+                        avg_confidence=float(avg_confidence),
+                        avg_pnl_usd=float(avg_pnl),
+                        last_updated=datetime.utcnow()
+                    )
+                    self.db.add(new_record)
+                
+                metrics_calculated += 1
+                
+                logger.debug(f"📊 Calculated metrics for {signal_type} {pair} {regime}: "
+                           f"accuracy={accuracy:.3f}, precision={precision:.3f}, "
+                           f"predictions={total_predictions}")
+            
+            # Commit all changes
+            self.db.commit()
+            
+            logger.info(f"✅ Successfully calculated and stored {metrics_calculated} performance metrics")
+            return metrics_calculated
+            
+        except Exception as e:
+            logger.error(f"Error calculating performance metrics: {e}")
+            self.db.rollback()
+            raise
 
 
 # Singleton instance for global access

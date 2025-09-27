@@ -50,7 +50,7 @@ def evaluate_bot_signals(enable_automatic_trading: bool = False):
                     # Add delay between API calls to prevent rate limiting (except for first bot)
                     if i > 0:
                         import time
-                        delay = 3  # 3 second delay between each bot evaluation
+                        delay = 5  # 5 second delay between each bot evaluation (increased from 3s)
                         logger.info(f"⏳ Waiting {delay}s before next API call to prevent rate limiting...")
                         time.sleep(delay)
                     
@@ -59,9 +59,9 @@ def evaluate_bot_signals(enable_automatic_trading: bool = False):
                         logger.info(f"📋 Using cached market data for {bot.pair}")
                         market_data = market_data_cache[bot.pair]
                     else:
-                        # Get market data for this bot's pair
+                        # Get market data for this bot's pair (reduced limit to prevent rate limiting)
                         logger.info(f"📡 Fetching fresh market data for {bot.pair}")
-                        market_data = coinbase_service.get_historical_data(bot.pair)
+                        market_data = coinbase_service.get_historical_data(bot.pair, limit=30)
                         market_data_cache[bot.pair] = market_data
                     
                     if market_data.empty:
