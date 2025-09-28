@@ -13,5 +13,9 @@ export type { FilterCriteria } from './AdvancedFilterPanel';
 export { default as MiniChart } from './MiniChart';
 export { default as PerformanceTrend } from './PerformanceTrend';
 
+// Phase 5 Intelligence Framework UI
+export { default as IntelligenceFrameworkPanel } from './IntelligenceFrameworkPanel';
+export { default as MarketRegimeIndicator } from './MarketRegimeIndicator';
+
 // Re-export for easier importing
 export * from './DashboardGrid';

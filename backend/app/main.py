@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api import bots, market, trades, bot_evaluation, websocket, bot_temperatures, coinbase_sync, trading_diagnosis, validation, market_analysis, raw_trades, positions, system_errors, websocket_prices, health_monitoring, market_data_cache, notifications, new_pairs, trends
+from .api import bots, market, trades, bot_evaluation, websocket, bot_temperatures, coinbase_sync, trading_diagnosis, validation, market_analysis, raw_trades, positions, system_errors, websocket_prices, health_monitoring, market_data_cache, notifications, new_pairs, trends, intelligence_analytics
 from .core.config import settings
 from .core.database import engine, Base
 import logging
@@ -72,6 +72,9 @@ app.include_router(position_reconciliation.router, prefix="/api/v1/position-reco
 # Phase 3A: Signal Performance Analytics API
 from .api import signal_performance
 app.include_router(signal_performance.router, prefix="/api/v1/signal-performance", tags=["signal-performance"])
+
+# Phase 5D: Intelligence Framework Analytics API
+app.include_router(intelligence_analytics.router, prefix="/api/v1/intelligence", tags=["intelligence-analytics"])
 
 
 @app.get("/")

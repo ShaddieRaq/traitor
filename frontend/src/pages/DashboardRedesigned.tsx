@@ -9,6 +9,7 @@ import { TradeProgressIndicator } from '../components/Trading/TradeProgressIndic
 import { useTradeExecutionToasts } from '../hooks/useTradeExecutionToasts';
 import NotificationBell from '../components/Notifications/NotificationBell';
 import NotificationPanel from '../components/Notifications/NotificationPanel';
+import IntelligenceAnalytics from '../components/IntelligenceAnalytics';
 
 const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -19,6 +20,7 @@ const Dashboard: React.FC = () => {
   const tabs = [
     { id: 'overview', name: 'Trading Overview', icon: '📊' },
     { id: 'analysis', name: 'Market Analysis', icon: '🔍' },
+    { id: 'intelligence', name: 'AI Intelligence', icon: '🤖' },
     { id: 'notifications', name: 'Notifications', icon: '🔔' },
   ];
   
@@ -26,6 +28,8 @@ const Dashboard: React.FC = () => {
     switch (activeTab) {
       case 'analysis':
         return <MarketAnalysis />;
+      case 'intelligence':
+        return <IntelligenceAnalytics />;
       case 'notifications':
         return <NotificationPanel />;
       case 'overview':

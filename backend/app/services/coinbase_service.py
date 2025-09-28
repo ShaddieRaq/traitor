@@ -2,6 +2,7 @@ from typing import Optional, List, Callable, Dict, Any
 import pandas as pd
 import json
 import math
+import time
 from threading import Thread
 from coinbase.rest import RESTClient
 from coinbase.websocket import WSClient
@@ -48,6 +49,15 @@ class CoinbaseService:
         
         # Initialize market data cache
         self.market_data_cache = get_market_data_cache()
+        
+        # Rate limiting circuit breaker
+        self.rate_limit_circuit_breaker = {
+            'failure_count': 0,
+            'last_failure_time': 0,
+            'circuit_open': False,
+            'circuit_open_until': 0,
+            'backoff_seconds': 1  # Start with 1 second backoff
+        }
         
         self._initialize_client()
     
@@ -311,14 +321,26 @@ class CoinbaseService:
     
     def _fetch_historical_data_from_api(self, product_id: str, granularity: int, limit: int) -> pd.DataFrame:
         """
-        Internal method to fetch data directly from Coinbase API.
+        Internal method to fetch data directly from Coinbase API with circuit breaker and backoff.
         This method should only be called by the cache system.
         """
+        # Check circuit breaker
+        current_time = time.time()
+        cb = self.rate_limit_circuit_breaker
+        
+        if cb['circuit_open'] and current_time < cb['circuit_open_until']:
+            logger.warning(f"🔐 Circuit breaker open for {product_id}, skipping API call until {cb['circuit_open_until'] - current_time:.1f}s")
+            return pd.DataFrame()
+        
+        # Reset circuit breaker if enough time has passed
+        if cb['circuit_open'] and current_time >= cb['circuit_open_until']:
+            logger.info(f"🔓 Circuit breaker reset for {product_id}")
+            cb['circuit_open'] = False
+            cb['failure_count'] = max(0, cb['failure_count'] - 2)  # Reduce failure count on recovery
+        
         logger.info(f"🌐 Making API call for {product_id} (granularity={granularity}, limit={limit})")
         
         try:
-            import time
-            
             # Calculate start and end times as Unix timestamps
             end_timestamp = int(time.time())
             start_timestamp = end_timestamp - (granularity * limit)
@@ -359,6 +381,13 @@ class CoinbaseService:
                 df = pd.DataFrame(data)
                 df.set_index('timestamp', inplace=True)
                 df.sort_index(inplace=True)
+                
+                # Reset circuit breaker on success
+                if cb['failure_count'] > 0:
+                    logger.info(f"✅ API success for {product_id}, reducing failure count")
+                    cb['failure_count'] = max(0, cb['failure_count'] - 1)
+                    cb['backoff_seconds'] = max(1, cb['backoff_seconds'] // 2)  # Reduce backoff on success
+                
                 logger.info(f"✅ Successfully fetched {len(df)} candles for {product_id}")
                 return df
             
@@ -366,21 +395,41 @@ class CoinbaseService:
             error_msg = str(e)
             logger.error(f"Error fetching historical data for {product_id}: {e}")
             
-            # Check for rate limiting errors and report to system health
-            if "429" in error_msg or "Too Many Requests" in error_msg or "rate limit" in error_msg.lower():
-                logger.error(f"🚨 Rate limiting detected for {product_id}: {error_msg}")
+            # Check for rate limiting errors and update circuit breaker
+            is_rate_limit = "429" in error_msg or "Too Many Requests" in error_msg or "rate limit" in error_msg.lower()
+            
+            if is_rate_limit:
+                cb['failure_count'] += 1
+                cb['last_failure_time'] = current_time
+                
+                # Exponential backoff: 1s, 2s, 4s, 8s, 16s, max 60s
+                cb['backoff_seconds'] = min(60, cb['backoff_seconds'] * 2)
+                
+                # Open circuit breaker after 3 failures
+                if cb['failure_count'] >= 3:
+                    cb['circuit_open'] = True
+                    cb['circuit_open_until'] = current_time + cb['backoff_seconds']
+                    logger.error(f"🚨 Circuit breaker opened for {cb['backoff_seconds']}s after {cb['failure_count']} failures")
+                
+                logger.error(f"🚨 Rate limiting detected for {product_id} (failure #{cb['failure_count']}, next backoff: {cb['backoff_seconds']}s)")
+                
                 # Report to system health monitor
                 try:
                     from ..api.system_errors import report_bot_error, ErrorType
                     report_bot_error(
                         error_type=ErrorType.MARKET_DATA,
                         message=f"Rate limiting error fetching {product_id} data: {error_msg}",
-                        details={"product_id": product_id, "error_type": "rate_limit_429"}
+                        details={
+                            "product_id": product_id, 
+                            "error_type": "rate_limit_429",
+                            "failure_count": cb['failure_count'],
+                            "backoff_seconds": cb['backoff_seconds']
+                        }
                     )
                 except Exception as report_error:
-                    logger.error(f"Failed to report rate limiting error: {report_error}")
-        
-        return pd.DataFrame()
+                    logger.error(f"Failed to report rate limit error: {report_error}")
+            
+            return pd.DataFrame()
     
     def place_market_order(self, product_id: str, side: str, size: float) -> Optional[dict]:
         """

@@ -18,13 +18,13 @@ class MarketDataCache:
     Intelligent cache for market data with time-based invalidation.
     
     Features:
-    - Time-based cache expiration (default 30 seconds)
+    - Time-based cache expiration (default 60 seconds)
     - LRU eviction for memory management
     - Thread-safe operations
     - Request deduplication
     """
     
-    def __init__(self, cache_ttl_seconds: int = 30, max_cache_size: int = 100):
+    def __init__(self, cache_ttl_seconds: int = 90, max_cache_size: int = 100):
         """
         Initialize the market data cache.
         
@@ -172,7 +172,7 @@ class MarketDataCache:
 
 
 # Global cache instance
-_global_market_data_cache = MarketDataCache(cache_ttl_seconds=30, max_cache_size=100)
+_global_market_data_cache = MarketDataCache(cache_ttl_seconds=90, max_cache_size=100)
 
 
 def get_market_data_cache() -> MarketDataCache:

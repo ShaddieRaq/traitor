@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Activity, TrendingUp, Clock, DollarSign } from 'lucide-react';
+import { ChevronDown, ChevronUp, Activity, TrendingUp, Clock, DollarSign, Brain, Target } from 'lucide-react';
 import PerformanceTrend from './PerformanceTrend';
 import { useLivePortfolio } from '../../hooks/useLivePortfolio';
 
@@ -127,6 +127,12 @@ export const ExpandableBotCard: React.FC<ExpandableBotCardProps> = ({
               }`}>
                 {bot.status}
               </span>
+              {/* AI Intelligence Badge - Phase 5A */}
+              {(bot.use_trend_detection || bot.use_position_sizing) && (
+                <span className="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-800 font-semibold">
+                  🤖 AI
+                </span>
+              )}
             </div>
           </div>
 
@@ -322,6 +328,82 @@ export const ExpandableBotCard: React.FC<ExpandableBotCardProps> = ({
                 ⚠️ {mockTradeReadiness.blocking_reason}
               </div>
             )}
+          </div>
+
+          {/* Intelligence Status - Phase 5A Enhancement */}
+          <div className="p-4 border-b border-gray-200">
+            <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+              <Brain className="h-4 w-4 mr-2 text-purple-600" />
+              AI Intelligence Status
+            </h4>
+            
+            <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 space-y-3">
+              {/* Trend Detection Status */}
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">🔍 Trend Detection:</span>
+                <div className="flex items-center space-x-2">
+                  <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                    bot.use_trend_detection 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {bot.use_trend_detection ? 'ACTIVE' : 'DISABLED'}
+                  </span>
+                  {bot.trend_analysis && (
+                    <span className="text-xs text-gray-500">
+                      {bot.trend_analysis.regime} ({(bot.trend_analysis.confidence * 100).toFixed(0)}%)
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Position Sizing Intelligence */}
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">🎯 Position Sizing:</span>
+                <div className="flex items-center space-x-2">
+                  <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                    bot.use_position_sizing 
+                      ? 'bg-blue-100 text-blue-800' 
+                      : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {bot.use_position_sizing ? 'AI-MANAGED' : 'FIXED'}
+                  </span>
+                  {bot.position_sizing && (
+                    <span className="text-xs text-gray-500">
+                      ${bot.position_sizing.base_position_size} → ${bot.position_sizing.final_position_size}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Market Regime Indicator */}
+              {bot.trend_analysis && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">📊 Market Regime:</span>
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                      bot.trend_analysis.regime === 'CHOPPY' ? 'bg-yellow-100 text-yellow-800' :
+                      bot.trend_analysis.regime === 'TRENDING' ? 'bg-green-100 text-green-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {bot.trend_analysis.regime}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {(bot.trend_analysis.trend_strength * 100).toFixed(1)}% strength
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* AI Reasoning */}
+              {bot.position_sizing?.sizing_rationale && (
+                <div className="mt-2 pt-2 border-t border-purple-200">
+                  <div className="text-xs text-purple-700 bg-purple-100 p-2 rounded italic">
+                    <strong>🤖 AI Rationale:</strong> {bot.position_sizing.sizing_rationale}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Action Buttons */}

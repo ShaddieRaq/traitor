@@ -543,7 +543,7 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                 try:
                     trend_data = trend_engine.analyze_trend(bot.pair)
                     trend_analysis = trend_data  # trend_data is already a dict matching TrendAnalysisResponse
-                    logger.info(f"✅ Trend analysis for {bot.pair}: {trend_data['regime']} ({trend_data['strength']:.3f})")
+                    logger.info(f"✅ Trend analysis for {bot.pair}: {trend_data['regime']} ({trend_data['trend_strength']:.3f})")
                 except Exception as e:
                     logger.warning(f"⚠️  Failed to get trend analysis for {bot.pair}: {e}")
             
