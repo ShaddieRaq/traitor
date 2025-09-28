@@ -10,44 +10,29 @@ interface MarketRegimeData {
   analysis_timestamp: string;
 }
 
-interface TrendsApiResponse {
-  pairs_analyzed: number;
-  results: Record<string, {
-    product_id: string;
-    trend_strength: number;
-    confidence: number;
-    regime: string;
-    moving_average_alignment: string;
-    volume_confirmation: boolean;
-    analysis_timestamp: string;
-  }>;
-  engine_stats: any;
-}
-
-const MAJOR_PAIRS = [
-  'BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'DOGE-USD', 'AVAX-USD'
-];
-
 const fetchMarketRegimeData = async (): Promise<MarketRegimeData[]> => {
-  const pairsQuery = MAJOR_PAIRS.join(',');
-  const response = await fetch(`http://localhost:8000/api/v1/trends/?pairs=${pairsQuery}`);
+  // Use the enhanced bots API which already includes trend analysis for each bot
+  const response = await fetch('http://localhost:8000/api/v1/bots/status/enhanced');
   
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`);
   }
   
-  const data: TrendsApiResponse = await response.json();
+  const bots = await response.json();
   
-  // Transform API response to component format
-  return Object.entries(data.results).map(([pair, trendData]) => ({
-    pair,
-    regime: trendData.regime as 'CHOPPY' | 'TRENDING' | 'STRONG_TRENDING' | 'VOLATILE',
-    trend_strength: trendData.trend_strength,
-    confidence: trendData.confidence,
-    moving_average_alignment: trendData.moving_average_alignment as 'BULLISH' | 'BEARISH' | 'NEUTRAL',
-    volume_confirmation: trendData.volume_confirmation,
-    analysis_timestamp: trendData.analysis_timestamp
-  }));
+  // Transform enhanced bot data to market regime format
+  return bots
+    .filter((bot: any) => bot.status === 'RUNNING' && bot.trend_analysis)
+    .map((bot: any) => ({
+      pair: bot.pair,
+      regime: bot.trend_analysis.regime as 'CHOPPY' | 'TRENDING' | 'STRONG_TRENDING' | 'VOLATILE',
+      trend_strength: bot.trend_analysis.trend_strength,
+      confidence: bot.trend_analysis.confidence,
+      moving_average_alignment: bot.trend_analysis.moving_average_alignment as 'BULLISH' | 'BEARISH' | 'NEUTRAL',
+      volume_confirmation: bot.trend_analysis.volume_confirmation,
+      analysis_timestamp: bot.trend_analysis.analysis_timestamp
+    }))
+    .sort((a: MarketRegimeData, b: MarketRegimeData) => a.pair.localeCompare(b.pair)); // Sort alphabetically
 };
 
 export const useMarketRegimeData = () => {

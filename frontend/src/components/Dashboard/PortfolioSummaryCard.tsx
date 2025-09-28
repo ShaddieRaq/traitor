@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLivePortfolio } from '../../hooks/useLivePortfolio';
 import { useCleanProductPerformance } from '../../hooks/useCleanTrades';
+import { useBots } from '../../hooks/useBots';
 import { DataFreshnessIndicator } from '../DataFreshnessIndicators';
 
 interface PortfolioSummaryCardProps {
@@ -22,10 +23,13 @@ export const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
   // Get live portfolio data from Coinbase (source of truth for current value)
   const { data: livePortfolioData, isLoading: isLiveLoading, dataUpdatedAt: liveUpdatedAt } = useLivePortfolio();
   
+  // Get bots data to count active trading pairs
+  const { data: botsData, isLoading: isBotsLoading } = useBots();
+  
   // Get historical performance data for P&L calculations
   const { data: performanceData, isLoading: isPerfLoading } = useCleanProductPerformance();
 
-  const isLoading = isLiveLoading || isPerfLoading;
+  const isLoading = isLiveLoading || isPerfLoading || isBotsLoading;
 
   if (isLoading) {
     return (
@@ -56,8 +60,8 @@ export const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
   const totalPnL = performanceData?.products?.reduce((sum: number, product: any) => 
     sum + (product.net_pnl_usd || 0), 0) || 0;
   
-  // Use live holdings count instead of database
-  const activePairs = livePortfolioData?.holdings?.filter((h: any) => h.currency !== 'USD' && h.currency !== 'USDC').length || 0;
+  // Use bots data to count actual active trading pairs (each bot = one pair)
+  const activePairs = botsData?.filter((bot: any) => bot.status === 'RUNNING').length || 0;
 
   // Determine P&L styling with enhanced gradients
   const isProfit = totalPnL >= 0;

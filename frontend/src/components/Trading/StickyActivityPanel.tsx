@@ -41,12 +41,25 @@ const StickyActivityPanel: React.FC<StickyActivityPanelProps> = ({ bots }) => {
   const getRecentActivity = (): ActivityItem[] => {
     const activities: ActivityItem[] = [];
     
+    // Add recent trade activities
+    if (trades && trades.length > 0) {
+      trades.slice(0, 2).forEach(trade => {
+        activities.push({
+          type: 'trade',
+          message: `${trade.side} ${trade.product_id} at $${trade.price}`,
+          time: formatTime(trade.created_at),
+          icon: trade.side === 'BUY' ? '📈' : '📉',
+          color: trade.side === 'BUY' ? 'text-green-600' : 'text-red-600'
+        });
+      });
+    }
+    
     // Add confirming bots
     bots.forEach(bot => {
       if (bot.confirmation?.is_active) {
         activities.push({
           type: 'confirming',
-          message: `${bot.name} confirming ${bot.trading_intent?.next_action?.toUpperCase()}`,
+          message: `${bot.pair} confirming ${bot.trading_intent?.next_action?.toUpperCase()}`,
           time: bot.confirmation.time_remaining_seconds ? `${bot.confirmation.time_remaining_seconds}s` : 'now',
           icon: '⏳',
           color: 'text-yellow-600'
@@ -54,12 +67,13 @@ const StickyActivityPanel: React.FC<StickyActivityPanelProps> = ({ bots }) => {
       }
     });
 
-    // Add ready bots
+    // Add ready bots with strong signals
     bots.forEach(bot => {
-      if (bot.trade_readiness?.can_trade && !bot.confirmation?.is_active) {
+      if (bot.trade_readiness?.can_trade && !bot.confirmation?.is_active && 
+          bot.current_combined_score && Math.abs(bot.current_combined_score) > 0.05) {
         activities.push({
           type: 'ready',
-          message: `${bot.name} ready to ${bot.trading_intent?.next_action?.toUpperCase()}`,
+          message: `${bot.pair} ready to ${bot.trading_intent?.next_action?.toUpperCase()}`,
           time: 'now',
           icon: '🚀',
           color: 'text-orange-600'

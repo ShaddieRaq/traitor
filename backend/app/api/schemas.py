@@ -273,6 +273,7 @@ class EnhancedBotStatusResponse(BaseModel):
     status: str
     current_combined_score: float
     current_position_size: float
+    position_size_usd: Optional[float] = None  # Alias for current_position_size for frontend compatibility
     temperature: str
     distance_to_signal: float
     

@@ -1,5 +1,5 @@
-import React from 'react';
-import { TrendingUp, Activity, AlertCircle, BarChart3 } from 'lucide-react';
+import React, { useState } from 'react';
+import { TrendingUp, Activity, AlertCircle, BarChart3, HelpCircle } from 'lucide-react';
 import { DataFreshnessIndicator } from '../DataFreshnessIndicators';
 
 interface MarketRegimeData {
@@ -30,6 +30,8 @@ export const MarketRegimeIndicator: React.FC<MarketRegimeIndicatorProps> = ({
   dataUpdatedAt,
   className = ''
 }) => {
+  const [showHelp, setShowHelp] = useState(false);
+  
   // Calculate overall market sentiment
   const getOverallSentiment = () => {
     if (!data.length) return { regime: 'UNKNOWN', confidence: 0, color: 'gray' };
@@ -124,6 +126,13 @@ export const MarketRegimeIndicator: React.FC<MarketRegimeIndicatorProps> = ({
                 <h3 className="text-lg font-bold text-gray-900">
                   Market Regime: {overall.regime}
                 </h3>
+                <button
+                  className="p-1 rounded-full text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors duration-200"
+                  title="Learn about market regimes"
+                  onClick={() => setShowHelp(!showHelp)}
+                >
+                  <HelpCircle className="w-4 h-4" />
+                </button>
                 <span className="text-sm text-gray-600">
                   ({overall.count}/{overall.total} pairs)
                 </span>
@@ -142,37 +151,71 @@ export const MarketRegimeIndicator: React.FC<MarketRegimeIndicatorProps> = ({
           </div>
         </div>
 
-        {/* Individual Pair Breakdown */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-          {data.slice(0, 6).map((pair) => (
-            <div 
-              key={pair.pair} 
-              className="bg-white bg-opacity-60 rounded-lg p-3 border border-white shadow-sm"
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-semibold text-gray-900">
-                  {pair.pair}
-                </span>
-                <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
-                  pair.regime === 'CHOPPY' ? 'bg-yellow-100 text-yellow-800' :
-                  pair.regime === 'TRENDING' ? 'bg-green-100 text-green-800' :
-                  pair.regime === 'STRONG_TRENDING' ? 'bg-emerald-100 text-emerald-800' :
-                  'bg-red-100 text-red-800'
-                }`}>
-                  {pair.regime}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-xs text-gray-600">
-                <span>
-                  {pair.moving_average_alignment === 'BULLISH' ? '📈' : 
-                   pair.moving_average_alignment === 'BEARISH' ? '📉' : '➡️'} 
-                  {pair.moving_average_alignment}
-                </span>
-                <span>{(pair.confidence * 100).toFixed(0)}%</span>
+        {/* Individual Pair Breakdown - All Pairs Dynamic */}
+        {data.length > 0 ? (
+          <div className="space-y-3 mb-3">
+            {/* Summary Stats */}
+            <div className="text-xs text-gray-600 flex items-center justify-between">
+              <span>All Active Trading Pairs ({data.length} total)</span>
+              <span className="text-blue-600 font-semibold">
+                {data.filter(p => p.regime === 'TRENDING' || p.regime === 'STRONG_TRENDING').length} trending
+              </span>
+            </div>
+            
+            {/* Scrollable Grid for All Pairs */}
+            <div className="max-h-64 overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                {data
+                  .sort((a, b) => {
+                    // Sort by regime priority: STRONG_TRENDING > TRENDING > CHOPPY > VOLATILE
+                    const regimeOrder = { 'STRONG_TRENDING': 0, 'TRENDING': 1, 'CHOPPY': 2, 'VOLATILE': 3 };
+                    const aOrder = regimeOrder[a.regime as keyof typeof regimeOrder] ?? 99;
+                    const bOrder = regimeOrder[b.regime as keyof typeof regimeOrder] ?? 99;
+                    if (aOrder !== bOrder) return aOrder - bOrder;
+                    // Secondary sort by confidence (descending)
+                    return b.confidence - a.confidence;
+                  })
+                  .map((pair) => (
+                  <div 
+                    key={pair.pair} 
+                    className="bg-white bg-opacity-60 rounded-lg p-2.5 border border-white shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-semibold text-gray-900 truncate">
+                        {pair.pair}
+                      </span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
+                        pair.regime === 'CHOPPY' ? 'bg-yellow-100 text-yellow-800' :
+                        pair.regime === 'TRENDING' ? 'bg-green-100 text-green-800' :
+                        pair.regime === 'STRONG_TRENDING' ? 'bg-emerald-100 text-emerald-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {pair.regime === 'STRONG_TRENDING' ? 'STRONG' : pair.regime}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-gray-600">
+                      <span className="flex items-center space-x-1">
+                        <span>
+                          {pair.moving_average_alignment === 'BULLISH' ? '📈' : 
+                           pair.moving_average_alignment === 'BEARISH' ? '📉' : '➡️'}
+                        </span>
+                        <span className="text-xs">
+                          {pair.moving_average_alignment.slice(0, 4)}
+                        </span>
+                      </span>
+                      <span className="font-semibold">{(pair.confidence * 100).toFixed(0)}%</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div className="text-center py-6 text-gray-500">
+            <div className="text-sm">No market regime data available</div>
+            <div className="text-xs mt-1">Waiting for AI analysis...</div>
+          </div>
+        )}
 
         {/* Data Freshness Indicator */}
         <div className="flex items-center justify-between pt-2 border-t border-indigo-200">
@@ -189,6 +232,67 @@ export const MarketRegimeIndicator: React.FC<MarketRegimeIndicatorProps> = ({
           )}
         </div>
       </div>
+
+      {/* Help Modal */}
+      {showHelp && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setShowHelp(false)} />
+            
+            <div className="inline-block w-full max-w-2xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium leading-6 text-gray-900">
+                  Market Regime Analysis
+                </h3>
+                <button
+                  onClick={() => setShowHelp(false)}
+                  className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                >
+                  <AlertCircle className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="border-b border-gray-200 pb-4">
+                  <h4 className="text-md font-semibold text-gray-800 mb-2">
+                    🎯 Regime Types
+                  </h4>
+                  <p className="text-sm text-gray-600 mb-3">
+                    AI analyzes market behavior patterns to classify each trading pair into different regimes.
+                  </p>
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <p className="text-xs font-semibold text-gray-700 mb-2">Examples:</p>
+                    <ul className="text-xs text-gray-600 space-y-1">
+                      <li>• <strong>STRONG_TRENDING:</strong> Clear directional movement, tight thresholds</li>
+                      <li>• <strong>TRENDING:</strong> Moderate directional bias, normal thresholds</li>
+                      <li>• <strong>CHOPPY:</strong> Sideways movement, wide thresholds to avoid noise</li>
+                      <li>• <strong>VOLATILE:</strong> High volatility, special handling required</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-md font-semibold text-gray-800 mb-2">
+                    ⚙️ Trading Implications
+                  </h4>
+                  <p className="text-sm text-gray-600">
+                    Each regime triggers different trading strategies and threshold adjustments to optimize performance and reduce false signals.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => setShowHelp(false)}
+                  className="w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 transition-colors"
+                >
+                  Got it!
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

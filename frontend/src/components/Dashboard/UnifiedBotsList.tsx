@@ -232,12 +232,12 @@ const UnifiedBotsList: React.FC<UnifiedBotsListProps> = ({
       <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-4">
-            <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-              <span className="mr-3 text-3xl">🤖</span>
+            <h2 className="text-3xl font-bold text-gray-900 flex items-center tracking-tight">
+              <span className="mr-3 text-4xl">🤖</span>
               All Trading Bots
             </h2>
-            <span className="px-3 py-1 bg-blue-200 text-blue-800 text-sm font-bold rounded-full">
-              {totalBots} bot{totalBots !== 1 ? 's' : ''}
+            <span className="px-4 py-2 bg-blue-100 text-blue-800 text-sm font-bold rounded-full border border-blue-200">
+              {totalBots} bot{totalBots !== 1 ? 's' : ''} active
             </span>
           </div>
           <div className="flex items-center space-x-4">

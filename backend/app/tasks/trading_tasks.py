@@ -71,6 +71,15 @@ def evaluate_bot_signals(enable_automatic_trading: bool = False):
                     # Evaluate bot (includes automatic trading if enabled)
                     result = evaluator.evaluate_bot(bot, market_data)
                     
+                    # Update bot's current_combined_score in database for UI display
+                    try:
+                        bot.current_combined_score = result.get("overall_score", 0.0)
+                        db.commit()
+                        logger.debug(f"✅ Updated bot {bot.id} current_combined_score: {bot.current_combined_score:.6f}")
+                    except Exception as update_error:
+                        db.rollback()
+                        logger.error(f"Failed to update current_combined_score for bot {bot.id}: {update_error}")
+                    
                     # Store evaluation results back to the bot for UI display
                     try:
                         import json
@@ -167,6 +176,15 @@ def fast_trading_evaluation():
                     
                     # Evaluate bot with automatic trading enabled
                     result = evaluator.evaluate_bot(bot, market_data)
+                    
+                    # Update bot's current_combined_score in database for UI display
+                    try:
+                        bot.current_combined_score = result.get("overall_score", 0.0)
+                        db.commit()
+                        logger.debug(f"✅ Updated bot {bot.id} current_combined_score: {bot.current_combined_score:.6f}")
+                    except Exception as update_error:
+                        db.rollback()
+                        logger.error(f"Failed to update current_combined_score for bot {bot.id}: {update_error}")
                     
                     # Store evaluation results back to the bot for UI display
                     try:

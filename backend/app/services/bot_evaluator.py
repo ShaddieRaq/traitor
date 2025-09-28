@@ -99,8 +99,11 @@ class BotSignalEvaluator:
                 
                 # Calculate signal
                 signal_result = signal_instance.calculate(market_data)
-                if signal_result['action'] == 'hold' and signal_result['score'] == 0:
-                    # Skip signals that couldn't calculate (insufficient data, etc.)
+                
+                # Only skip signals that completely failed to calculate (missing required fields)
+                # A hold action with score=0 is still a valid signal result
+                if not isinstance(signal_result, dict) or 'score' not in signal_result or 'action' not in signal_result:
+                    logger.warning(f"Invalid signal result from {signal_name} for bot {bot.id}: {signal_result}")
                     continue
                 
                 # Store individual result

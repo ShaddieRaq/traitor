@@ -162,6 +162,9 @@ class TrendDetectionEngine:
                     analysis[timeframe] = {
                         'momentum': 0.0,
                         'data_points': 0,
+                        'timeframe_name': config['name'],
+                        'price_change_pct': 0.0,
+                        'volatility': 0.0,
                         'error': 'insufficient_data'
                     }
                     continue
@@ -182,6 +185,9 @@ class TrendDetectionEngine:
                 analysis[timeframe] = {
                     'momentum': 0.0,
                     'data_points': 0,
+                    'timeframe_name': timeframes[timeframe]['name'],
+                    'price_change_pct': 0.0,
+                    'volatility': 0.0,
                     'error': str(e)
                 }
         

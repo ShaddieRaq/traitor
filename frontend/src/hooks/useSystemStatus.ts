@@ -4,6 +4,7 @@ import api from '../lib/api';
 interface SystemStatus {
   status: 'healthy' | 'degraded' | 'error';
   timestamp: string;
+  active_errors?: number;  // Add optional field for error count
   services: {
     coinbase_api: {
       status: 'healthy' | 'unhealthy';
@@ -31,8 +32,22 @@ export const useSystemStatus = () => {
   return useQuery({
     queryKey: ['system', 'status'],
     queryFn: async () => {
-      const response = await api.get('/market/system/status');
-      return response.data as SystemStatus;
+      // Get both system status and error health
+      const [systemResponse, healthResponse] = await Promise.all([
+        api.get('/market/system/status'),
+        api.get('/system-errors/health')
+      ]);
+      
+      const systemStatus = systemResponse.data as SystemStatus;
+      const healthData = healthResponse.data;
+      
+      // Override status if there are active errors
+      if (healthData.status === 'issues' && healthData.active_errors > 0) {
+        systemStatus.status = 'degraded';
+        systemStatus.active_errors = healthData.active_errors;
+      }
+      
+      return systemStatus;
     },
     refetchInterval: 10000, // Check system status every 10 seconds
     refetchIntervalInBackground: true,

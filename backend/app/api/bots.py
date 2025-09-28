@@ -38,19 +38,43 @@ def extract_trading_thresholds(signal_config: dict) -> Optional[TradingThreshold
         )
 
 
-def prepare_bot_response(bot: Bot) -> Bot:
+def prepare_bot_response(bot: Bot) -> dict:
     """Prepare bot for response by converting signal_config and adding trading_thresholds."""
     # Convert signal_config from JSON string to dict
     try:
         signal_config = json.loads(bot.signal_config) if bot.signal_config else {}
-        bot.signal_config = signal_config
     except json.JSONDecodeError:
-        bot.signal_config = {}
+        signal_config = {}
     
     # Extract trading thresholds for UI
-    bot.trading_thresholds = extract_trading_thresholds(bot.signal_config)
+    trading_thresholds = extract_trading_thresholds(signal_config)
     
-    return bot
+    # Return a dictionary instead of modifying the SQLAlchemy model
+    # Provide default values for required fields that might be None in the database
+    return {
+        'id': bot.id,
+        'name': bot.name,
+        'description': bot.description or f"Trading bot for {bot.pair}",  # Default description
+        'pair': bot.pair,
+        'status': bot.status,
+        'position_size_usd': bot.position_size_usd,
+        'max_positions': bot.max_positions,
+        'stop_loss_pct': bot.stop_loss_pct,
+        'take_profit_pct': bot.take_profit_pct,
+        'confirmation_minutes': bot.confirmation_minutes,
+        'trade_step_pct': bot.trade_step_pct,
+        'cooldown_minutes': bot.cooldown_minutes,
+        'signal_config': signal_config,
+        'trading_thresholds': trading_thresholds,
+        'current_position_size': bot.current_position_size or 0.0,  # Default to 0.0
+        'current_position_entry_price': bot.current_position_entry_price,
+        'current_combined_score': bot.current_combined_score or 0.0,  # Default to 0.0
+        'signal_confirmation_start': bot.signal_confirmation_start,
+        'created_at': bot.created_at,
+        'updated_at': bot.updated_at,
+        'use_trend_detection': bot.use_trend_detection,
+        'use_position_sizing': bot.use_position_sizing,
+    }
 
 
 @router.get("/", response_model=List[BotResponse])
@@ -328,21 +352,35 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
     evaluator = get_bot_evaluator(db)
     trend_engine = get_trend_engine()  # Phase 1: Initialize trend detection engine
     
-    # Get fresh market data for all unique trading pairs
+    # Get cached market data for all unique trading pairs (avoid rate limits)
+    from ..services.market_data_cache import MarketDataCache
+    market_cache = MarketDataCache()
     market_data_cache = {}
     unique_pairs = set(bot.pair for bot in bots)
+    
     for pair in unique_pairs:
         try:
-            market_data_cache[pair] = coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
+            # Use cached market data with proper fetch function
+            def fetch_func():
+                return coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
+                
+            cached_data = market_cache.get_or_fetch(pair, granularity=3600, limit=100, fetch_func=fetch_func)
+            if cached_data is not None and not cached_data.empty:
+                market_data_cache[pair] = cached_data
+                logger.debug(f"✅ Using cached market data for {pair} ({len(cached_data)} candles)")
+            else:
+                # Fallback data if cache returns empty
+                logger.warning(f"⚠️ Empty data for {pair}, using fallback data")
+                market_data_cache[pair] = pd.DataFrame({
+                    'close': [100.0], 'high': [101.0], 'low': [99.0], 
+                    'open': [100.5], 'volume': [1000]
+                })
         except Exception as e:
-            logger.warning(f"Failed to get market data for {pair}: {e}")
-            # Use fallback data if API unavailable
+            logger.error(f"❌ Failed to get cached data for {pair}: {e}")
+            # Use fallback data if cache unavailable
             market_data_cache[pair] = pd.DataFrame({
-                'close': [100.0],
-                'high': [101.0],
-                'low': [99.0], 
-                'open': [100.5],
-                'volume': [1000]
+                'close': [100.0], 'high': [101.0], 'low': [99.0], 
+                'open': [100.5], 'volume': [1000]
             })
     
     enhanced_status_list = []
@@ -521,7 +559,23 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
             
             # Calculate actual position from trades (fix for stale bot.current_position_size)
             trades = db.query(Trade).filter(Trade.bot_id == bot.id).all()
-            actual_position = sum(trade.size if trade.side == 'BUY' else -trade.size for trade in trades)
+            # Calculate position in token units first
+            token_position = sum(trade.size if trade.side == 'BUY' else -trade.size for trade in trades)
+            
+            # Convert token position to USD value using current market price
+            try:
+                if token_position != 0 and market_data_cache.get(bot.pair) is not None:
+                    latest_market_data = market_data_cache[bot.pair]
+                    if not latest_market_data.empty:
+                        current_price = latest_market_data.iloc[-1]['close']
+                        actual_position_usd = token_position * current_price
+                    else:
+                        actual_position_usd = 0.0  # No market data available
+                else:
+                    actual_position_usd = 0.0  # No position or no market data
+            except Exception as e:
+                logger.warning(f"Failed to calculate USD position for {bot.pair}: {e}")
+                actual_position_usd = 0.0
             
             # Get last trade info
             last_trade_query = db.query(Trade).filter(Trade.bot_id == bot.id).order_by(Trade.created_at.desc()).first()
@@ -571,7 +625,8 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                 pair=bot.pair,
                 status=bot.status,
                 current_combined_score=fresh_score,
-                current_position_size=actual_position,
+                current_position_size=actual_position_usd,
+                position_size_usd=actual_position_usd,  # Provide both fields for compatibility
                 temperature=temperature,
                 distance_to_signal=distance_to_signal,
                 trading_intent=trading_intent,
@@ -594,6 +649,7 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                 status=bot.status,
                 current_combined_score=bot.current_combined_score,
                 current_position_size=bot.current_position_size,
+                position_size_usd=bot.current_position_size,  # Provide both fields for compatibility
                 temperature=calculate_bot_temperature(bot.current_combined_score),
                 distance_to_signal=1.0,
                 trading_intent=TradingIntent(next_action="hold", signal_strength=0.0, confidence=0.0, distance_to_threshold=1.0),
