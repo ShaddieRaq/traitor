@@ -119,3 +119,15 @@ docker-compose.override.yml
 *.backup
 *.old
 .cache/
+
+# Debug and test files
+debug_*.py
+test_phase*.py
+evaluate_*.py
+add_*.py
+enable_*.py
+*_schedule.db
+api_docs.html
+
+# Old system status files
+SYSTEM_BROKEN_*.md
