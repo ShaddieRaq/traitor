@@ -94,15 +94,42 @@ def create_bot(bot: BotCreate, db: Session = Depends(get_db)):
     if existing_bot:
         raise HTTPException(status_code=400, detail="Bot name already exists")
     
-    # Convert signal config to JSON
-    signal_config_json = {}
+    # Create default signal configuration if none provided
     if bot.signal_config:
         if hasattr(bot.signal_config, 'dict'):
             signal_config_json = bot.signal_config.model_dump()
         else:
             signal_config_json = bot.signal_config
-    
-    # Create new bot
+    else:
+        # Default signal configuration for new bots (matches working bots)
+        signal_config_json = {
+            "rsi": {
+                "enabled": True,
+                "weight": 0.4,
+                "period": 14,
+                "buy_threshold": 30,
+                "sell_threshold": 70
+            },
+            "moving_average": {
+                "enabled": True,
+                "weight": 0.35,
+                "fast_period": 12,
+                "slow_period": 26
+            },
+            "macd": {
+                "enabled": True,
+                "weight": 0.25,
+                "fast_period": 12,
+                "slow_period": 26,
+                "signal_period": 9
+            },
+            "trading_thresholds": {
+                "buy_threshold": -0.05,
+                "sell_threshold": 0.05
+            }
+        }
+
+    # Create new bot with intelligence features enabled by default
     db_bot = Bot(
         name=bot.name,
         description=bot.description,
@@ -114,7 +141,10 @@ def create_bot(bot: BotCreate, db: Session = Depends(get_db)):
         confirmation_minutes=bot.confirmation_minutes,
         trade_step_pct=bot.trade_step_pct,
         cooldown_minutes=bot.cooldown_minutes,
-        signal_config=json.dumps(signal_config_json)
+        signal_config=json.dumps(signal_config_json),
+        # Enable 4-phase intelligence framework by default
+        use_trend_detection=True,  # Phase 1: Market Regime Intelligence
+        use_position_sizing=True   # Phase 2: Dynamic Position Sizing
     )
     
     db.add(db_bot)

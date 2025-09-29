@@ -238,7 +238,7 @@ export const IntelligenceFrameworkPanel: React.FC<IntelligenceFrameworkPanelProp
         <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
           <div>
             <div className="text-xs text-gray-500">Market Intelligence</div>
-            <div className="font-semibold text-blue-600">12/12 Pairs</div>
+            <div className="font-semibold text-blue-600">{intelligenceStatus.positionSizing.uniquePairs}/{intelligenceStatus.positionSizing.uniquePairs} Pairs</div>
           </div>
           <div>
             <div className="text-xs text-gray-500">Position Optimization</div>

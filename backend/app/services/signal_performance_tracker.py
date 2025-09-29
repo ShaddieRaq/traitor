@@ -88,35 +88,48 @@ class SignalPerformanceTracker:
         
         # Persist to database for permanent storage
         if self.db:
-            try:
-                from ..models.models import SignalPredictionRecord
-                
-                db_record = SignalPredictionRecord(
-                    timestamp=prediction.timestamp,
-                    pair=prediction.pair,
-                    regime=prediction.regime,
-                    signal_type=prediction.signal_type,
-                    signal_score=prediction.signal_score,
-                    prediction=prediction.prediction,
-                    confidence=prediction.confidence,
-                    actual_price_change_pct=prediction.actual_price_change,
-                    outcome=prediction.outcome.value if prediction.outcome else None,
-                    evaluation_timestamp=None,  # To be filled when evaluated
-                    trade_executed=prediction.trade_executed,
-                    trade_pnl_usd=prediction.trade_pnl,
-                    evaluation_period_minutes=60
-                )
-                
-                self.db.add(db_record)
-                self.db.commit()
-                
-                logger.info(
-                    f"✅ COMMITTED signal prediction to database: {prediction.signal_type} for {prediction.pair} "
-                    f"in {prediction.regime} regime → {prediction.prediction} (confidence: {prediction.confidence:.3f})"
-                )
-                
-            except Exception as db_error:
-                logger.warning(f"Failed to persist signal prediction to database: {db_error}")
+            max_retries = 3
+            retry_count = 0
+            
+            while retry_count < max_retries:
+                try:
+                    from ..models.models import SignalPredictionRecord
+                    
+                    db_record = SignalPredictionRecord(
+                        timestamp=prediction.timestamp,
+                        pair=prediction.pair,
+                        regime=prediction.regime,
+                        signal_type=prediction.signal_type,
+                        signal_score=prediction.signal_score,
+                        prediction=prediction.prediction,
+                        confidence=prediction.confidence,
+                        actual_price_change_pct=prediction.actual_price_change,
+                        outcome=prediction.outcome.value if prediction.outcome else None,
+                        evaluation_timestamp=None,  # To be filled when evaluated
+                        trade_executed=prediction.trade_executed,
+                        trade_pnl_usd=prediction.trade_pnl,
+                        evaluation_period_minutes=60
+                    )
+                    
+                    self.db.add(db_record)
+                    self.db.commit()
+                    
+                    logger.info(
+                        f"✅ COMMITTED signal prediction to database: {prediction.signal_type} for {prediction.pair} "
+                        f"in {prediction.regime} regime → {prediction.prediction} (confidence: {prediction.confidence:.3f})"
+                    )
+                    break  # Success - exit retry loop
+                    
+                except Exception as db_error:
+                    # Rollback the session to clear bad state
+                    self.db.rollback()
+                    retry_count += 1
+                    
+                    if retry_count >= max_retries:
+                        logger.warning(f"Failed to persist signal prediction after {max_retries} retries (rolled back): {db_error}")
+                        break
+                    else:
+                        logger.debug(f"Database retry {retry_count}/{max_retries} for signal prediction: {db_error}")
                 # Continue with in-memory storage even if DB fails
         
         logger.debug(

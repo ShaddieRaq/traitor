@@ -19,6 +19,10 @@ async def get_intelligence_analytics(db: Session = Depends(get_db)):
         total_bots = db.query(Bot).count()
         active_bots = db.query(Bot).filter(Bot.status == 'RUNNING').count()
         ai_enabled_bots = db.query(Bot).filter(Bot.use_position_sizing == 1).count()
+        
+        # Get unique trading pairs count for Market Intelligence
+        unique_pairs = db.query(Bot.pair).distinct().count()
+        
         total_predictions = db.query(SignalPredictionRecord).count()
         
         # Basic response with real data
@@ -26,7 +30,8 @@ async def get_intelligence_analytics(db: Session = Depends(get_db)):
             'bots': {
                 'total': total_bots,
                 'active': active_bots,
-                'ai_enabled': ai_enabled_bots
+                'ai_enabled': ai_enabled_bots,
+                'unique_pairs': unique_pairs
             },
             'performance': {
                 'total_predictions': total_predictions,

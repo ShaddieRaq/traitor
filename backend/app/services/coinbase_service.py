@@ -441,6 +441,7 @@ class CoinbaseService:
             size: Order size
         """
         if not self.client:
+            logger.error("🚨 COINBASE CLIENT NOT INITIALIZED - returning None")
             return None
         
         try:

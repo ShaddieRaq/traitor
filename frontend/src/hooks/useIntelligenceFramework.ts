@@ -81,6 +81,7 @@ interface IntelligenceFrameworkData {
   positionSizing: {
     activeBots: number;
     totalBots: number;
+    uniquePairs: number;
     enabled: boolean;
     enabledPairs: string[];
   };
@@ -120,6 +121,7 @@ export const useIntelligenceFramework = () => {
             positionSizing: {
               activeBots: data.bots?.ai_enabled || 0,
               totalBots: data.bots?.total || 12,
+              uniquePairs: data.bots?.unique_pairs || 12,
               enabled: (data.bots?.ai_enabled || 0) > 0,
               enabledPairs: ['BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'DOGE-USD', 'AVNT-USD', 'AERO-USD', 'SUI-USD']
             },
@@ -185,6 +187,7 @@ function getFallbackIntelligenceData(): IntelligenceFrameworkData {
     positionSizing: {
       activeBots: 2,
       totalBots: 12,
+      uniquePairs: 12,
       enabled: true,
       enabledPairs: ['BTC-USD', 'ETH-USD']
     },

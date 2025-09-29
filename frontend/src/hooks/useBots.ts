@@ -1,6 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
-import { Bot, BotCreate, BotUpdate, BotStatus, EnhancedBotStatus } from '../types';
+import { Bot, BotCreate, BotUpdate, BotStatus, EnhancedBotStatus, PnLData } from '../types';
+
+// P&L data hook
+export const usePnLData = () => {
+  return useQuery({
+    queryKey: ['pnl', 'by-product'],
+    queryFn: async () => {
+      const response = await api.get('/raw-trades/pnl-by-product');
+      return response.data.products as PnLData[];
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds
+    staleTime: 25000, // Consider data stale after 25 seconds
+  });
+};
 
 // Bots API hooks
 export const useBots = () => {

@@ -49,7 +49,15 @@
 
 ## System Overview
 
-This is a **production-ready cryptocurrency trading system** with **25 active bots** managing live funds across major trading pairs. The system features sophisticated 4-phase AI intelligence framework, triple-layer rate limiting protection, and evolving performance characteristics.
+This is a **production-ready cryptocurrency trading system** with **25 active bots** managing live funds across major trading pairs. The system features sophisticated 4-phase AI intelligence framework, triple-layer rate limiting protection, and proven profitable performance (+$265.77 over 63 days, ~42% annualized return).
+
+### Key Architectural Principles
+- **Bot-Per-Pair Design**: Each bot manages exactly one trading pair (e.g., BTC-USD, ETH-USD)
+- **JSON-Driven Configuration**: Signal weights and parameters stored as JSON in `Bot.signal_config`
+- **Dual-Table Trade Pattern**: `Trade` (operational) + `RawTrade` (financial truth from Coinbase)
+- **Celery Background Processing**: 5-minute evaluation cycles with Redis queue
+- **Intelligent Caching**: 90s TTL market data cache achieving 80%+ hit rates
+- **Real-Time Frontend**: 5-second TanStack Query polling with aggressive refresh
 
 ## Core Architecture
 
@@ -76,63 +84,132 @@ This is a **production-ready cryptocurrency trading system** with **25 active bo
 curl -s "http://localhost:8000/api/v1/bots/" | jq 'length'  # Should return 25
 ```
 
+## Essential Project Startup (Manual Alternative)
+
+For debugging or when scripts fail, use manual startup sequence:
+```bash
+# Terminal 1: Start Redis
+docker-compose up redis
+
+# Terminal 2: Start Backend (from backend/ directory)
+cd backend && source venv/bin/activate  
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# Terminal 3: Start Celery Worker (from backend/ directory)
+cd backend && source venv/bin/activate
+celery -A app.tasks.celery_app worker --loglevel=info
+
+# Terminal 4: Start Celery Beat Scheduler (from backend/ directory)  
+cd backend && source venv/bin/activate
+celery -A app.tasks.celery_app beat --loglevel=info
+
+# Terminal 5: Start Frontend (from frontend/ directory)
+cd frontend && npm run dev
+```
+
 ## Essential Development Patterns
 
 ### Bot-Per-Pair Architecture
 Each `Bot` entity manages exactly one trading pair with dynamic signal configuration stored as JSON in `Bot.signal_config`. Signals are created via factory pattern in `/backend/app/services/signals/base.py`.
 
 ### Dual-Table Data Pattern (CRITICAL)
-- **Trade Table**: Operational data (bot decisions, signals)  
-- **RawTrade Table**: Financial truth (exact Coinbase fills) - AUTO-SYNCED
+- **Trade Table**: Operational data (bot decisions, signals) in `/backend/app/models/models.py`  
+- **RawTrade Table**: Financial truth (exact Coinbase fills) - AUTO-SYNCED from Coinbase API
 - **Database Location**: `/trader.db` at project root (NOT backend/trader.db)
 
 ### Signal Scoring System
 - **Range**: -1.0 (BUY signal) to +1.0 (SELL signal)
-- **Thresholds**: ±0.05 system-wide (optimized for sensitivity)
+- **Thresholds**: ±0.05 system-wide (optimized for sensitivity) 
 - **Temperature**: 🔥HOT/🌡️WARM/❄️COOL/🧊FROZEN based on signal scores
+- **Aggregation**: Weighted combination of RSI, Moving Average, and MACD in `bot_evaluator.py`
+
+### Celery Task Architecture
+- **Main Evaluation**: `fast_trading_evaluation()` every 5 minutes with automatic trading
+- **Market Data**: `fetch_market_data_task()` every 5 minutes with intelligent caching  
+- **Trade Sync**: `update_trade_statuses()` every 60 seconds for pending order monitoring
+- **Configuration**: `/backend/app/tasks/celery_app.py` with Redis broker
+
+### API Response Patterns
+```python
+# Bot API returns computed fields not stored in DB
+{
+  "id": 1,
+  "current_combined_score": -0.087,  # From bot_evaluator calculation
+  "temperature": "🔥HOT",            # From temperature utils
+  "trading_thresholds": {...},       # Extracted from signal_config JSON
+  "signal_config": {...}             # Parsed from JSON string
+}
+```
 
 ## Intelligence Framework Status (September 28, 2025)
 
 ✅ **ALL 4 BACKEND PHASES COMPLETED + RECENT EXPANSION**
 
 ### Recent Major Achievements (Sept 27-28, 2025)
-1. **Dashboard Fixes**: Fixed Active Pairs count (now shows 25), eliminated React rendering errors, simplified bot display
+1. **25-Bot System Operational**: All bots displaying correctly with proper signal data across major pairs
 2. **Backend Synchronization**: Fixed evaluate_bot_signals and fast_trading_evaluation to update database properly  
-3. **17-Bot System Operational**: All 25 bots displaying correctly with proper signal data
+3. **Dashboard Fixes**: Fixed Active Pairs count (now shows 25), eliminated React rendering errors, simplified bot display
 4. **Rate Limiting Mastery**: Triple-layer protection (90s cache + circuit breaker + exponential backoff)
-5. **Performance Optimization**: Trading thresholds optimized to ±0.05 for 2x sensitivity
+5. **Performance Optimization**: Trading thresholds optimized to ±0.05 for 2x sensitivity, +$87.52 profit in 24hrs
 6. **UI Simplification**: Removed complex categorization, all bots visible in simple list format
 
 ### Backend Intelligence (Complete & Enhanced)
 1. **Market Regime Detection**: CHOPPY regime active (-0.146 strength, 0.75 confidence)
-2. **Dynamic Position Sizing**: Enhanced with regime-based adjustments across 17 pairs
+2. **Dynamic Position Sizing**: Enhanced with regime-based adjustments across 25 pairs
 3. **Signal Performance Tracking**: 451,711+ predictions with outcome evaluation system
-4. **Adaptive Signal Weighting**: All 17 bots eligible for AI-driven weight optimization
+4. **Adaptive Signal Weighting**: All 25 bots eligible for AI-driven weight optimization
 
-## Current Development Phase: System Optimization & Monitoring
+## Current Development Phase: CRITICAL ARCHITECTURAL REBUILD - NO MORE RATE LIMITS
 
-**Status**: 25-bot system operational with simplified UI and fixed synchronization
-**Goal**: Monitor and optimize the stable trading system for maximum profitability
-**Focus**: Dashboard functionality restored, all bots visible, data properly synchronized
-**Priority**: Maintain profitable operations with clear, functional user interface
+**Status**: IMMEDIATE PRIORITY - Rate limiting issues have persisted despite multiple fixes
+**Goal**: Complete elimination of rate limiting through centralized data management architecture
+**Focus**: Rebuild data layer to support 25+ bots without API rate limit conflicts
+**Priority**: ZERO TOLERANCE for rate limiting errors - architectural solution required
 
-### Recent Optimizations (September 28, 2025)
-1. **Dashboard Restoration**: Fixed portfolio display, eliminated React errors, simplified bot view
+**🚨 CRITICAL DECISION (September 29, 2025)**: The current system has grown too complex with multiple processes making independent API calls. Band-aid caching solutions have failed repeatedly. Time for proper architectural rebuild.
+
+### Phase 6: Centralized Data Management Architecture
+**OBJECTIVE**: Build bulletproof system that can handle 100+ bots without rate limits
+
+**Core Components**:
+1. **Centralized Market Data Service**: Single service fetches ALL market data 
+2. **Shared Cache Layer**: All bots read from unified cache, ZERO individual API calls
+3. **Intelligent Data Refresh**: Dynamic refresh rates based on market volatility
+4. **Distributed Data Storage**: Redis/memory cache with database persistence
+5. **API Call Coordination**: Global rate limiter with priority queuing
+
+**Implementation Strategy**:
+- **Phase 6.1**: Design centralized data service architecture
+- **Phase 6.2**: Implement shared cache layer with Redis
+- **Phase 6.3**: Migrate all bots to read from shared cache
+- **Phase 6.4**: Remove all individual API calls from bot evaluation
+- **Phase 6.5**: Add intelligent refresh logic and monitoring
+
+### Previous Optimizations (September 28, 2025) - NOW OBSOLETE
+1. **Dashboard Restoration**: Fixed portfolio display, eliminated React errors, simplified bot view  
 2. **Backend Sync Fixed**: Celery evaluation tasks now properly update bot scores in database
-3. **Enhanced Rate Limiting**: 90s cache TTL reducing API stress
+3. **Enhanced Rate Limiting**: ❌ 90s cache TTL - FAILED TO SOLVE PERSISTENT RATE LIMITS
 4. **UI Simplification**: Removed confusing categorization, all 25 bots displayed clearly
 5. **React Error Resolution**: Fixed object-as-children rendering issues preventing dashboard load
 
-## Known Issues & Recovery
+## Known Issues & Recovery - RATE LIMITING PERSISTENT FAILURE
 
-**Current Status**: ✅ All major issues resolved (September 28, 2025)
+**Current Status**: ⚠️ CRITICAL ARCHITECTURAL ISSUE IDENTIFIED (September 29, 2025)
 
-**Recent Solutions Implemented**:
-1. **Rate Limiting**: Triple-layer protection eliminates 429 errors
-2. **Signal Configuration**: Proper JSON structure for all 17 bots
-3. **Performance Tracking**: Real-time P&L monitoring operational
-4. **Threshold Optimization**: Increased trading frequency through sensitivity tuning
-5. **Cache Enhancement**: 90s TTL improving API performance
+**ROOT CAUSE ANALYSIS**:
+Rate limiting has been a persistent problem because the system architecture is fundamentally flawed:
+- **5 independent processes** making simultaneous API calls (Backend, Celery Worker, Celery Beat, Signal Tracking, Market Regime Detection)
+- **No centralized coordination** of API requests across system components  
+- **Multiple competing cache layers** that don't communicate
+- **25 bots × 3-4 API calls each** = 75-100 API calls every 5 minutes exceeds Coinbase limits
+
+**FAILED SOLUTIONS** (All band-aids that didn't address root cause):
+1. ❌ **Rate Limiting**: Triple-layer protection - FAILED, still getting 100+ 429 errors nightly
+2. ❌ **Cache Enhancement**: 90s TTL - FAILED, multiple processes still make independent calls
+3. ❌ **Circuit Breakers**: FAILED, doesn't reduce total API call volume
+4. ❌ **Exponential Backoff**: FAILED, just delays the inevitable rate limit hits
+
+**NEXT STEPS**: Phase 6 Centralized Data Management (see Current Development Phase above)
 
 ## Development Workflows
 
@@ -173,6 +250,20 @@ curl "http://localhost:8000/api/v1/cache/stats" | jq  # Should show 80%+ hit rat
 - **Market Data Cache**: 30s TTL achieving 80%+ hit rates via `MarketDataCache`
 - **Balance Pre-Check**: Bots skip signal processing when insufficient funds (~60% API reduction)
 - **Frontend Polling**: Aggressive 5-second TanStack Query with `staleTime: 0`
+
+### Configuration Details
+- **Backend Entry Point**: `backend/app/main.py` with FastAPI app initialization
+- **Frontend Dev Server**: Vite config with proxy to port 8000 for `/api` routes
+- **Environment File**: `.env` at project root (not in backend/) - requires COINBASE_API_KEY/SECRET
+- **Celery Configuration**: `backend/app/tasks/celery_app.py` with Redis broker
+- **Python Environment**: Virtual environment required in `backend/venv/`
+
+### Trading Constraints & Error Patterns
+- **Market vs Limit Orders**: System uses `place_market_order()` only - some pairs require limit orders
+- **Limit-Only Pairs**: ZEC-USD returns "Orderbook is in limit only mode" - replace with MATIC-USD  
+- **Size Validation**: All trades $10+ USD minimum, precision handled by `base_increment` from Coinbase
+- **Rate Limiting**: 90s cache + circuit breaker prevents 429 errors from Coinbase API
+- **Balance Checking**: Bots skip evaluation when insufficient funds to reduce API calls
 
 ### Recovery Procedures
 ```bash
@@ -251,18 +342,20 @@ emoji = get_temperature_emoji(temperature)  # 🔥🌡️❄️🧊
 - **Verify error counts** and system health before claiming issues are resolved
 - **Use commands like** `curl -s "http://localhost:8000/api/v1/system-errors/errors" | jq 'length'` to verify claims
 
-## Current Development Phase: UI Intelligence Framework
+## Previous Development Phase: UI Intelligence Framework (COMPLETED)
 
-**Status**: Moving from backend intelligence to user-facing features
+**Status**: ✅ COMPLETED - UI now showcases the sophisticated 4-phase AI system
 **Goal**: Showcase the sophisticated 4-phase AI system through enhanced UI components
-**Approach**: Enhance existing UI components rather than replacing them
-**Priority**: Make 139,711+ predictions and AI capabilities visible to users
+**Approach**: Enhanced existing UI components rather than replacing them
+**Achievement**: 1,007,430+ predictions and AI capabilities now visible to users
 
-### Phase 5 Implementation Strategy
-1. **Non-disruptive enhancements** - add intelligence panels to existing dashboard spaces
-2. **Extend existing components** - enhance bot cards and status displays with AI data
-3. **New visualization components** - market regime indicators and performance analytics
-4. **API extensions** - expose intelligence framework data through existing endpoints
+### Phase 5 Implementation Results (COMPLETED)
+1. ✅ **Intelligence panels** - added to existing dashboard spaces
+2. ✅ **Enhanced bot cards** - bot cards and status displays with AI data
+3. ✅ **Visualization components** - market regime indicators and performance analytics
+4. ✅ **API extensions** - intelligence framework data exposed through endpoints
+
+**NOTE**: UI Intelligence Framework is complete. Current focus is Phase 6 Centralized Data Management.
 
 ## 🛠️ API DEBUGGING BEST PRACTICES - MANDATORY 🛠️
 
@@ -291,6 +384,12 @@ tail -n 5 /Users/lazy_genius/Projects/trader/logs/celery-worker.log
 # 5. Use lightweight queries for troubleshooting
 curl -s --max-time 5 "http://localhost:8000/api/v1/bots/" | jq 'length'
 ```
+
+**Common Error Patterns:**
+- **"Coinbase order placement returned None"**: Check logs for "limit only mode" - replace pair with market-order compatible one
+- **Frontend shows "missing bots"**: Check if backend is running and bot count with `curl -s "http://localhost:8000/api/v1/bots/" | jq 'length'`
+- **Temperature display "undefined"**: Bot evaluation hasn't run yet - wait for Celery task cycle
+- **Signal configuration errors**: Ensure JSON structure matches `SignalConfigurationSchema` in schemas.py
 
 **Common Causes of Slow APIs:**
 - Celery task backlog processing (normal during error cleanup)

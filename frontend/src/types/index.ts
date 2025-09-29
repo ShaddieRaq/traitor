@@ -199,9 +199,27 @@ export interface LastTradeInfo {
   minutes_ago?: number;
 }
 
+export interface PnLData {
+  product_id: string;
+  trade_count: number;
+  buy_trades: number;
+  sell_trades: number;
+  total_spent_usd: number;
+  total_received_usd: number;
+  total_fees_usd: number;
+  realized_pnl_usd: number;
+  unrealized_pnl_usd: number;
+  net_pnl_usd: number;
+  current_holdings: number;
+  current_value: number;
+  current_price: number;
+  average_buy_price: number;
+}
+
 export interface EnhancedBotStatus extends BotStatus {
   trading_intent: TradingIntent;
   confirmation: ConfirmationStatus;
   trade_readiness: TradeReadiness;
   last_trade?: LastTradeInfo;
+  pnl_data?: PnLData;
 }
