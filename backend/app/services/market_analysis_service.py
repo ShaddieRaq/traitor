@@ -5,7 +5,7 @@ Analyzes volume, volatility, momentum, and risk factors to recommend new bots.
 
 from typing import Dict, List, Any, Optional
 import logging
-from ..services.coinbase_service import CoinbaseService
+from ..services.coinbase_service import coinbase_service
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,8 @@ class MarketAnalysisService:
     """Service for analyzing market conditions and recommending trading pairs."""
     
     def __init__(self):
-        self.coinbase_service = CoinbaseService()
+        # TEMPORARY: Use direct service to avoid coordination hangs
+        self.coinbase_service = coinbase_service
     
     def analyze_potential_pairs(self, 
                               exclude_pairs: Optional[List[str]] = None,

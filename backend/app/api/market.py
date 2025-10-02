@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 import logging
+import asyncio
 from ..core.database import get_db
 from ..models.models import MarketData
 from ..api.schemas import MarketDataResponse, ProductTickerResponse, AccountResponse
@@ -13,14 +14,14 @@ router = APIRouter()
 
 
 @router.get("/products")
-def get_products():
+async def get_products():
     """Get available trading products."""
     products = coinbase_service.get_products()
-    return {"products": products}
+    return {"products": products if products else []}
 
 
 @router.get("/ticker/{product_id}", response_model=ProductTickerResponse)
-def get_ticker(product_id: str):
+async def get_ticker(product_id: str):
     """Get current ticker for a product."""
     ticker = coinbase_service.get_product_ticker(product_id)
     if not ticker:
@@ -46,14 +47,14 @@ def get_candles(
 
 
 @router.get("/accounts", response_model=List[AccountResponse])
-def get_accounts():
+async def get_accounts():
     """Get account balances."""
     accounts = coinbase_service.get_accounts()
     return accounts
 
 
 @router.get("/portfolio/live")
-def get_live_portfolio_value():
+async def get_live_portfolio_value():
     """Get real-time portfolio value from Coinbase accounts."""
     try:
         accounts = coinbase_service.get_accounts()
@@ -71,10 +72,10 @@ def get_live_portfolio_value():
                     value_usd = balance
                 else:
                     try:
-                        # Get current market price
+                        # Get current market price using coinbase service
                         product_id = f"{currency}-USD"
                         ticker = coinbase_service.get_product_ticker(product_id)
-                        price = float(ticker.get('price', 0))
+                        price = float(ticker.get('price', 0)) if ticker else 0
                         value_usd = balance * price
                     except Exception as e:
                         logger.warning(f"Could not get price for {currency}: {e}")
@@ -128,10 +129,10 @@ def get_transaction_summary(
 
 
 @router.get("/system/status")
-def get_system_status() -> Dict[str, Any]:
+async def get_system_status() -> Dict[str, Any]:
     """Get comprehensive system health status for visual indicators."""
     try:
-        # Test Coinbase API connectivity
+        # Test Coinbase API connectivity using coinbase service
         coinbase_healthy = False
         last_ticker_time = None
         try:

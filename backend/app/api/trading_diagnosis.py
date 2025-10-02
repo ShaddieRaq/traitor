@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from ..core.database import get_db
 from ..models.models import Bot, Trade
 from ..services.bot_evaluator import BotSignalEvaluator
-from ..services.coinbase_service import CoinbaseService
+from ..services.sync_coordinated_coinbase_service import get_coordinated_coinbase_service
 from ..services.trading_safety import TradingSafetyService
 from typing import Dict, Any, List
 import os
@@ -19,7 +19,7 @@ async def get_trading_diagnosis(db: Session = Depends(get_db)) -> Dict[str, Any]
     try:
         bots = db.query(Bot).all()
         evaluator = BotSignalEvaluator()
-        coinbase_service = CoinbaseService()
+        coinbase_service = get_coordinated_coinbase_service()
         safety_service = TradingSafetyService()
         
         diagnosis = {

@@ -59,10 +59,29 @@ wait_for_service() {
 # Step 1: Start Redis
 echo -e "\n${BLUE}📦 Starting Redis...${NC}"
 cd "$PROJECT_ROOT"
-if docker-compose up redis -d; then
-    echo -e "${GREEN}✅ Redis started successfully${NC}"
+
+# Check if Redis is already running
+if lsof -Pi :6379 -sTCP:LISTEN -t >/dev/null 2>&1; then
+    echo -e "${GREEN}✅ Redis is already running${NC}"
+elif command -v brew >/dev/null 2>&1; then
+    # Start Redis via Homebrew
+    echo -e "${YELLOW}🔄 Starting Homebrew Redis service...${NC}"
+    if brew services start redis; then
+        echo -e "${GREEN}✅ Redis started successfully${NC}"
+    else
+        echo -e "${RED}❌ Failed to start Redis via Homebrew${NC}"
+        exit 1
+    fi
+elif command -v docker-compose >/dev/null 2>&1; then
+    # Fallback to Docker if available
+    if docker-compose up redis -d; then
+        echo -e "${GREEN}✅ Redis started successfully${NC}"
+    else
+        echo -e "${RED}❌ Failed to start Redis${NC}"
+        exit 1
+    fi
 else
-    echo -e "${RED}❌ Failed to start Redis${NC}"
+    echo -e "${RED}❌ Neither Homebrew nor Docker available to start Redis${NC}"
     exit 1
 fi
 

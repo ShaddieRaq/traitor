@@ -9,7 +9,8 @@ from decimal import Decimal
 from datetime import datetime
 
 from ..models.models import Bot, Trade
-from .coinbase_service import CoinbaseService
+from .sync_coordinated_coinbase_service import get_coordinated_coinbase_service
+from .market_data_service import MarketDataService
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ class PositionReconciliationService:
     
     def __init__(self, db: Session):
         self.db = db
-        self.coinbase_service = CoinbaseService()
+        self.coinbase_service = get_coordinated_coinbase_service()
     
     def reconcile_all_bot_positions(self) -> Dict[str, any]:
         """
@@ -93,9 +94,10 @@ class PositionReconciliationService:
             # Extract base currency from trading pair (e.g., BTC from BTC-USD)
             base_currency = bot.pair.split('-')[0]
             
-            # Get current market price for the currency
-            ticker = self.coinbase_service.get_product_ticker(bot.pair)
-            current_price = float(ticker.get('price', 0)) if ticker else 0
+            # Get current market price for the currency using cached data
+            market_data_service = MarketDataService()
+            ticker = market_data_service.get_ticker(bot.pair)
+            current_price = float(ticker.price) if ticker and ticker.price else 0
             
             # Get actual holdings for this currency
             actual_holdings = account_balances.get(base_currency, 0.0)
@@ -170,8 +172,9 @@ class PositionReconciliationService:
             for bot in bots:
                 try:
                     base_currency = bot.pair.split('-')[0]
-                    ticker = self.coinbase_service.get_product_ticker(bot.pair)
-                    current_price = float(ticker.get('price', 0)) if ticker else 0
+                    market_data_service = MarketDataService()
+                    ticker = market_data_service.get_ticker(bot.pair)
+                    current_price = float(ticker.price) if ticker and ticker.price else 0
                     
                     actual_holdings = account_balances.get(base_currency, 0.0)
                     actual_position_usd = actual_holdings * current_price
@@ -243,9 +246,10 @@ class PositionReconciliationService:
                 
                 trade_count += 1
             
-            # Get current price for validation
-            ticker = self.coinbase_service.get_product_ticker(bot.pair)
-            current_price = float(ticker.get('price', 0)) if ticker else 0
+            # Get current price for validation using cached data
+            market_data_service = MarketDataService()
+            ticker = market_data_service.get_ticker(bot.pair)
+            current_price = float(ticker.price) if ticker and ticker.price else 0
             current_value_usd = total_crypto_amount * current_price
             
             return {

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
 
 from ..models.models import Bot, Trade
+from .market_data_service import MarketDataService
 
 logger = logging.getLogger(__name__)
 
@@ -308,11 +309,11 @@ class TradingSafetyService:
         if not last_trade or not last_trade.price:
             return True  # No previous trades, price step not applicable
         
-        # Get current market price
+        # Get current market price using cached data
         try:
-            from ..services.coinbase_service import coinbase_service
-            ticker = coinbase_service.get_product_ticker(bot.pair)
-            current_price = float(ticker.get('price', 0))
+            market_data_service = MarketDataService()
+            ticker = market_data_service.get_ticker(bot.pair)
+            current_price = float(ticker.price) if ticker and ticker.price else 0
             
             if current_price <= 0:
                 logger.warning(f"Invalid current price for {bot.pair}, allowing trade")

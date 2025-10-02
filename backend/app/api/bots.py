@@ -19,22 +19,22 @@ def extract_trading_thresholds(signal_config: dict) -> Optional[TradingThreshold
         if not signal_config or 'trading_thresholds' not in signal_config:
             # Return default thresholds
             return TradingThresholds(
-                buy_threshold=-0.1,
-                sell_threshold=0.1
+                buy_threshold=-0.05,
+                sell_threshold=0.05
             )
         
         thresholds_data = signal_config['trading_thresholds']
         return TradingThresholds(
-            buy_threshold=thresholds_data.get('buy_threshold', -0.1),
-            sell_threshold=thresholds_data.get('sell_threshold', 0.1),
+            buy_threshold=thresholds_data.get('buy_threshold', -0.05),
+            sell_threshold=thresholds_data.get('sell_threshold', 0.05),
             optimization_applied=thresholds_data.get('optimization_applied'),
             applied_date=thresholds_data.get('applied_date')
         )
     except Exception as e:
         logger.warning(f"Error extracting trading thresholds: {e}")
         return TradingThresholds(
-            buy_threshold=-0.1,
-            sell_threshold=0.1
+            buy_threshold=-0.05,
+            sell_threshold=0.05
         )
 
 

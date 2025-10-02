@@ -93,8 +93,8 @@ async def test_bot_evaluation(bot_id: int, db: Session = Depends(get_db)):
     
     # Get market data from Coinbase
     try:
-        from ..services.coinbase_service import CoinbaseService
-        coinbase = CoinbaseService()
+        from ..services.sync_coordinated_coinbase_service import get_coordinated_coinbase_service
+        coinbase = get_coordinated_coinbase_service()
         
         # Convert time interval to seconds for Coinbase API
         granularity_seconds = 60  # 1 minute intervals

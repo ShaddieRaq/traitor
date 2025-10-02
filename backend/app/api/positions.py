@@ -9,7 +9,8 @@ from decimal import Decimal
 
 from app.core.database import get_db
 from app.services.position_tracking_service import PositionTrackingService, PositionSummary
-from app.services.coinbase_service import CoinbaseService
+from app.services.sync_coordinated_coinbase_service import get_coordinated_coinbase_service
+from app.services.market_data_service import MarketDataService
 
 router = APIRouter()
 
@@ -116,21 +117,22 @@ async def get_position_by_product(product_id: str, db: Session = Depends(get_db)
 async def update_unrealized_pnl(db: Session = Depends(get_db)):
     """Update unrealized P&L with current market prices"""
     try:
-        coinbase_service = CoinbaseService()
+        coinbase_service = get_coordinated_coinbase_service()
         position_service = PositionTrackingService(db)
         
         # Get current positions
         summaries = position_service.get_position_summaries()
         
-        # Get current prices for products with open positions
+        # Get current prices for products with open positions using cached data
         current_prices = {}
+        market_data_service = MarketDataService()
         for summary in summaries:
             if summary.current_quantity > 0:
                 try:
-                    # Get current price from Coinbase
-                    ticker = coinbase_service.get_product_ticker(summary.product_id)
-                    if ticker and 'price' in ticker:
-                        current_prices[summary.product_id] = Decimal(str(ticker['price']))
+                    # Get current price from cache
+                    ticker = market_data_service.get_ticker(summary.product_id)
+                    if ticker and ticker.price:
+                        current_prices[summary.product_id] = Decimal(str(ticker.price))
                 except Exception as e:
                     print(f"Could not get price for {summary.product_id}: {e}")
         

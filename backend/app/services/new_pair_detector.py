@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from ..models.models import TradingPair, Notification
 from ..core.database import get_db
-from .coinbase_service import CoinbaseService
+from .sync_coordinated_coinbase_service import get_coordinated_coinbase_service
 from .notification_service import get_notification_service
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ class NewPairDetector:
     """Service for detecting newly listed trading pairs on Coinbase."""
     
     def __init__(self):
-        self.coinbase_service = CoinbaseService()
+        self.coinbase_service = get_coordinated_coinbase_service()
     
     def scan_for_new_pairs(self, db: Session) -> Dict[str, Any]:
         """

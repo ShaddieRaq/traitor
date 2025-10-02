@@ -3,7 +3,8 @@ import logging
 from datetime import datetime
 from ..core.database import SessionLocal
 from ..models.models import Bot, MarketData
-from ..services.coinbase_service import coinbase_service
+from ..services.sync_coordinated_coinbase_service import get_coordinated_coinbase_service
+from ..services.sync_api_coordinator import RequestPriority
 from .celery_app import celery_app
 
 logger = logging.getLogger(__name__)
@@ -36,8 +37,8 @@ def evaluate_bot_signals(enable_automatic_trading: bool = False):
                     "message": "No running bots found for evaluation"
                 }
             
-            # Initialize evaluator
-            evaluator = BotSignalEvaluator(db)
+            # Initialize evaluator with confirmation disabled for automated trading
+            evaluator = BotSignalEvaluator(db, enable_confirmation=False)
             evaluation_results = []
             
             # Cache for market data to avoid duplicate API calls
@@ -59,9 +60,10 @@ def evaluate_bot_signals(enable_automatic_trading: bool = False):
                         logger.info(f"📋 Using cached market data for {bot.pair}")
                         market_data = market_data_cache[bot.pair]
                     else:
-                        # Get market data for this bot's pair (reduced limit to prevent rate limiting)
+                        # Get market data for this bot's pair with coordinated service (reduced limit to prevent rate limiting)
                         logger.info(f"📡 Fetching fresh market data for {bot.pair}")
-                        market_data = coinbase_service.get_historical_data(bot.pair, limit=30)
+                        coordinated_service = get_coordinated_coinbase_service()
+                        market_data = coordinated_service.get_historical_data(bot.pair, limit=30, priority=RequestPriority.HIGH)
                         market_data_cache[bot.pair] = market_data
                     
                     if market_data.empty:
@@ -152,8 +154,8 @@ def fast_trading_evaluation():
             if not active_bots:
                 return {"status": "no_active_bots", "running_bots": 0}
             
-            # Initialize evaluator
-            evaluator = BotSignalEvaluator(db)
+            # Initialize evaluator with confirmation disabled for automated trading
+            evaluator = BotSignalEvaluator(db, enable_confirmation=False)
             trade_attempts = 0
             successful_trades = 0
             
@@ -162,7 +164,8 @@ def fast_trading_evaluation():
             unique_pairs = set(bot.pair for bot in active_bots)
             for pair in unique_pairs:
                 try:
-                    market_data_cache[pair] = coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
+                    coordinated_service = get_coordinated_coinbase_service()
+                    market_data_cache[pair] = coordinated_service.get_historical_data(pair, granularity=3600, limit=100, priority=RequestPriority.MEDIUM)
                 except Exception as e:
                     logger.warning(f"Failed to get market data for {pair}: {e}")
                     continue
@@ -189,7 +192,6 @@ def fast_trading_evaluation():
                     # Store evaluation results back to the bot for UI display
                     try:
                         import json
-                        from datetime import datetime
                         
                         evaluation_data = {
                             "action": result.get("action"),
@@ -247,8 +249,9 @@ def fetch_market_data(product_id: str = "BTC-USD"):
         
         db = SessionLocal()
         try:
-            # Get historical data from Coinbase
-            df = coinbase_service.get_historical_data(product_id, granularity=3600, limit=100)
+            # Get historical data from Coinbase with coordinated service
+            coordinated_service = get_coordinated_coinbase_service()
+            df = coordinated_service.get_historical_data(product_id, granularity=3600, limit=100, priority=RequestPriority.MEDIUM)
             
             if df.empty:
                 logger.warning(f"No market data received for {product_id}")

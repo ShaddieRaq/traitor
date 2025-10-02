@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from ..core.database import get_db
 from ..models.models import Trade
 from ..utils.trade_utils import get_trade_usd_value
-from ..services.coinbase_service import CoinbaseService
+from ..services.sync_coordinated_coinbase_service import get_coordinated_coinbase_service
 from ..models.models import Trade
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ async def validate_pnl_calculations(db: Session = Depends(get_db)):
     Comprehensive P&L validation comparing multiple calculation methods
     """
     try:
-        coinbase_service = CoinbaseService()
+        coinbase_service = get_coordinated_coinbase_service()
         
         # Method 1: Direct database calculation using size_usd field only
         db_query = text("""

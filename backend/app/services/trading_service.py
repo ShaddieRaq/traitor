@@ -11,7 +11,8 @@ import redis
 from sqlalchemy.orm import Session
 
 from ..models.models import Bot, Trade
-from ..services.coinbase_service import CoinbaseService
+from ..services.sync_coordinated_coinbase_service import get_coordinated_coinbase_service
+from ..services.market_data_service import MarketDataService
 from ..services.trading_safety import TradingSafetyService
 from ..services.bot_evaluator import BotSignalEvaluator
 from ..services.position_service import PositionService
@@ -34,7 +35,7 @@ class TradingService:
     
     def __init__(self, db: Session):
         self.db = db
-        self.coinbase_service = CoinbaseService()
+        self.coinbase_service = get_coordinated_coinbase_service()
         self.safety_service = TradingSafetyService(db)
         self.bot_evaluator = BotSignalEvaluator(db)
         self.position_service = PositionService(db)  # Phase 4.1.3: Enhanced position management
@@ -451,13 +452,15 @@ class TradingService:
             }
     
     def _get_current_price(self, product_id: str) -> float:
-        """Get current market price for the trading pair."""
+        """Get current market price for the trading pair using cached data."""
         try:
-            ticker = self.coinbase_service.get_product_ticker(product_id)
-            if ticker and 'price' in ticker:
-                return float(ticker['price'])
+            # Use MarketDataService for cached price data (eliminates API calls)
+            market_data_service = MarketDataService()
+            ticker = market_data_service.get_ticker(product_id)
+            if ticker and ticker.price is not None:
+                return float(ticker.price)
             else:
-                raise TradeExecutionError(f"Could not get current price for {product_id}")
+                raise TradeExecutionError(f"Could not get current price for {product_id} from cache")
         except Exception as e:
             raise TradeExecutionError(f"Failed to fetch market price: {e}")
     
@@ -507,7 +510,7 @@ class TradingService:
             order_result = self.coinbase_service.place_market_order(
                 product_id=product_id,
                 side=side,
-                size=base_size
+                amount=base_size
             )
             
             if not order_result:

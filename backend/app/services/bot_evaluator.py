@@ -138,8 +138,17 @@ class BotSignalEvaluator:
         overall_score = weighted_score_sum / total_weight
         overall_confidence = sum(confidence_values) / len(confidence_values) if confidence_values else 0
         
-        # Determine action based on overall score and bot thresholds
-        action = self._determine_action(overall_score, bot)
+        # Phase 3: Signal Quality Filtering - Reject weak signals below confidence threshold
+        min_confidence = 0.2  # TEMPORARILY LOWERED: Allow trades with 20%+ confidence
+        if overall_confidence < min_confidence:
+            logger.info(f"🚫 Signal quality filter: Rejecting signal for {bot.pair} due to low confidence "
+                       f"({overall_confidence:.3f} < {min_confidence})")
+            action = 'hold'
+        else:
+            # Determine action based on overall score and bot thresholds
+            action = self._determine_action(overall_score, bot)
+            logger.info(f"✅ Signal quality filter: Accepting signal for {bot.pair} "
+                       f"(confidence: {overall_confidence:.3f} >= {min_confidence})")
         
         # Prepare evaluation result
         evaluation_result = {
@@ -268,7 +277,9 @@ class BotSignalEvaluator:
             }
         
         # Phase 4.2.1: Automatic trade execution on confirmed signals
+        logger.info(f"🤖 Bot {bot.id} ({bot.pair}) checking for automatic trade eligibility...")
         if self._should_execute_automatic_trade(bot, evaluation_result):
+            logger.info(f"🎯 Bot {bot.id} proceeding with automatic trade execution")
             automatic_trade_result = self._execute_automatic_trade(bot, evaluation_result)
             evaluation_result['automatic_trade'] = automatic_trade_result
             
@@ -279,6 +290,7 @@ class BotSignalEvaluator:
             self.db.commit()
             
         else:
+            logger.info(f"❌ Bot {bot.id} not eligible for automatic trade")
             evaluation_result['automatic_trade'] = None
         
         return evaluation_result
@@ -387,8 +399,14 @@ class BotSignalEvaluator:
         
         # Calculate confirmation progress
         elapsed_minutes = (now - bot.signal_confirmation_start).total_seconds() / 60
-        progress = min(elapsed_minutes / confirmation_minutes, 1.0)
-        time_remaining = max(confirmation_minutes - elapsed_minutes, 0)
+        
+        # Handle immediate confirmation (0 minutes)
+        if confirmation_minutes == 0:
+            progress = 1.0
+            time_remaining = 0
+        else:
+            progress = min(elapsed_minutes / confirmation_minutes, 1.0)
+            time_remaining = max(confirmation_minutes - elapsed_minutes, 0)
         
         if progress >= 1.0:
             return {
@@ -429,24 +447,24 @@ class BotSignalEvaluator:
                 
                 # Dynamic thresholds based on market regime
                 if regime_data['regime'] == 'STRONG_TRENDING':
-                    # Very tight thresholds for strong trends - most responsive
-                    buy_threshold = -0.02
-                    sell_threshold = 0.02
-                    regime_reason = f"STRONG_TRENDING ({regime_data['trend_strength']:.3f})"
-                elif regime_data['regime'] == 'TRENDING':
-                    # Tight thresholds for trending markets - more responsive
-                    buy_threshold = -0.03
-                    sell_threshold = 0.03
-                    regime_reason = f"TRENDING ({regime_data['trend_strength']:.3f})"
-                elif regime_data['regime'] == 'RANGING':
-                    # Loose thresholds for ranging markets - less noise
-                    buy_threshold = -0.08
-                    sell_threshold = 0.08
-                    regime_reason = f"RANGING ({regime_data['trend_strength']:.3f})"
-                elif regime_data['regime'] == 'CHOPPY':
-                    # Very loose thresholds for choppy markets - avoid false signals
+                    # Loose thresholds for strong trends - allow bigger signals through
                     buy_threshold = -0.12
                     sell_threshold = 0.12
+                    regime_reason = f"STRONG_TRENDING ({regime_data['trend_strength']:.3f})"
+                elif regime_data['regime'] == 'TRENDING':
+                    # Moderate thresholds for trending markets - balanced
+                    buy_threshold = -0.08
+                    sell_threshold = 0.08
+                    regime_reason = f"TRENDING ({regime_data['trend_strength']:.3f})"
+                elif regime_data['regime'] == 'RANGING':
+                    # Tight thresholds for ranging markets - precise entries
+                    buy_threshold = -0.05
+                    sell_threshold = 0.05
+                    regime_reason = f"RANGING ({regime_data['trend_strength']:.3f})"
+                elif regime_data['regime'] == 'CHOPPY':
+                    # Very tight thresholds for choppy markets - avoid noise
+                    buy_threshold = -0.03
+                    sell_threshold = 0.03
                     regime_reason = f"CHOPPY ({regime_data['trend_strength']:.3f})"
                 else:
                     # Fallback to moderate thresholds
@@ -468,8 +486,8 @@ class BotSignalEvaluator:
                 signal_config = json.loads(bot.signal_config) if isinstance(bot.signal_config, str) else bot.signal_config
                 if signal_config and 'trading_thresholds' in signal_config:
                     thresholds = signal_config['trading_thresholds']
-                    buy_threshold = thresholds.get('buy_threshold', -0.1)
-                    sell_threshold = thresholds.get('sell_threshold', 0.1)
+                    buy_threshold = thresholds.get('buy_threshold', -0.05)
+                    sell_threshold = thresholds.get('sell_threshold', 0.05)
                     logger.info(f"Using custom thresholds for {bot.pair}: buy={buy_threshold}, sell={sell_threshold}")
                 else:
                     # Default thresholds for static bots
@@ -549,19 +567,29 @@ class BotSignalEvaluator:
 
     def save_signal_history(self, bot: Bot, evaluation_result: Dict[str, Any], price: float):
         """Save signal evaluation result to history for confirmation tracking."""
-        history_entry = BotSignalHistory(
-            bot_id=bot.id,
-            timestamp=datetime.utcnow(),
-            combined_score=evaluation_result['overall_score'],
-            action=evaluation_result['action'],
-            confidence=evaluation_result['confidence'],
-            signal_scores=json.dumps(self._convert_to_json_serializable(evaluation_result['signal_results'])),
-            evaluation_metadata=json.dumps(self._convert_to_json_serializable(evaluation_result['metadata'])),
-            price=price
-        )
-        
-        self.db.add(history_entry)
-        self.db.commit()
+        try:
+            from ..core.database import SessionLocal
+            
+            # Use fresh database session to avoid conflicts
+            fresh_db = SessionLocal()
+            try:
+                history_entry = BotSignalHistory(
+                    bot_id=bot.id,
+                    timestamp=datetime.utcnow(),
+                    combined_score=evaluation_result['overall_score'],
+                    action=evaluation_result['action'],
+                    confidence=evaluation_result['confidence'],
+                    signal_scores=json.dumps(self._convert_to_json_serializable(evaluation_result['signal_results'])),
+                    evaluation_metadata=json.dumps(self._convert_to_json_serializable(evaluation_result['metadata'])),
+                    price=price
+                )
+                
+                fresh_db.add(history_entry)
+                fresh_db.commit()
+            finally:
+                fresh_db.close()
+        except Exception as e:
+            logger.warning(f"Failed to save signal history for bot {bot.id}: {e}")
     
     def get_confirmation_status(self, bot: Bot) -> Dict[str, Any]:
         """Get current confirmation status for a bot without running evaluation."""
@@ -590,8 +618,14 @@ class BotSignalEvaluator:
         now = datetime.utcnow()
         confirmation_minutes = bot.confirmation_minutes if bot.confirmation_minutes else 5
         elapsed_minutes = (now - bot.signal_confirmation_start).total_seconds() / 60
-        progress = min(elapsed_minutes / confirmation_minutes, 1.0)
-        time_remaining = max(confirmation_minutes - elapsed_minutes, 0)
+        
+        # Handle immediate confirmation (0 minutes)
+        if confirmation_minutes == 0:
+            progress = 1.0
+            time_remaining = 0
+        else:
+            progress = min(elapsed_minutes / confirmation_minutes, 1.0)
+            time_remaining = max(confirmation_minutes - elapsed_minutes, 0)
         
         # Get the most recent signal action to know what's being confirmed
         recent_signal = (
@@ -886,37 +920,43 @@ class BotSignalEvaluator:
         Returns:
             bool: True if automatic trade should be executed
         """
+        logger.info(f"🔍 TRADE DECISION ANALYSIS for Bot {bot.id} ({bot.pair})")
+        
         # Check basic prerequisites for automatic trading
         if bot.status != 'RUNNING':
-            logger.debug(f"Bot {bot.id} not running - no automatic trade")
+            logger.info(f"❌ Bot {bot.id} status: {bot.status} (not RUNNING) - blocking trade")
             return False
+        logger.info(f"✅ Bot {bot.id} status: RUNNING")
         
         # Check if signal is confirmed
         confirmation_status = evaluation_result.get('confirmation_status', {})
-        if not confirmation_status.get('is_confirmed', False):
-            logger.debug(f"Bot {bot.id} signal not confirmed - no automatic trade")
+        is_confirmed = confirmation_status.get('is_confirmed', False)
+        if not is_confirmed:
+            logger.info(f"❌ Bot {bot.id} signal NOT CONFIRMED - blocking trade")
+            logger.info(f"   Confirmation details: {confirmation_status}")
             return False
+        logger.info(f"✅ Bot {bot.id} signal CONFIRMED")
         
         # Check if action requires trading (not 'hold')
         action = evaluation_result.get('action')
         if action not in ['buy', 'sell']:
-            logger.debug(f"Bot {bot.id} action '{action}' - no automatic trade needed")
+            logger.info(f"❌ Bot {bot.id} action '{action}' - no trade needed")
             return False
+        logger.info(f"✅ Bot {bot.id} action: {action.upper()}")
         
         # Check for existing pending orders FIRST (critical fix)
         if not self._check_no_pending_orders(bot):
-            logger.debug(f"Bot {bot.id} has pending orders - no automatic trade")
+            logger.info(f"❌ Bot {bot.id} has PENDING ORDERS - blocking trade")
             return False
-        
-        # NOTE: Cooldown check moved to TradingService for atomic transaction handling
-        # This prevents race conditions where multiple requests bypass cooldown simultaneously
+        logger.info(f"✅ Bot {bot.id} no pending orders")
         
         # Check balance validation before attempting trade
         if not self._check_balance_for_automatic_trade(bot, action):
-            logger.warning(f"Bot {bot.id} insufficient balance for {action} trade - no automatic trade")
+            logger.info(f"❌ Bot {bot.id} INSUFFICIENT BALANCE for {action} trade - blocking trade")
             return False
+        logger.info(f"✅ Bot {bot.id} sufficient balance for {action}")
         
-        logger.info(f"Bot {bot.id} ready for automatic {action} trade")
+        logger.info(f"🚀 Bot {bot.id} APPROVED for automatic {action} trade!")
         return True
     
     # DEPRECATED: Cooldown check moved to TradingService for atomic transaction handling
@@ -946,22 +986,25 @@ class BotSignalEvaluator:
         try:
             # Import here to avoid circular dependency
             from ..models.models import Trade
+            from ..core.database import SessionLocal
             
-            # Check for any pending orders for this bot
-            pending_orders = (
-                self.db.query(Trade)
-                .filter(Trade.bot_id == bot.id)
-                .filter(Trade.status.in_(["pending", "open", "active"]))
-                .filter(Trade.order_id.isnot(None))  # Only real orders with order_ids
-                .count()
-            )
+            # Use fresh database session to ensure we get current data
+            with SessionLocal() as fresh_db:
+                # Check for any pending orders for this bot
+                pending_orders = (
+                    fresh_db.query(Trade)
+                    .filter(Trade.bot_id == bot.id)
+                    .filter(Trade.status.in_(["pending", "open", "active"]))
+                    .filter(Trade.order_id.isnot(None))  # Only real orders with order_ids
+                    .count()
+                )
             
-            if pending_orders > 0:
-                logger.warning(f"Bot {bot.id} has {pending_orders} pending orders - blocking new trade")
-                return False
-            
-            logger.debug(f"Bot {bot.id} has no pending orders - can place new trade")
-            return True
+                if pending_orders > 0:
+                    logger.warning(f"Bot {bot.id} has {pending_orders} pending orders - blocking new trade")
+                    return False
+                
+                logger.debug(f"Bot {bot.id} has no pending orders - can place new trade")
+                return True
                 
         except Exception as e:
             logger.error(f"Error checking pending orders for bot {bot.id}: {str(e)}")
@@ -980,16 +1023,22 @@ class BotSignalEvaluator:
             bool: True if sufficient balance exists
         """
         try:
-            from ..services.coinbase_service import coinbase_service
+            # PHASE 7: Use MarketDataService for cached price data
+            from ..services.market_data_service import get_market_data_service
             
-            # Get current market price
-            ticker = coinbase_service.get_product_ticker(bot.pair)
-            if not ticker or 'price' not in ticker:
-                logger.error(f"Could not get price for {bot.pair} - blocking automatic trade")
+            market_service = get_market_data_service()
+            
+            # Get current market price from cache (eliminates API calls)
+            ticker_data = market_service.get_ticker(bot.pair)
+            if not ticker_data:
+                logger.error(f"Could not get price for {bot.pair} from cache - blocking automatic trade")
                 return False
             
-            current_price = float(ticker['price'])
+            current_price = ticker_data.price
             trade_size_usd = bot.position_size_usd
+            
+            # Use coinbase_service for balance validation (not market data)
+            from ..services.coinbase_service import coinbase_service
             
             # Validate balance for the specific action
             balance_result = coinbase_service.validate_trade_balance(
@@ -999,11 +1048,22 @@ class BotSignalEvaluator:
                 current_price=current_price
             )
             
+            # Enhanced error handling for balance result
+            if not isinstance(balance_result, dict):
+                logger.error(f"Bot {bot.id} balance validation returned invalid type: {type(balance_result)}")
+                return False
+                
+            if "valid" not in balance_result:
+                logger.error(f"Bot {bot.id} balance validation missing 'valid' key: {balance_result}")
+                return False
+            
             if balance_result["valid"]:
-                logger.debug(f"Bot {bot.id} balance check passed for {action}: {balance_result['message']}")
+                message = balance_result.get('message', 'Balance check passed')
+                logger.info(f"✅ Bot {bot.id} balance check PASSED for {action}: {message}")
                 return True
             else:
-                logger.warning(f"Bot {bot.id} balance check failed for {action}: {balance_result['message']}")
+                message = balance_result.get('message', 'Balance check failed - no message provided')
+                logger.warning(f"❌ Bot {bot.id} balance check FAILED for {action}: {message}")
                 return False
                 
         except Exception as e:
@@ -1117,14 +1177,19 @@ class BotSignalEvaluator:
             Dict with 'can_trade', 'reason', 'details', and 'balances'
         """
         try:
+            # PHASE 7: Use MarketDataService for market data, coinbase_service for balances
             from ..services.coinbase_service import coinbase_service
+            from ..services.market_data_service import get_market_data_service
+            
+            # Use coinbase_service for account balances (not market data)
+            balance_service = coinbase_service
             
             # Parse trading pair for currency identification
             base_currency, quote_currency = bot.pair.split('-')
             
             # Get basic account balances (uses cache when available)
-            usd_balance = coinbase_service.get_available_balance('USD')
-            crypto_balance = coinbase_service.get_available_balance(base_currency)
+            usd_balance = balance_service.get_available_balance('USD')
+            crypto_balance = balance_service.get_available_balance(base_currency)
             
             # Define conservative minimum thresholds (much looser than exact trade validation)
             # These are designed to catch obvious insufficient balance cases early

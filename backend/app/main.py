@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api import bots, market, trades, bot_evaluation, websocket, bot_temperatures, coinbase_sync, trading_diagnosis, validation, market_analysis, raw_trades, positions, system_errors, websocket_prices, health_monitoring, market_data_cache, notifications, new_pairs, trends, intelligence_analytics
+from .api import bots, market, trades, bot_evaluation, websocket, bot_temperatures, coinbase_sync, trading_diagnosis, validation, market_analysis, raw_trades, positions, system_errors, websocket_prices, health_monitoring, market_data_cache, notifications, new_pairs, trends, intelligence_analytics, cache_monitoring, market_data
 from .core.config import settings
 from .core.database import engine, Base
 import logging
@@ -29,6 +29,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Start centralized API coordinator for Phase 6.2 deployment
+from .services.api_coordinator import api_coordinator
+api_coordinator.start()
+logger.info("🚀 Phase 6.2: Centralized API Coordinator started for production deployment")
+
 # Include API routers
 # API Routes
 app.include_router(bots.router, prefix="/api/v1/bots", tags=["bots"])
@@ -55,6 +60,12 @@ app.include_router(system_errors.router, prefix="/api/v1/system-errors", tags=["
 
 # Market Data Cache API
 app.include_router(market_data_cache.router, prefix="/api/v1/cache", tags=["market-data-cache"])
+
+# Phase 7: Market Data Service API
+app.include_router(market_data.router, prefix="/api/v1/market-data", tags=["market-data"])
+
+# Phase 6.2: Centralized Cache Monitoring API
+app.include_router(cache_monitoring.router, prefix="/api/v1/cache-monitoring", tags=["cache-monitoring"])
 
 # Health Monitoring API  
 app.include_router(health_monitoring.router, prefix="/api/v1/health", tags=["health-monitoring"])

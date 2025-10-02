@@ -47,7 +47,7 @@ stop_service_by_pid() {
             
             echo -e "${GREEN}✅ ${service_name} stopped${NC}"
         else
-            echo -e "${YELLOW}⚠️  ${service_name} was not running${NC}"
+            echo -e "${YELLOW}⚠️  ${service_name} PID file exists but process not running${NC}"
         fi
         rm -f "$pid_file"
     else
@@ -78,6 +78,17 @@ stop_service_by_pid "celery-beat"
 # Stop Celery Worker
 stop_service_by_pid "celery-worker"
 
+# Clean up Celery multiprocessing child processes
+echo -e "${YELLOW}🧹 Cleaning up Celery multiprocessing children...${NC}"
+ZOMBIE_PIDS=$(ps aux | grep -E "Projects/trader.*multiprocessing" | grep -v grep | awk '{print $2}' 2>/dev/null || true)
+if [ ! -z "$ZOMBIE_PIDS" ]; then
+    echo $ZOMBIE_PIDS | xargs kill -9 2>/dev/null || true
+    echo -e "${GREEN}✅ Killed zombie multiprocessing processes${NC}"
+else
+    echo -e "${GREEN}✅ No zombie multiprocessing processes found${NC}"
+fi
+sleep 2
+
 # Stop FastAPI Backend
 stop_service_by_pid "backend"
 
@@ -90,13 +101,54 @@ stop_by_pattern "uvicorn app.main:app" "FastAPI Backend (fallback)"
 stop_by_pattern "celery.*app.tasks.celery_app" "Celery processes (fallback)"
 stop_by_pattern "npm run dev" "React Frontend (fallback)"
 
-# Stop Redis Docker container
-echo -e "\n${BLUE}🐳 Stopping Redis Docker container...${NC}"
-cd "$PROJECT_ROOT"
-if docker-compose down; then
-    echo -e "${GREEN}✅ Redis stopped${NC}"
+# Final cleanup: Kill ANY remaining multiprocessing children for this project
+echo -e "${YELLOW}🧹 Final cleanup of all project multiprocessing children...${NC}"
+REMAINING_PIDS=$(ps aux | grep -E "Projects/trader.*multiprocessing" | grep -v grep | awk '{print $2}' 2>/dev/null || true)
+if [ ! -z "$REMAINING_PIDS" ]; then
+    echo $REMAINING_PIDS | xargs kill -9 2>/dev/null || true
+    echo -e "${GREEN}✅ Final cleanup completed${NC}"
 else
-    echo -e "${YELLOW}⚠️  Redis was not running or failed to stop${NC}"
+    echo -e "${GREEN}✅ No remaining processes found${NC}"
+fi
+sleep 1
+
+# Stop Redis Docker container or standalone process
+echo -e "\n${BLUE}🐳 Stopping Redis...${NC}"
+cd "$PROJECT_ROOT"
+
+# Check if Redis is managed by Homebrew services
+if command -v brew >/dev/null 2>&1 && brew services list | grep -q "redis.*started"; then
+    echo -e "${YELLOW}🔄 Stopping Homebrew Redis service...${NC}"
+    if brew services stop redis; then
+        echo -e "${GREEN}✅ Homebrew Redis service stopped${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Failed to stop Homebrew Redis service${NC}"
+    fi
+elif command -v docker-compose >/dev/null 2>&1; then
+    # Try Docker if Homebrew Redis not found
+    if docker-compose down 2>/dev/null; then
+        echo -e "${GREEN}✅ Redis Docker container stopped${NC}"
+    else
+        echo -e "${YELLOW}⚠️  No Redis Docker container running${NC}"
+    fi
+else
+    echo -e "${YELLOW}⚠️  Neither Homebrew nor Docker available${NC}"
+    # Fallback: try to kill standalone Redis process
+    REDIS_PID=$(lsof -ti :6379 2>/dev/null || true)
+    if [ ! -z "$REDIS_PID" ]; then
+        echo -e "${YELLOW}🔄 Stopping standalone Redis process (PID: $REDIS_PID)...${NC}"
+        kill $REDIS_PID 2>/dev/null || true
+        sleep 2
+        
+        # Force kill if still running
+        if lsof -Pi :6379 -sTCP:LISTEN -t >/dev/null 2>&1; then
+            echo -e "${YELLOW}⚠️  Force killing Redis...${NC}"
+            kill -9 $REDIS_PID 2>/dev/null || true
+        fi
+        echo -e "${GREEN}✅ Redis stopped${NC}"
+    else
+        echo -e "${GREEN}✅ Redis was already stopped${NC}"
+    fi
 fi
 
 # Clean up log files older than 7 days

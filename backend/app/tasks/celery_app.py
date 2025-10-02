@@ -5,7 +5,13 @@ celery_app = Celery(
     "trading_bot",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.tasks.trading_tasks", "app.tasks.data_tasks", "app.tasks.market_analysis_tasks", "app.tasks.new_pair_tasks"]
+    include=[
+        "app.tasks.trading_tasks", 
+        "app.tasks.data_tasks", 
+        "app.tasks.market_analysis_tasks", 
+        "app.tasks.new_pair_tasks",
+        "app.tasks.market_data_tasks"  # NEW: Phase 7 Market Data Service
+    ]
 )
 
 # Celery configuration
@@ -16,6 +22,20 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     beat_schedule={
+        # PHASE 7: Market Data Service - Centralized data management
+        "market-data-refresh": {
+            "task": "app.tasks.market_data_tasks.refresh_all_market_data",
+            "schedule": 30.0,  # Every 30 seconds - KEY OPTIMIZATION: Batch refresh all pairs
+        },
+        "products-list-refresh": {
+            "task": "app.tasks.market_data_tasks.refresh_products_list",
+            "schedule": 300.0,  # Every 5 minutes - products change rarely
+        },
+        "market-data-stats": {
+            "task": "app.tasks.market_data_tasks.cache_stats_logger",
+            "schedule": 60.0,  # Every minute - monitor cache performance
+        },
+        # Existing tasks - kept for backward compatibility but will be optimized
         "fetch-market-data": {
             "task": "app.tasks.data_tasks.fetch_market_data_task",
             "schedule": 300.0,  # Every 5 minutes - reduced from 60s to prevent rate limiting

@@ -13,40 +13,41 @@ const BotForm: React.FC<BotFormProps> = ({ bot, onSubmit, onCancel, isLoading = 
   // Load available trading pairs from Coinbase
   const { data: products, isLoading: productsLoading } = useProducts();
   
-  // Form state
+  // Form state - FIXED: Match actual existing bot values
   const [name, setName] = useState(bot?.name || '');
   const [description, setDescription] = useState(bot?.description || '');
   const [pair, setPair] = useState(bot?.pair || 'BTC-USD');
-  const [positionSizeUsd, setPositionSizeUsd] = useState(bot?.position_size_usd || 100);
-  const [maxPositions, setMaxPositions] = useState(bot?.max_positions || 1);
-  const [stopLossPct, setStopLossPct] = useState(bot?.stop_loss_pct || 5);
-  const [takeProfitPct, setTakeProfitPct] = useState(bot?.take_profit_pct || 10);
-  const [tradeStepPct, setTradeStepPct] = useState(bot?.trade_step_pct || 2);
-  const [cooldownMinutes, setCooldownMinutes] = useState(bot?.cooldown_minutes || 30);
+  const [pairSearch, setPairSearch] = useState('');
+  const [positionSizeUsd, setPositionSizeUsd] = useState(bot?.position_size_usd || 25);  // Match $20-25 from existing bots
+  const [maxPositions, setMaxPositions] = useState(bot?.max_positions || 30);           // Match 30 from existing bots
+  const [stopLossPct, setStopLossPct] = useState(bot?.stop_loss_pct || 15);             // Match 15% from existing bots
+  const [takeProfitPct, setTakeProfitPct] = useState(bot?.take_profit_pct || 10);       // Correct - matches existing
+  const [tradeStepPct, setTradeStepPct] = useState(bot?.trade_step_pct || 1);           // Close to 0.8-2% range
+  const [cooldownMinutes, setCooldownMinutes] = useState(bot?.cooldown_minutes || 30);  // Match 30 min from existing bots
 
-  // Trading thresholds - CRITICAL: These control when trades actually trigger
-  const [buyThreshold, setBuyThreshold] = useState(bot?.signal_config?.trading_thresholds?.buy_threshold || -0.05);
-  const [sellThreshold, setSellThreshold] = useState(bot?.signal_config?.trading_thresholds?.sell_threshold || 0.05);
+  // Trading thresholds - UPDATED: Match existing bot configuration (±0.1)
+  const [buyThreshold, setBuyThreshold] = useState(bot?.signal_config?.trading_thresholds?.buy_threshold || -0.1);
+  const [sellThreshold, setSellThreshold] = useState(bot?.signal_config?.trading_thresholds?.sell_threshold || 0.1);
 
-  // Signal configuration states
+  // Signal configuration states - UPDATED: Match existing bot weights and settings
   const [rsiConfig, setRsiConfig] = useState(() => ({
-    enabled: bot?.signal_config?.rsi?.enabled || false,
-    weight: bot?.signal_config?.rsi?.weight || 0.33,
+    enabled: bot?.signal_config?.rsi?.enabled ?? true,  // Default enabled
+    weight: bot?.signal_config?.rsi?.weight || 0.4,     // 40% weight
     period: bot?.signal_config?.rsi?.period || 14,
     buy_threshold: bot?.signal_config?.rsi?.buy_threshold || 30,
     sell_threshold: bot?.signal_config?.rsi?.sell_threshold || 70
   }));
 
   const [maConfig, setMaConfig] = useState<MovingAverageSignalConfig>(() => ({
-    enabled: bot?.signal_config?.moving_average?.enabled || false,
-    weight: bot?.signal_config?.moving_average?.weight || 0.33,
-    fast_period: bot?.signal_config?.moving_average?.fast_period || 10,
-    slow_period: bot?.signal_config?.moving_average?.slow_period || 20
+    enabled: bot?.signal_config?.moving_average?.enabled ?? true,  // Default enabled
+    weight: bot?.signal_config?.moving_average?.weight || 0.35,    // 35% weight
+    fast_period: bot?.signal_config?.moving_average?.fast_period || 12,
+    slow_period: bot?.signal_config?.moving_average?.slow_period || 26
   }));
 
   const [macdConfig, setMacdConfig] = useState<MACDSignalConfig>(() => ({
-    enabled: bot?.signal_config?.macd?.enabled || false,
-    weight: bot?.signal_config?.macd?.weight || 0.34,
+    enabled: bot?.signal_config?.macd?.enabled ?? true,  // Default enabled
+    weight: bot?.signal_config?.macd?.weight || 0.25,    // 25% weight
     fast_period: bot?.signal_config?.macd?.fast_period || 12,
     slow_period: bot?.signal_config?.macd?.slow_period || 26,
     signal_period: bot?.signal_config?.macd?.signal_period || 9
@@ -173,56 +174,62 @@ const BotForm: React.FC<BotFormProps> = ({ bot, onSubmit, onCancel, isLoading = 
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Trading Pair *
                 </label>
-                <select
-                  value={pair}
-                  onChange={(e) => setPair(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  disabled={productsLoading}
-                >
-                  {productsLoading ? (
-                    <option value="">Loading trading pairs...</option>
-                  ) : products ? (
-                    <>
-                      {/* Popular pairs first */}
-                      {['BTC-USD', 'ETH-USD', 'XRP-USD', 'SOL-USD', 'ADA-USD', 'DOT-USD', 'LTC-USD'].map(popularPair => {
-                        const product = products.find((p: any) => 
-                          p.product_id === popularPair && 
-                          p.quote_currency_id === 'USD' && 
-                          p.status === 'online' && 
-                          !p.trading_disabled && 
-                          !p.is_disabled
-                        );
-                        return product ? (
-                          <option key={popularPair} value={popularPair}>
-                            {popularPair} - ${parseFloat(product.price).toLocaleString()} ({product.base_name})
-                          </option>
-                        ) : null;
-                      })}
-                      
-                      {/* Separator */}
-                      <option disabled>──────────</option>
-                      
-                      {/* All other USD pairs */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={pairSearch}
+                    onChange={(e) => setPairSearch(e.target.value)}
+                    onFocus={() => setPairSearch('')}
+                    placeholder="Search trading pairs... (e.g., BTC, ETH, SOL)"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={productsLoading}
+                  />
+                  {pairSearch && !productsLoading && products && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
                       {products
                         .filter((product: any) => 
                           product.quote_currency_id === 'USD' && 
                           product.status === 'online' && 
                           !product.trading_disabled && 
                           !product.is_disabled &&
-                          !['BTC-USD', 'ETH-USD', 'XRP-USD', 'SOL-USD', 'ADA-USD', 'DOT-USD', 'LTC-USD'].includes(product.product_id)
+                          (product.product_id.toLowerCase().includes(pairSearch.toLowerCase()) ||
+                           product.base_name.toLowerCase().includes(pairSearch.toLowerCase()))
                         )
                         .sort((a: any, b: any) => parseFloat(b.approximate_quote_24h_volume || '0') - parseFloat(a.approximate_quote_24h_volume || '0'))
+                        .slice(0, 20) // Limit to top 20 results
                         .map((product: any) => (
-                          <option key={product.product_id} value={product.product_id}>
-                            {product.product_id} - ${parseFloat(product.price).toLocaleString()} ({product.base_name})
-                          </option>
-                        ))
-                      }
-                    </>
-                  ) : (
-                    <option value="BTC-USD">BTC-USD (Fallback)</option>
+                          <div
+                            key={product.product_id}
+                            onClick={() => {
+                              setPair(product.product_id);
+                              setPairSearch('');
+                            }}
+                            className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="font-medium">{product.product_id}</div>
+                            <div className="text-sm text-gray-600">
+                              ${parseFloat(product.price).toLocaleString()} - {product.base_name}
+                            </div>
+                          </div>
+                        ))}
+                      {products.filter((product: any) => 
+                        product.quote_currency_id === 'USD' && 
+                        product.status === 'online' && 
+                        !product.trading_disabled && 
+                        !product.is_disabled &&
+                        (product.product_id.toLowerCase().includes(pairSearch.toLowerCase()) ||
+                         product.base_name.toLowerCase().includes(pairSearch.toLowerCase()))
+                      ).length === 0 && (
+                        <div className="px-3 py-2 text-gray-500 text-center">
+                          No trading pairs found for "{pairSearch}"
+                        </div>
+                      )}
+                    </div>
                   )}
-                </select>
+                </div>
+                <div className="mt-1 text-sm text-gray-600">
+                  Selected: <span className="font-medium">{pair}</span>
+                </div>
                 {errors.pair && <p className="mt-1 text-sm text-red-600">{errors.pair}</p>}
                 {productsLoading && (
                   <p className="mt-1 text-xs text-gray-500">Loading available trading pairs from Coinbase...</p>
@@ -583,7 +590,7 @@ const BotForm: React.FC<BotFormProps> = ({ bot, onSubmit, onCancel, isLoading = 
                     max="0"
                     step="0.01"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Trigger BUY when signal ≤ this value (e.g., -0.05)</p>
+                  <p className="text-xs text-gray-500 mt-1">Trigger BUY when signal ≤ this value (e.g., -0.1)</p>
                 </div>
                 
                 <div>
@@ -599,13 +606,13 @@ const BotForm: React.FC<BotFormProps> = ({ bot, onSubmit, onCancel, isLoading = 
                     max="1"
                     step="0.01"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Trigger SELL when signal ≥ this value (e.g., 0.05)</p>
+                  <p className="text-xs text-gray-500 mt-1">Trigger SELL when signal ≥ this value (e.g., 0.1)</p>
                 </div>
               </div>
 
               <div className="mt-3">
                 <p className="text-xs text-gray-600">
-                  <strong>Current System Default:</strong> ±0.05 thresholds (optimized for maximum trading activity).
+                  <strong>Current System Default:</strong> ±0.1 thresholds (optimized to prevent rate limiting).
                   Lower absolute values = more sensitive trading, higher absolute values = more conservative.
                 </p>
               </div>

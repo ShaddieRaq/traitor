@@ -12,7 +12,8 @@ from ..services.trading_safety import TradingSafetyService
 from ..services.trading_service import TradingService, TradeExecutionError
 from ..services.bot_evaluator import BotSignalEvaluator
 from ..services.position_service import PositionService, TrancheStrategy
-from ..services.coinbase_service import CoinbaseService
+from ..services.sync_coordinated_coinbase_service import get_coordinated_coinbase_service
+from ..services.market_data_service import MarketDataService
 from ..utils.trade_utils import get_trade_usd_value, calculate_portfolio_pnl, validate_trade_data_integrity
 
 router = APIRouter()
@@ -180,7 +181,7 @@ def calculate_profitability_data(db: Session):
 def get_bot_performance(bot_id: int, db: Session = Depends(get_db)):
     """Get comprehensive P&L performance for a specific bot using clean raw_trades data."""
     from datetime import datetime
-    from ..services.coinbase_service import CoinbaseService
+    from ..services.sync_coordinated_coinbase_service import get_coordinated_coinbase_service
     from ..models.models import RawTrade
     
     # Verify bot exists
@@ -268,9 +269,9 @@ def get_bot_performance(bot_id: int, db: Session = Depends(get_db)):
     # Get current market price
     current_price = 0.0
     try:
-        coinbase_service = CoinbaseService()
-        ticker = coinbase_service.get_product_ticker(bot.pair)
-        current_price = float(ticker.get('price', 0)) if ticker else 0.0
+        market_data_service = MarketDataService()
+        ticker = market_data_service.get_ticker(bot.pair)
+        current_price = float(ticker.price) if ticker and ticker.price else 0.0
     except Exception as e:
         logger.warning(f"Could not get current price for {bot.pair}: {e}")
         # Fallback to last trade price
@@ -434,8 +435,8 @@ def get_performance_by_product(db: Session = Depends(get_db)):
                     
                     # Get current market price
                     try:
-                        from ..services.coinbase_service import CoinbaseService
-                        coinbase_service = CoinbaseService()
+                        from ..services.sync_coordinated_coinbase_service import get_coordinated_coinbase_service
+                        coinbase_service = get_coordinated_coinbase_service()
                         ticker = coinbase_service.get_ticker(product_id)
                         current_price = float(ticker.get('price', 0))
                         
@@ -927,7 +928,7 @@ def execute_trade(
                     if bot:
                         # Fallback: get real market price from Coinbase
                         try:
-                            coinbase_service = CoinbaseService()
+                            coinbase_service = get_coordinated_coinbase_service()
                             market_data = coinbase_service.get_ticker(bot.pair)
                             current_price = float(market_data.get('price', 0))
                         except Exception:
@@ -1624,7 +1625,7 @@ def get_live_performance_analytics(
                 # Get current price from Coinbase or latest trade
                 current_price = None
                 try:
-                    coinbase_service = CoinbaseService()
+                    coinbase_service = get_coordinated_coinbase_service()
                     market_data = coinbase_service.get_ticker(bot.pair)
                     current_price = float(market_data.get('price', 0))
                 except Exception:
@@ -1736,7 +1737,7 @@ def get_bot_dashboard_analytics(
         # Get current price from Coinbase or latest trade
         current_price = None
         try:
-            coinbase_service = CoinbaseService()
+            coinbase_service = get_coordinated_coinbase_service()
             market_data = coinbase_service.get_ticker(bot.pair)
             current_price = float(market_data.get('price', 0))
         except Exception:
@@ -2125,7 +2126,7 @@ def sync_order_status(
     - after: Trade status after sync
     - coinbase_data: Raw Coinbase order data for verification
     """
-    from ..services.coinbase_service import CoinbaseService
+    from ..services.sync_coordinated_coinbase_service import get_coordinated_coinbase_service
     from ..services.trading_service import TradingService
     import traceback
     
@@ -2143,7 +2144,7 @@ def sync_order_status(
     
     try:
         # Get fresh order data from Coinbase
-        coinbase_service = CoinbaseService()
+        coinbase_service = get_coordinated_coinbase_service()
         coinbase_order = coinbase_service.get_order(order_id)
         
         if not coinbase_order:

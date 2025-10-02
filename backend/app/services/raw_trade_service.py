@@ -12,6 +12,7 @@ from decimal import Decimal
 
 from ..models.models import RawTrade
 from ..core.database import SessionLocal
+from .market_data_service import MarketDataService
 
 logger = logging.getLogger(__name__)
 
@@ -150,8 +151,8 @@ class RawTradeService:
             pnl_by_product = self.calculate_pnl_by_product()
             
             # Import here to avoid circular dependency
-            from ..services.coinbase_service import CoinbaseService
-            coinbase_service = CoinbaseService()
+            from ..services.sync_coordinated_coinbase_service import get_coordinated_coinbase_service
+            coinbase_service = get_coordinated_coinbase_service()
             
             # Calculate current holdings and unrealized P&L for each product
             for product_id, data in pnl_by_product.items():
@@ -161,10 +162,11 @@ class RawTradeService:
                     data['current_holdings'] = current_holdings
                     
                     if current_holdings != 0:
-                        # Get current market price
-                        ticker = coinbase_service.get_product_ticker(product_id)
-                        if ticker and 'price' in ticker:
-                            current_price = float(ticker['price'])
+                        # Get current market price using cached data
+                        market_data_service = MarketDataService()
+                        ticker = market_data_service.get_ticker(product_id)
+                        if ticker and ticker.price:
+                            current_price = float(ticker.price)
                             current_value = abs(current_holdings) * current_price
                             data['current_value'] = current_value
                             data['current_price'] = current_price
