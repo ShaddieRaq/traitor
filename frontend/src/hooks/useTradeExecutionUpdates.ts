@@ -46,7 +46,6 @@ export const useTradeExecutionUpdates = () => {
       wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = () => {
-        console.log('🔗 Connected to trade execution WebSocket');
         setState(prev => ({ ...prev, isConnected: true }));
         
         // Send ping to keep connection alive
@@ -90,12 +89,10 @@ export const useTradeExecutionUpdates = () => {
       };
 
       wsRef.current.onclose = () => {
-        console.log('📡 Trade execution WebSocket disconnected');
         setState(prev => ({ ...prev, isConnected: false }));
         
         // Attempt to reconnect after 3 seconds
         reconnectTimeoutRef.current = setTimeout(() => {
-          console.log('🔄 Attempting to reconnect trade execution WebSocket...');
           connect();
         }, 3000);
       };

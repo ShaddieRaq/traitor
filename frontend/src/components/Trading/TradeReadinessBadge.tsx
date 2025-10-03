@@ -133,4 +133,4 @@ const TradeReadinessBadge: React.FC<TradeReadinessBadgeProps> = ({ readiness, cl
   );
 };
 
-export default TradeReadinessBadge;
+export default React.memo(TradeReadinessBadge);

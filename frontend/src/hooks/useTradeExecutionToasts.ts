@@ -25,7 +25,6 @@ export const useTradeExecutionToasts = () => {
             {
               label: 'View Details',
               action: () => {
-                console.log('Trade details:', latestUpdate);
                 // Could navigate to trade details or show modal
               },
               style: 'primary'
@@ -49,10 +48,8 @@ export const useTradeExecutionToasts = () => {
               label: isPriceStepError ? 'Check Price Movement' : 'Retry',
               action: () => {
                 if (isPriceStepError) {
-                  console.log('Check price movement for bot', bot_id);
                   // Could show price step requirements or market data
                 } else {
-                  console.log('Retry trade for bot', bot_id);
                   // Could trigger retry logic
                 }
               },
@@ -62,7 +59,6 @@ export const useTradeExecutionToasts = () => {
               label: 'Check Bot',
               action: () => {
                 // Could navigate to bot configuration
-                console.log('Check bot configuration for bot', bot_id);
               },
               style: 'secondary'
             }

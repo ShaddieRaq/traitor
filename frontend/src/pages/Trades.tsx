@@ -12,7 +12,9 @@ const TradeStats: React.FC = () => {
     fetch('/api/v1/raw-trades/stats')
       .then(res => res.json())
       .then(setStats)
-      .catch(console.error);
+      .catch(error => {
+        console.error('Failed to load trade stats:', error);
+      });
   }, []);
 
   if (!stats) return null;

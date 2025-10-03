@@ -93,4 +93,4 @@ const LastTradeDisplay: React.FC<LastTradeDisplayProps> = ({ lastTrade, classNam
   );
 };
 
-export default LastTradeDisplay;
+export default React.memo(LastTradeDisplay);

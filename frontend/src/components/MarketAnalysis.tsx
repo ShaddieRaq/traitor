@@ -29,15 +29,13 @@ const MarketAnalysis: React.FC = () => {
       const response = await api.post('/bots/', botData);
       return response.data;
     },
-    onSuccess: (data, productId) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bots'] });
       queryClient.invalidateQueries({ queryKey: ['enhanced-bots-status'] });
-      // You could add a toast notification here if you want
-      console.log(`✅ Bot created successfully for ${productId}:`, data.name);
+      // Bot created successfully - could add toast notification here
     },
-    onError: (error, productId) => {
-      console.error(`❌ Failed to create bot for ${productId}:`, error);
-      // You could add error toast notification here if you want
+    onError: () => {
+      // Could add error toast notification here
     }
   });
 
@@ -89,7 +87,6 @@ const MarketAnalysis: React.FC = () => {
         throw new Error('Failed to trigger analysis');
       }
     } catch (error) {
-      console.error('Error triggering market analysis:', error);
       alert('❌ Failed to trigger market analysis. Please try again.');
     }
   };

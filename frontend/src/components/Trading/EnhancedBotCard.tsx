@@ -139,4 +139,4 @@ const EnhancedBotCard: React.FC<EnhancedBotCardProps> = ({ bot, className = '' }
   );
 };
 
-export default EnhancedBotCard;
+export default React.memo(EnhancedBotCard);

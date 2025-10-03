@@ -84,4 +84,4 @@ const SignalConfidenceMeter: React.FC<SignalConfidenceMeterProps> = ({ intent, c
   );
 };
 
-export default SignalConfidenceMeter;
+export default React.memo(SignalConfidenceMeter);

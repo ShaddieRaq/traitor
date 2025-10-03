@@ -213,4 +213,4 @@ const ConsolidatedBotCard: React.FC<ConsolidatedBotCardProps> = ({ bot, classNam
   );
 };
 
-export default ConsolidatedBotCard;
+export default React.memo(ConsolidatedBotCard);

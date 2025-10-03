@@ -55,7 +55,6 @@ export const usePendingOrderUpdates = () => {
       wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = () => {
-        console.log('🔗 Connected to pending orders WebSocket');
         setState(prev => ({ ...prev, isConnected: true }));
         
         // Send ping to keep connection alive
@@ -118,12 +117,10 @@ export const usePendingOrderUpdates = () => {
       };
 
       wsRef.current.onclose = () => {
-        console.log('📡 Pending orders WebSocket disconnected');
         setState(prev => ({ ...prev, isConnected: false }));
         
         // Attempt to reconnect after 3 seconds
         reconnectTimeoutRef.current = setTimeout(() => {
-          console.log('🔄 Attempting to reconnect pending orders WebSocket...');
           connect();
         }, 3000);
       };
