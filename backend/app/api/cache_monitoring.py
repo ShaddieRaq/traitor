@@ -23,17 +23,17 @@ async def get_cache_statistics() -> Dict[str, Any]:
         
         return {
             "cache_performance": {
-                "cache_hit_rate": cache_stats.get('hit_rate', 0),
-                "total_requests": cache_stats.get('total_requests', 0),
-                "cache_hits": cache_stats.get('hits', 0),
-                "cache_misses": cache_stats.get('misses', 0),
-                "cache_size": cache_stats.get('cache_size', 0),
-                "status": "active"
+                "cache_hit_rate": cache_stats.get('hit_rate_percent', 0),
+                "total_requests": cache_stats.get('cache_hits', 0) + cache_stats.get('cache_misses', 0),
+                "cache_hits": cache_stats.get('cache_hits', 0),
+                "cache_misses": cache_stats.get('cache_misses', 0),
+                "cache_size": len(cache_stats.get('redis_info', {}).get('keyspace', {})),
+                "status": "active" if cache_stats.get('redis_info', {}).get('connected', False) else "error"
             },
             "service_info": {
                 "service": "MarketDataService",
                 "version": "Phase 7",
-                "redis_connected": market_data_service.redis is not None,
+                "redis_connected": market_data_service.redis_client is not None,
                 "last_updated": time.time()
             }
         }

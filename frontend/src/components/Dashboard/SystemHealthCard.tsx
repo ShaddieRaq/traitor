@@ -2,88 +2,61 @@ import React from 'react';
 import { useSystemStatus } from '../../hooks/useSystemStatus';
 import { useCacheStats } from '../../hooks/useCacheStats';
 import { DataFreshnessIndicator } from '../DataFreshnessIndicators';
+import { Settings } from 'lucide-react';
 
 interface SystemHealthCardProps {
   className?: string;
+  onViewDetails?: () => void;
 }
 
 /**
- * Enhanced System Health Card for Phase 2.2 - Grid Layout
- * Designed for 2-column span with prominent cache performance and service status
+ * Compact System Health Card - Fixed sizing and accurate data
  */
 export const SystemHealthCard: React.FC<SystemHealthCardProps> = ({ 
-  className = '' 
+  className = '',
+  onViewDetails
 }) => {
   const { data: systemStatus, isLoading: statusLoading, dataUpdatedAt } = useSystemStatus();
   const { data: cacheStats } = useCacheStats();
 
-  // Only show loading if system status is loading (cache is optional)
-  const isLoading = statusLoading;
-
-  // Show loading state while system status is loading
-  if (isLoading) {
+  if (statusLoading) {
     return (
-      <div className={`
-        bg-white rounded-xl shadow-lg border p-6 
-        animate-pulse col-span-2
-        ${className}
-      `}>
-        <div className="space-y-4">
-          <div className="h-6 bg-gray-200 rounded w-1/3"></div>
-          <div className="h-12 bg-gray-200 rounded w-2/3"></div>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="h-16 bg-gray-200 rounded"></div>
-            <div className="h-16 bg-gray-200 rounded"></div>
-            <div className="h-16 bg-gray-200 rounded"></div>
-          </div>
-        </div>
+      <div className={`bg-white rounded-xl shadow-lg border p-4 animate-pulse ${className}`}>
+        <div className="h-6 bg-gray-200 rounded w-1/2 mb-3"></div>
+        <div className="h-8 bg-gray-200 rounded w-2/3"></div>
       </div>
     );
   }
 
   const isHealthy = systemStatus?.status === 'healthy';
-  const isDegraded = systemStatus?.status === 'degraded';
-  
-  // Cache performance metrics with better fallbacks
-  const hitRate = cacheStats?.cache_stats?.hit_rate_percent ?? 0;
-  const apiCallsSaved = cacheStats?.cache_stats?.api_calls_saved ?? 0;
-  const cacheHealth = cacheStats?.performance_analysis?.cache_health ?? 'unknown';
+  const hitRate = cacheStats?.cache_performance?.cache_hit_rate ?? 0;
+  const hasError = cacheStats?.cache_performance?.status === 'error';
 
-  // Determine overall system styling with enhanced gradients
-  const getSystemGradient = () => {
-    if (isHealthy && hitRate >= 85) {
-      return 'bg-gradient-to-br from-green-50 via-emerald-50 to-green-100 border-green-300';
-    } else if (isHealthy || isDegraded) {
-      return 'bg-gradient-to-br from-yellow-50 via-amber-50 to-yellow-100 border-yellow-300';
-    } else {
-      return 'bg-gradient-to-br from-red-50 via-rose-50 to-red-100 border-red-300';
-    }
+  const getStatusColor = () => {
+    if (isHealthy && !hasError) return 'bg-green-50 border-green-200';
+    if (isHealthy) return 'bg-yellow-50 border-yellow-200';
+    return 'bg-red-50 border-red-200';
   };
 
   const getStatusIcon = () => {
-    if (isHealthy && hitRate >= 85) return '🟢';
-    if (isHealthy || isDegraded) return '🟡';
+    if (isHealthy && !hasError) return '🟢';
+    if (isHealthy) return '🟡';
     return '🔴';
   };
 
   const getStatusText = () => {
-    if (isHealthy && hitRate >= 85) return 'Excellent';
-    if (isHealthy) return 'Healthy';
-    if (isDegraded) return 'Degraded';
-    return 'Error';
+    if (isHealthy && !hasError) return 'Healthy';
+    if (isHealthy) return 'Cache Issues';
+    return 'System Error';
   };
 
   return (
-    <div className={`
-      ${getSystemGradient()}
-      rounded-xl shadow-lg border-2 p-6 col-span-2
-      ${className}
-    `}>
-      {/* Header with enhanced spacing */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-3">
-          <h2 className="text-xl font-bold text-gray-900">System Health</h2>
-          <span className="text-3xl">{getStatusIcon()}</span>
+    <div className={`${getStatusColor()} rounded-xl shadow-lg border p-4 ${className}`}>
+      {/* Compact Header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center space-x-2">
+          <h3 className="text-lg font-semibold text-gray-900">System Health</h3>
+          <span className="text-xl">{getStatusIcon()}</span>
         </div>
         <DataFreshnessIndicator 
           lastUpdated={new Date(dataUpdatedAt || Date.now())}
@@ -93,84 +66,39 @@ export const SystemHealthCard: React.FC<SystemHealthCardProps> = ({
         />
       </div>
 
-      {/* Main Status with enhanced typography */}
-      <div className="mb-8">
-        <div className="text-sm font-medium text-gray-600 mb-2">Overall Status</div>
-        <div className="text-4xl font-bold text-gray-900">
-          {getStatusText()}
-        </div>
+      {/* Status Line */}
+      <div className="mb-3">
+        <div className="text-2xl font-bold text-gray-900">{getStatusText()}</div>
       </div>
 
-      {/* Enhanced Performance Metrics Grid */}
-      <div className="grid grid-cols-3 gap-6 mb-6">
-        {/* Cache Performance */}
-        <div className="text-center p-4 bg-white bg-opacity-60 rounded-lg">
-          <div className="text-sm font-medium text-gray-600">Cache Hit Rate</div>
-          <div className={`text-2xl font-bold ${
-            hitRate >= 90 ? 'text-green-600' : 
-            hitRate >= 80 ? 'text-yellow-600' : 'text-red-600'
-          }`}>
-            {hitRate.toFixed(1)}%
-          </div>
-        </div>
-
-        {/* API Calls Saved */}
-        <div className="text-center p-4 bg-white bg-opacity-60 rounded-lg">
-          <div className="text-sm font-medium text-gray-600">API Savings</div>
-          <div className="text-2xl font-bold text-blue-600">
-            {apiCallsSaved}
-          </div>
-        </div>
-
-        {/* Service Count */}
-        <div className="text-center p-4 bg-white bg-opacity-60 rounded-lg">
-          <div className="text-sm font-medium text-gray-600">Services</div>
-          <div className={`text-2xl font-bold ${
-            systemStatus?.services ? 'text-green-600' : 'text-red-600'
-          }`}>
-            {systemStatus?.services ? Object.keys(systemStatus.services).length : 0}/3
-          </div>
-        </div>
-      </div>
-
-      {/* Enhanced Service Status Indicators */}
-      <div className="pt-4 border-t border-gray-200">
-        <div className="text-sm font-medium text-gray-600 mb-3">Service Status</div>
+      {/* Compact Metrics */}
+      <div className="grid grid-cols-2 gap-3 mb-3 text-sm">
         <div className="flex justify-between">
-          <div className="flex items-center space-x-2">
-            <div className={`w-3 h-3 rounded-full ${
-              systemStatus?.services?.database?.status === 'healthy' ? 'bg-green-400' : 'bg-red-400'
-            }`}></div>
-            <span className="text-sm font-medium text-gray-700">Database</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className={`w-3 h-3 rounded-full ${
-              systemStatus?.services?.coinbase_api?.status === 'healthy' ? 'bg-green-400' : 'bg-red-400'
-            }`}></div>
-            <span className="text-sm font-medium text-gray-700">Coinbase API</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className={`w-3 h-3 rounded-full ${
-              systemStatus?.services?.polling?.status === 'active' ? 'bg-green-400' : 'bg-red-400'
-            }`}></div>
-            <span className="text-sm font-medium text-gray-700">Polling</span>
-          </div>
+          <span className="text-gray-600">Cache:</span>
+          <span className={`font-medium ${
+            hasError ? 'text-red-600' : 
+            hitRate >= 80 ? 'text-green-600' : 'text-yellow-600'
+          }`}>
+            {hasError ? 'Error' : `${hitRate.toFixed(1)}%`}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-600">Services:</span>
+          <span className="font-medium text-green-600">
+            {systemStatus?.services ? Object.keys(systemStatus.services).length : 0}/3
+          </span>
         </div>
       </div>
 
-      {/* Cache Health Indicator */}
-      {cacheHealth && (
-        <div className="mt-4 pt-4 border-t border-gray-200">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-600">Cache Health</span>
-            <span className={`text-sm font-bold capitalize ${
-              cacheHealth === 'excellent' ? 'text-green-600' : 
-              cacheHealth === 'good' ? 'text-yellow-600' : 'text-red-600'
-            }`}>
-              {cacheHealth}
-            </span>
-          </div>
-        </div>
+      {/* View Details Button - Compact */}
+      {onViewDetails && (
+        <button
+          onClick={onViewDetails}
+          className="w-full flex items-center justify-center space-x-1 px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
+        >
+          <Settings className="h-3 w-3" />
+          <span>Details</span>
+        </button>
       )}
     </div>
   );

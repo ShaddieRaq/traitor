@@ -6,8 +6,12 @@ import TieredBotsView from './TieredBotsView';
 import UnifiedStatusBar from './UnifiedStatusBar';
 import StickyActivityPanel from '../Trading/StickyActivityPanel';
 import IntelligenceFrameworkPanel from './IntelligenceFrameworkPanel';
-import { useEnhancedBotsStatus } from '../../hooks/useBots';
-import { Eye, EyeOff } from 'lucide-react';
+import BotForm from '../BotForm';
+import SystemDiagnosticsModal from './SystemDiagnosticsModal';
+import { useEnhancedBotsStatus, useCreateBot, useUpdateBot } from '../../hooks/useBots';
+import { Eye, EyeOff, Plus } from 'lucide-react';
+import { Bot, BotCreate, BotUpdate } from '../../types';
+import toast from 'react-hot-toast';
 
 interface DashboardLayoutProps {
   className?: string;
@@ -25,10 +29,72 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   className = '' 
 }) => {
   const [isFocusMode, setIsFocusMode] = useState(false);
+  const [showBotForm, setShowBotForm] = useState(false);
+  const [editingBot, setEditingBot] = useState<Bot | null>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  
   const { data: enhancedBotsStatus } = useEnhancedBotsStatus();
+  const createBot = useCreateBot();
+  const updateBot = useUpdateBot();
 
   // Show ALL bots - no filtering
   const botsToShow = enhancedBotsStatus || [];
+
+  const handleCreateBot = () => {
+    setEditingBot(null);
+    setShowBotForm(true);
+  };
+
+  const handleEditBot = (bot: Bot) => {
+    setEditingBot(bot);
+    setShowBotForm(true);
+  };
+
+  const handleFormSubmit = (data: BotCreate) => {
+    if (editingBot) {
+      // Convert BotCreate to BotUpdate format
+      const updateData: BotUpdate = {
+        name: data.name,
+        position_size_usd: data.position_size_usd,
+        max_positions: data.max_positions,
+        stop_loss_pct: data.stop_loss_pct,
+        take_profit_pct: data.take_profit_pct,
+        trade_step_pct: data.trade_step_pct,
+        cooldown_minutes: data.cooldown_minutes,
+        signal_config: data.signal_config
+      };
+      
+      updateBot.mutate(
+        { id: editingBot.id, bot: updateData },
+        {
+          onSuccess: () => {
+            setShowBotForm(false);
+            setEditingBot(null);
+            toast.success(`Bot "${data.name}" updated successfully`);
+          },
+          onError: () => {
+            toast.error(`Failed to update bot "${data.name}"`);
+          }
+        }
+      );
+    } else {
+      // Create new bot
+      createBot.mutate(data, {
+        onSuccess: () => {
+          setShowBotForm(false);
+          toast.success(`Bot "${data.name}" created successfully`);
+        },
+        onError: () => {
+          toast.error(`Failed to create bot "${data.name}"`);
+        }
+      });
+    }
+  };
+
+  const handleFormCancel = () => {
+    setShowBotForm(false);
+    setEditingBot(null);
+  };
 
   return (
     <div className={`min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 ${className}`}>
@@ -55,6 +121,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </div>
           
           <div className="flex items-center space-x-3">
+            {/* Create Bot Button */}
+            <button
+              onClick={handleCreateBot}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create Bot</span>
+            </button>
+            
             {/* Focus Mode */}
             <button
               onClick={() => setIsFocusMode(!isFocusMode)}
@@ -88,7 +163,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </GridArea>
           
           <GridArea area="systemHealth">
-            <SystemHealthCard />
+            <SystemHealthCard onViewDetails={() => setShowDiagnostics(true)} />
           </GridArea>
         </DashboardGrid>
 
@@ -98,25 +173,36 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Trading Bots</h2>
               <p className="text-sm text-gray-600">
-                Showing all active trading bots
+                Organized by signal strength and trading activity
               </p>
             </div>
           </div>
           
-          {/* Pass filtered bots to the tiered view */}
-          <TieredBotsView botsData={botsToShow} />
+          <TieredBotsView 
+            botsData={botsToShow} 
+            onEditBot={handleEditBot}
+          />
         </div>
 
-        {/* Advanced Features - Collapsed in Focus Mode */}
-        {!isFocusMode && (
-          <div className="border-t pt-6 mt-8">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              AI Intelligence Framework
-            </h2>
-            <IntelligenceFrameworkPanel />
-          </div>
-        )}
+        {/* Intelligence Framework - Progressive Disclosure */}
+        <IntelligenceFrameworkPanel />
       </div>
+
+      {/* Bot Form Modal */}
+      {showBotForm && (
+        <BotForm
+          bot={editingBot}
+          onSubmit={handleFormSubmit}
+          onCancel={handleFormCancel}
+          isLoading={createBot.isPending || updateBot.isPending}
+        />
+      )}
+
+      {/* System Diagnostics Modal */}
+      <SystemDiagnosticsModal
+        isOpen={showDiagnostics}
+        onClose={() => setShowDiagnostics(false)}
+      />
     </div>
   );
 };

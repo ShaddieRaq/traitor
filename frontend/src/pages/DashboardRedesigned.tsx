@@ -3,8 +3,6 @@ import DashboardLayout from '../components/Dashboard/DashboardLayout';
 import MarketTicker from '../components/Market/MarketTicker';
 import MarketAnalysis from '../components/MarketAnalysis';
 import AutoBotCreator from '../components/Trading/AutoBotCreator';
-import EnhancedSystemHealthPanel from '../components/Trading/EnhancedSystemHealthPanel';
-import { TradeExecutionFeed } from '../components/Trading/TradeExecutionFeed';
 import { TradeProgressIndicator } from '../components/Trading/TradeProgressIndicator';
 import { useTradeExecutionToasts } from '../hooks/useTradeExecutionToasts';
 import NotificationBell from '../components/Notifications/NotificationBell';
@@ -39,13 +37,10 @@ const Dashboard: React.FC = () => {
             {/* Phase 1 Redesigned Dashboard */}
             <DashboardLayout />
 
-            {/* Trade Execution Progress - Keep existing functionality */}
-            {(isExecuting || tradeUpdates.length > 0) && (
-              <div className="space-y-4 max-w-7xl mx-auto px-4">
-                {isExecuting && <TradeProgressIndicator updates={tradeUpdates} isExecuting={isExecuting} />}
-                {tradeUpdates.length > 0 && (
-                  <TradeExecutionFeed />
-                )}
+            {/* Trade Execution Progress - Live status only */}
+            {isExecuting && (
+              <div className="max-w-7xl mx-auto px-4 mb-6">
+                <TradeProgressIndicator updates={tradeUpdates} isExecuting={isExecuting} />
               </div>
             )}
 
@@ -56,17 +51,6 @@ const Dashboard: React.FC = () => {
 
               {/* Auto Bot Creator */}
               <AutoBotCreator />
-
-              {/* Enhanced System Health Panel - For detailed diagnostics */}
-              <div className="bg-white rounded-lg shadow border">
-                <div className="px-4 py-3 border-b border-gray-200">
-                  <h3 className="text-lg font-medium text-gray-900">System Diagnostics</h3>
-                  <p className="text-sm text-gray-600">Detailed system health and monitoring</p>
-                </div>
-                <div className="p-4">
-                  <EnhancedSystemHealthPanel />
-                </div>
-              </div>
             </div>
           </div>
         );

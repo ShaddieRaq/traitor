@@ -1,18 +1,26 @@
 import React from 'react';
-import { useEnhancedBotsStatus, usePnLData } from '../../hooks/useBots';
+import { useEnhancedBotsStatus, usePnLData, useStartBot, useStopBot, useDeleteBot } from '../../hooks/useBots';
+import { Edit3, Play, Pause, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface TieredBotsViewProps {
   className?: string;
   botsData?: any[];
   showAllMode?: boolean;
+  onEditBot?: (bot: any) => void;
 }
 
 export const TieredBotsView: React.FC<TieredBotsViewProps> = ({ 
   className = '',
-  botsData: propBotsData
+  botsData: propBotsData,
+  onEditBot
 }) => {
   const { data: hookBotsData } = useEnhancedBotsStatus();
   const { data: pnlData } = usePnLData();
+  const startBot = useStartBot();
+  const stopBot = useStopBot();
+  const deleteBot = useDeleteBot();
+  
   const botsData = propBotsData || hookBotsData;
 
   if (!botsData) {
@@ -40,7 +48,32 @@ export const TieredBotsView: React.FC<TieredBotsViewProps> = ({
         </div>
         <div className="p-4 space-y-3">
           {bots.map((bot: any) => (
-            <BotCard key={bot.id} bot={bot} pnlData={pnlData} />
+            <BotCard 
+              key={bot.id} 
+              bot={bot} 
+              pnlData={pnlData} 
+              onEdit={onEditBot}
+              onStart={(id: number) => {
+                startBot.mutate(id, {
+                  onSuccess: () => toast.success(`Bot "${bot.pair}" started`),
+                  onError: () => toast.error(`Failed to start bot "${bot.pair}"`)
+                });
+              }}
+              onStop={(id: number) => {
+                stopBot.mutate(id, {
+                  onSuccess: () => toast.success(`Bot "${bot.pair}" stopped`),
+                  onError: () => toast.error(`Failed to stop bot "${bot.pair}"`)
+                });
+              }}
+              onDelete={(id: number) => {
+                if (confirm(`Are you sure you want to delete bot "${bot.pair}"?`)) {
+                  deleteBot.mutate(id, {
+                    onSuccess: () => toast.success(`Bot "${bot.pair}" deleted`),
+                    onError: () => toast.error(`Failed to delete bot "${bot.pair}"`)
+                  });
+                }
+              }}
+            />
           ))}
         </div>
       </div>
@@ -80,9 +113,13 @@ export const TieredBotsView: React.FC<TieredBotsViewProps> = ({
 interface BotCardProps {
   bot: any;
   pnlData?: any[];
+  onEdit?: (bot: any) => void;
+  onStart?: (id: number) => void;
+  onStop?: (id: number) => void;
+  onDelete?: (id: number) => void;
 }
 
-const BotCard: React.FC<BotCardProps> = ({ bot, pnlData }) => {
+const BotCard: React.FC<BotCardProps> = ({ bot, pnlData, onEdit, onStart, onStop, onDelete }) => {
   // Find P&L data for this bot's pair
   const botPnL = pnlData?.find(p => p.product_id === bot.pair);
   
@@ -194,7 +231,7 @@ const BotCard: React.FC<BotCardProps> = ({ bot, pnlData }) => {
 
       {/* Status */}
       {bot.trade_readiness && (
-        <div className={`text-xs px-2 py-1 rounded text-center ${
+        <div className={`text-xs px-2 py-1 rounded text-center mb-3 ${
           bot.trade_readiness.can_trade 
             ? 'text-green-700 bg-green-50' 
             : 'text-yellow-700 bg-yellow-50'
@@ -202,6 +239,65 @@ const BotCard: React.FC<BotCardProps> = ({ bot, pnlData }) => {
           {bot.trade_readiness.can_trade ? '✅ Ready to trade' : '⏸️ Monitoring'}
         </div>
       )}
+
+      {/* Action Buttons */}
+      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+        <div className="flex items-center space-x-2">
+          {onEdit && (
+            <button
+              onClick={() => onEdit(bot)}
+              className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+              title="Edit Bot"
+            >
+              <Edit3 className="h-4 w-4" />
+            </button>
+          )}
+          
+          {onDelete && (
+            <button
+              onClick={() => onDelete(bot.id)}
+              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+              title="Delete Bot"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        
+        <div className="flex items-center space-x-1">
+          {/* Bot status indicator */}
+          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+            bot.status === 'RUNNING' 
+              ? 'bg-green-100 text-green-800' 
+              : 'bg-gray-100 text-gray-800'
+          }`}>
+            {bot.status}
+          </span>
+          
+          {/* Start/Stop toggle */}
+          {bot.status === 'RUNNING' ? (
+            onStop && (
+              <button
+                onClick={() => onStop(bot.id)}
+                className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
+                title="Stop Bot"
+              >
+                <Pause className="h-4 w-4" />
+              </button>
+            )
+          ) : (
+            onStart && (
+              <button
+                onClick={() => onStart(bot.id)}
+                className="p-1.5 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-md transition-colors"
+                title="Start Bot"
+              >
+                <Play className="h-4 w-4" />
+              </button>
+            )
+          )}
+        </div>
+      </div>
     </div>
   );
 };

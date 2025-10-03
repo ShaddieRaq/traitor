@@ -3,10 +3,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { ToastProvider } from './components/ui/Toast';
 import DashboardRedesigned from './pages/DashboardRedesigned';
-import Signals from './pages/Signals';
 import Trades from './pages/Trades';
 import Market from './pages/Market';
-import { Activity, TrendingUp, Zap, BarChart3 } from 'lucide-react';
+import { Activity, TrendingUp, BarChart3 } from 'lucide-react';
 
 const queryClient = new QueryClient();
 
@@ -38,13 +37,6 @@ function App() {
                       Dashboard
                     </Link>
                     <Link
-                      to="/bots"
-                      className="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center"
-                    >
-                      <Zap className="h-4 w-4 mr-2" />
-                      Bots
-                    </Link>
-                    <Link
                       to="/trades"
                       className="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center"
                     >
@@ -68,7 +60,6 @@ function App() {
           <main>
             <Routes>
               <Route path="/" element={<DashboardRedesigned />} />
-              <Route path="/bots" element={<div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8"><Signals /></div>} />
               <Route path="/trades" element={<div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8"><Trades /></div>} />
               <Route path="/market" element={<div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8"><Market /></div>} />
             </Routes>
