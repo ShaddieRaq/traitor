@@ -22,6 +22,10 @@ logger = logging.getLogger(__name__)
 class BotSignalEvaluator:
     """Service for evaluating bot signals and making trading decisions with confirmation tracking."""
     
+    # Temperature calculation thresholds
+    DEFAULT_BUY_THRESHOLD = -0.3
+    DEFAULT_SELL_THRESHOLD = 0.3
+    
     def __init__(self, db: Session, enable_confirmation: bool = True):
         self.db = db
         self.enable_confirmation = enable_confirmation
@@ -677,84 +681,65 @@ class BotSignalEvaluator:
             for entry in history_entries
         ]
     
+    def _calculate_signals_for_temperature(self, bot: Bot, market_data: pd.DataFrame) -> Dict[str, Any]:
+        """
+        Calculate signal scores for temperature calculations.
+        Shared logic for both full and lightweight temperature calculations.
+        """
+        signal_results = {}
+        total_score = 0.0
+        total_weight = 0.0
+        
+        # Parse signal configuration (handle JSON string from database)
+        if isinstance(bot.signal_config, str):
+            signal_config = json.loads(bot.signal_config)
+        else:
+            signal_config = bot.signal_config
+        
+        # Signal calculations with consistent error handling
+        signal_types = ['rsi', 'moving_average', 'macd']
+        
+        for signal_name in signal_types:
+            config = signal_config.get(signal_name)
+            if config and config.get('enabled', False):
+                try:
+                    signal_instance = self._create_signal_instance(signal_name, config)
+                    if signal_instance:
+                        result = signal_instance.calculate(market_data)
+                        if result and 'score' in result:
+                            signal_results[signal_name] = result
+                            weight = config.get('weight', 1.0)
+                            total_score += result['score'] * weight
+                            total_weight += weight
+                except Exception as e:
+                    logger.warning(f"{signal_name.upper()} calculation failed in temperature mode: {e}")
+        
+        # Calculate final weighted score
+        overall_score = total_score / max(total_weight, 1.0) if total_weight > 0 else 0.0
+        
+        return {
+            'overall_score': overall_score,
+            'signal_results': signal_results,
+            'total_weight': total_weight
+        }
+
     def calculate_bot_temperature_light(self, bot: Bot, market_data: pd.DataFrame) -> Dict[str, Any]:
         """
         Calculate bot temperature WITHOUT triggering automatic trading.
         Used for status displays and dashboard to prevent performance issues.
         """
         try:
-            # Use the same signal evaluation logic as the full evaluation but without automatic trading
-            signal_results = {}
-            total_score = 0.0
-            total_weight = 0.0
+            # Use shared signal calculation logic
+            signal_data = self._calculate_signals_for_temperature(bot, market_data)
+            overall_score = signal_data['overall_score']
+            signal_results = signal_data['signal_results']
             
-            # Parse signal configuration (handle JSON string from database)
-            if isinstance(bot.signal_config, str):
-                signal_config = json.loads(bot.signal_config)
-            else:
-                signal_config = bot.signal_config
-            
-            # RSI Signal
-            rsi_config = signal_config.get('rsi')
-            if rsi_config and rsi_config.get('enabled', False):
-                try:
-                    rsi_signal = self._create_signal_instance('rsi', rsi_config)
-                    if rsi_signal:
-                        rsi_result = rsi_signal.calculate(market_data)  # Fixed: use calculate() not evaluate()
-                        if rsi_result and 'score' in rsi_result:
-                            signal_results['rsi'] = rsi_result
-                            weight = rsi_config.get('weight', 1.0)
-                            total_score += rsi_result['score'] * weight
-                            total_weight += weight
-                except Exception as e:
-                    logger.warning(f"RSI calculation failed in lightweight mode: {e}")
-            
-            # Moving Average Signal
-            ma_config = signal_config.get('moving_average')
-            if ma_config and ma_config.get('enabled', False):
-                try:
-                    ma_signal = self._create_signal_instance('moving_average', ma_config)
-                    if ma_signal:
-                        ma_result = ma_signal.calculate(market_data)  # Fixed: use calculate() not evaluate()
-                        if ma_result and 'score' in ma_result:
-                            signal_results['moving_average'] = ma_result
-                            weight = ma_config.get('weight', 1.0)
-                            total_score += ma_result['score'] * weight
-                            total_weight += weight
-                except Exception as e:
-                    logger.warning(f"MA calculation failed in lightweight mode: {e}")
-            
-            # MACD Signal
-            macd_config = signal_config.get('macd')
-            if macd_config and macd_config.get('enabled', False):
-                try:
-                    macd_signal = self._create_signal_instance('macd', macd_config)
-                    if macd_signal:
-                        macd_result = macd_signal.calculate(market_data)  # Fixed: use calculate() not evaluate()
-                        if macd_result and 'score' in macd_result:
-                            signal_results['macd'] = macd_result
-                            weight = macd_config.get('weight', 1.0)
-                            total_score += macd_result['score'] * weight
-                            total_weight += weight
-                except Exception as e:
-                    logger.warning(f"MACD calculation failed in lightweight mode: {e}")
-                    if macd_signal:
-                        macd_result = macd_signal.calculate(market_data)  # Fixed: use calculate() not evaluate()
-                        if macd_result and 'score' in macd_result:
-                            signal_results['macd'] = macd_result
-                            weight = macd_config.get('weight', 1.0)
-                            total_score += macd_result['score'] * weight
-                            total_weight += weight
-                except Exception as e:
-                    logger.warning(f"MACD calculation failed in lightweight mode: {e}")
-            
-            # Calculate final score and temperature
-            overall_score = total_score / max(total_weight, 1.0) if total_weight > 0 else 0.0
+            # Calculate temperature using centralized utility
             temperature = calculate_bot_temperature(overall_score)
             
             # Calculate distance to thresholds (match full evaluation logic)
-            buy_threshold = -0.3
-            sell_threshold = 0.3
+            buy_threshold = self.DEFAULT_BUY_THRESHOLD
+            sell_threshold = self.DEFAULT_SELL_THRESHOLD
             
             if overall_score > 0:  # Bullish territory
                 distance_to_sell = sell_threshold - overall_score
@@ -813,8 +798,8 @@ class BotSignalEvaluator:
         temperature_emoji = get_temperature_emoji(temperature)
         
         # Calculate distance to action thresholds
-        buy_threshold = -0.3  # Default buy threshold
-        sell_threshold = 0.3  # Default sell threshold
+        buy_threshold = self.DEFAULT_BUY_THRESHOLD
+        sell_threshold = self.DEFAULT_SELL_THRESHOLD
         
         if score > 0:  # Bullish territory
             distance_to_sell = sell_threshold - score
@@ -866,14 +851,9 @@ class BotSignalEvaluator:
                 if market_data_cache and bot.pair in market_data_cache:
                     market_data = market_data_cache[bot.pair]
                 else:
-                    # Create minimal fallback data for temperature calculation
-                    market_data = pd.DataFrame({
-                        'close': [100.0],  # Fallback price
-                        'high': [101.0],
-                        'low': [99.0],
-                        'open': [100.5],
-                        'volume': [1000]
-                    })
+                    # Create minimal fallback data for temperature calculation using centralized utility
+                    from ..utils.market_data_helper import create_fallback_dataframe
+                    market_data = create_fallback_dataframe()
                 
                 temp_data = self.calculate_bot_temperature(bot, market_data)
                 

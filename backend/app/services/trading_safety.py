@@ -311,7 +311,8 @@ class TradingSafetyService:
         
         # Get current market price using cached data
         try:
-            market_data_service = MarketDataService()
+            from ..utils.service_registry import get_market_service
+            market_data_service = get_market_service()
             ticker = market_data_service.get_ticker(bot.pair)
             current_price = float(ticker.price) if ticker and ticker.price else 0
             

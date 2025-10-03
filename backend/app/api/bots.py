@@ -247,28 +247,16 @@ def stop_all_bots(db: Session = Depends(get_db)):
 def get_bots_status_summary(db: Session = Depends(get_db)):
     """Get lightweight status summary of all bots for dashboard with fresh evaluations."""
     from ..services.bot_evaluator import get_bot_evaluator
+    from ..utils.market_data_helper import create_market_data_cache
     from ..services.coinbase_service import coinbase_service
     import pandas as pd
     
     bots = db.query(Bot).all()
     evaluator = get_bot_evaluator(db)
     
-    # Get fresh market data for all unique trading pairs
-    market_data_cache = {}
-    unique_pairs = set(bot.pair for bot in bots)
-    for pair in unique_pairs:
-        try:
-            market_data_cache[pair] = coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
-        except Exception as e:
-            logger.warning(f"Failed to get market data for {pair}: {e}")
-            # Use fallback data if API unavailable
-            market_data_cache[pair] = pd.DataFrame({
-                'close': [100.0],
-                'high': [101.0],
-                'low': [99.0], 
-                'open': [100.5],
-                'volume': [1000]
-            })
+    # Get fresh market data for all unique trading pairs using centralized utility
+    unique_pairs = list(set(bot.pair for bot in bots))
+    market_data_cache = create_market_data_cache(unique_pairs, granularity=3600, limit=100)
     
     status_list = []
     for bot in bots:
@@ -382,36 +370,14 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
     evaluator = get_bot_evaluator(db)
     trend_engine = get_trend_engine()  # Phase 1: Initialize trend detection engine
     
-    # Get cached market data for all unique trading pairs (avoid rate limits)
-    from ..services.market_data_cache import MarketDataCache
-    market_cache = MarketDataCache()
-    market_data_cache = {}
-    unique_pairs = set(bot.pair for bot in bots)
+    # Get cached market data for all unique trading pairs using centralized utility
+    from ..utils.market_data_helper import create_market_data_cache
+    from ..utils.service_registry import get_market_cache
     
-    for pair in unique_pairs:
-        try:
-            # Use cached market data with proper fetch function
-            def fetch_func():
-                return coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
-                
-            cached_data = market_cache.get_or_fetch(pair, granularity=3600, limit=100, fetch_func=fetch_func)
-            if cached_data is not None and not cached_data.empty:
-                market_data_cache[pair] = cached_data
-                logger.debug(f"✅ Using cached market data for {pair} ({len(cached_data)} candles)")
-            else:
-                # Fallback data if cache returns empty
-                logger.warning(f"⚠️ Empty data for {pair}, using fallback data")
-                market_data_cache[pair] = pd.DataFrame({
-                    'close': [100.0], 'high': [101.0], 'low': [99.0], 
-                    'open': [100.5], 'volume': [1000]
-                })
-        except Exception as e:
-            logger.error(f"❌ Failed to get cached data for {pair}: {e}")
-            # Use fallback data if cache unavailable
-            market_data_cache[pair] = pd.DataFrame({
-                'close': [100.0], 'high': [101.0], 'low': [99.0], 
-                'open': [100.5], 'volume': [1000]
-            })
+    # Use proper singleton pattern for MarketDataCache
+    market_cache = get_market_cache()
+    unique_pairs = list(set(bot.pair for bot in bots))
+    market_data_cache = create_market_data_cache(unique_pairs, granularity=3600, limit=100)
     
     enhanced_status_list = []
     

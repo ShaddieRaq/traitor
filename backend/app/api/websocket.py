@@ -294,23 +294,10 @@ async def websocket_dashboard(websocket: WebSocket, db: Session = Depends(get_db
         bots = db.query(Bot).all()
         running_bots = [b for b in bots if b.status == 'RUNNING']
         
-        # Fetch market data for each unique trading pair
-        market_data_cache = {}
-        unique_pairs = set(bot.pair for bot in running_bots)
-        for pair in unique_pairs:
-            try:
-                market_data_cache[pair] = coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
-            except Exception as e:
-                logger.error(f"Failed to get market data for {pair}: {e}")
-                # Use fallback data if API unavailable
-                import pandas as pd
-                market_data_cache[pair] = pd.DataFrame({
-                    'close': [100.0],
-                    'high': [101.0],
-                    'low': [99.0], 
-                    'open': [100.5],
-                    'volume': [1000]
-                })
+        # Fetch market data for each unique trading pair using centralized utility
+        from ..utils.market_data_helper import create_market_data_cache
+        unique_pairs = list(set(bot.pair for bot in running_bots))
+        market_data_cache = create_market_data_cache(unique_pairs, granularity=3600, limit=100)
         
         # Get initial temperature data with real market data
         temperatures = evaluator.get_all_bot_temperatures(market_data_cache)
@@ -343,23 +330,10 @@ async def websocket_dashboard(websocket: WebSocket, db: Session = Depends(get_db
                     # Send automatic temperature update
                     running_bots = [b for b in db.query(Bot).all() if b.status == 'RUNNING']
                     
-                    # Fetch market data for each unique trading pair
-                    market_data_cache = {}
-                    unique_pairs = set(bot.pair for bot in running_bots)
-                    for pair in unique_pairs:
-                        try:
-                            market_data_cache[pair] = coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
-                        except Exception as e:
-                            logger.error(f"Failed to get market data for {pair}: {e}")
-                            # Use fallback data if API unavailable
-                            import pandas as pd
-                            market_data_cache[pair] = pd.DataFrame({
-                                'close': [100.0],
-                                'high': [101.0],
-                                'low': [99.0], 
-                                'open': [100.5],
-                                'volume': [1000]
-                            })
+                    # Fetch market data for each unique trading pair using centralized utility
+                    from ..utils.market_data_helper import create_market_data_cache
+                    unique_pairs = list(set(bot.pair for bot in running_bots))
+                    market_data_cache = create_market_data_cache(unique_pairs, granularity=3600, limit=100)
                     
                     # Send current temperature data with real market data
                     temperatures = evaluator.get_all_bot_temperatures(market_data_cache)
@@ -385,23 +359,10 @@ async def websocket_dashboard(websocket: WebSocket, db: Session = Depends(get_db
                         # Send immediate temperature update (same logic as above)
                         running_bots = [b for b in db.query(Bot).all() if b.status == 'RUNNING']
                         
-                        # Fetch market data for each unique trading pair
-                        market_data_cache = {}
-                        unique_pairs = set(bot.pair for bot in running_bots)
-                        for pair in unique_pairs:
-                            try:
-                                market_data_cache[pair] = coinbase_service.get_historical_data(pair, granularity=3600, limit=100)
-                            except Exception as e:
-                                logger.error(f"Failed to get market data for {pair}: {e}")
-                                # Use fallback data if API unavailable
-                                import pandas as pd
-                                market_data_cache[pair] = pd.DataFrame({
-                                    'close': [100.0],
-                                    'high': [101.0],
-                                    'low': [99.0], 
-                                    'open': [100.5],
-                                    'volume': [1000]
-                                })
+                        # Fetch market data for each unique trading pair using centralized utility
+                        from ..utils.market_data_helper import create_market_data_cache
+                        unique_pairs = list(set(bot.pair for bot in running_bots))
+                        market_data_cache = create_market_data_cache(unique_pairs, granularity=3600, limit=100)
                         
                         # Send current temperature data with real market data
                         temperatures = evaluator.get_all_bot_temperatures(market_data_cache)

@@ -455,7 +455,8 @@ class TradingService:
         """Get current market price for the trading pair using cached data."""
         try:
             # Use MarketDataService for cached price data (eliminates API calls)
-            market_data_service = MarketDataService()
+            from ..utils.service_registry import get_market_service
+            market_data_service = get_market_service()
             ticker = market_data_service.get_ticker(product_id)
             if ticker and ticker.price is not None:
                 return float(ticker.price)
