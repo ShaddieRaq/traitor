@@ -42,7 +42,10 @@ export const CompactPerformanceCard: React.FC<{ bot: any, pnlData?: any }> = ({ 
         <div className="mb-3">
           <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
             <span>Signal Strength</span>
-            <span>{(Math.abs(bot.current_combined_score || 0) * 100).toFixed(1)}%</span>
+            <div className="flex items-center space-x-2">
+              <span className="font-mono">{(bot.current_combined_score || 0).toFixed(3)}</span>
+              <span>({(Math.abs(bot.current_combined_score || 0) * 100).toFixed(1)}%)</span>
+            </div>
           </div>
           <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
             <div 
@@ -142,6 +145,16 @@ export const AdvancedAnalyticsCard: React.FC<{ bot: any, pnlData?: any }> = ({ b
             <div className={`flex items-center space-x-1 px-2 py-1 rounded-lg ${signal.color}`}>
               {signal.icon}
               <span className="text-sm font-medium">{signal.text}</span>
+            </div>
+          </div>
+          
+          {/* Signal Strength */}
+          <div className="mb-2">
+            <div className="flex justify-between text-xs text-gray-600 mb-1">
+              <span>Signal Strength</span>
+              <span className="font-mono">
+                {(bot.current_combined_score || 0).toFixed(3)}
+              </span>
             </div>
           </div>
           

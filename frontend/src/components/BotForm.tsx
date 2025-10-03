@@ -25,9 +25,9 @@ const BotForm: React.FC<BotFormProps> = ({ bot, onSubmit, onCancel, isLoading = 
   const [tradeStepPct, setTradeStepPct] = useState(bot?.trade_step_pct || 1);           // Close to 0.8-2% range
   const [cooldownMinutes, setCooldownMinutes] = useState(bot?.cooldown_minutes || 30);  // Match 30 min from existing bots
 
-  // Trading thresholds - UPDATED: Match existing bot configuration (±0.1)
-  const [buyThreshold, setBuyThreshold] = useState(bot?.signal_config?.trading_thresholds?.buy_threshold || -0.1);
-  const [sellThreshold, setSellThreshold] = useState(bot?.signal_config?.trading_thresholds?.sell_threshold || 0.1);
+  // Trading thresholds - UPDATED: Match backend system defaults (±0.05)
+  const [buyThreshold, setBuyThreshold] = useState(bot?.signal_config?.trading_thresholds?.buy_threshold || -0.05);
+  const [sellThreshold, setSellThreshold] = useState(bot?.signal_config?.trading_thresholds?.sell_threshold || 0.05);
 
   // Signal configuration states - UPDATED: Match existing bot weights and settings
   const [rsiConfig, setRsiConfig] = useState(() => ({
@@ -590,7 +590,7 @@ const BotForm: React.FC<BotFormProps> = ({ bot, onSubmit, onCancel, isLoading = 
                     max="0"
                     step="0.01"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Trigger BUY when signal ≤ this value (e.g., -0.1)</p>
+                  <p className="text-xs text-gray-500 mt-1">Trigger BUY when signal ≤ this value (e.g., -0.05)</p>
                 </div>
                 
                 <div>
@@ -606,13 +606,13 @@ const BotForm: React.FC<BotFormProps> = ({ bot, onSubmit, onCancel, isLoading = 
                     max="1"
                     step="0.01"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Trigger SELL when signal ≥ this value (e.g., 0.1)</p>
+                  <p className="text-xs text-gray-500 mt-1">Trigger SELL when signal ≥ this value (e.g., 0.05)</p>
                 </div>
               </div>
 
               <div className="mt-3">
                 <p className="text-xs text-gray-600">
-                  <strong>Current System Default:</strong> ±0.1 thresholds (optimized to prevent rate limiting).
+                  <strong>Current System Default:</strong> ±0.05 thresholds (optimized for 2x sensitivity vs default).
                   Lower absolute values = more sensitive trading, higher absolute values = more conservative.
                 </p>
               </div>

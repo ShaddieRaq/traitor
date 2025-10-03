@@ -94,12 +94,47 @@ export const DualViewBotsDisplay: React.FC<DualViewBotsDisplayProps> = ({
     }));
   };
 
+  // Helper function to sort bots by signal type (BUY first, then SELL) and then by signal strength
+  const sortBySignalTypeAndStrength = (bots: any[]) => {
+    return bots.sort((a, b) => {
+      const scoreA = a.current_combined_score || 0;
+      const scoreB = b.current_combined_score || 0;
+      
+      // First, group by signal type: BUY signals (negative) first, then SELL signals (positive)
+      const isBuyA = scoreA < -0.05;
+      const isBuyB = scoreB < -0.05;
+      const isSellA = scoreA > 0.05;
+      const isSellB = scoreB > 0.05;
+      
+      // BUY signals come first
+      if (isBuyA && !isBuyB) return -1;
+      if (!isBuyA && isBuyB) return 1;
+      
+      // SELL signals come after BUY signals but before HOLD
+      if (isSellA && !isSellB && !isBuyB) return -1;
+      if (!isSellA && isSellB && !isBuyA) return 1;
+      
+      // Within the same signal type, sort by strength (strongest signals first)
+      if (isBuyA && isBuyB) {
+        // For BUY signals, more negative is stronger
+        return scoreA - scoreB;
+      }
+      if (isSellA && isSellB) {
+        // For SELL signals, more positive is stronger  
+        return scoreB - scoreA;
+      }
+      
+      // For HOLD signals, sort by absolute strength
+      return Math.abs(scoreB) - Math.abs(scoreA);
+    });
+  };
+
   // Group bots by temperature
   const groupedBots = {
-    HOT: botsData.filter(bot => bot.temperature === 'HOT'),
-    WARM: botsData.filter(bot => bot.temperature === 'WARM'),
-    COOL: botsData.filter(bot => bot.temperature === 'COOL'),
-    FROZEN: botsData.filter(bot => bot.temperature === 'FROZEN')
+    HOT: sortBySignalTypeAndStrength(botsData.filter(bot => bot.temperature === 'HOT')),
+    WARM: sortBySignalTypeAndStrength(botsData.filter(bot => bot.temperature === 'WARM')),
+    COOL: sortBySignalTypeAndStrength(botsData.filter(bot => bot.temperature === 'COOL')),
+    FROZEN: sortBySignalTypeAndStrength(botsData.filter(bot => bot.temperature === 'FROZEN'))
   };
 
   const TemperatureGroup = ({ title, icon, bots, bgColor, groupKey }: { title: string; icon: string; bots: any[]; bgColor: string; groupKey: string }) => {

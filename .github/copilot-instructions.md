@@ -6,7 +6,7 @@
 
 **MANDATORY VERIFICATION WORKFLOW:**
 1. Check health: `./scripts/status.sh`
-2. Verify bots: `curl -s "http://localhost:8000/api/v1/bots/" | jq 'length'` (should be 41)
+2. Verify bots: `curl -s "http://localhost:8000/api/v1/bots/" | jq 'length'` (should be 43)
 3. Check errors: `curl -s "http://localhost:8000/api/v1/system-errors/errors" | jq 'length'`
 4. Always use actual API responses to confirm changes worked
 
@@ -14,16 +14,16 @@
 
 ## System Overview
 
-**Production-ready cryptocurrency trading system** with **41 active bots** managing live funds across major trading pairs. Features sophisticated 4-phase AI intelligence and proven profitable performance.
+**Production-ready cryptocurrency trading system** with **43 active bots** managing live funds across major trading pairs. Features sophisticated 4-phase AI intelligence and proven profitable performance.
 
-**✅ CURRENT STATUS (October 2025)**: System fully operational with 41 bots, UI consolidation project completed. Clean 3-tab navigation with integrated bot management, comprehensive trade center, and optimized Portfolio card with P&L display.
+**✅ CURRENT STATUS (October 2025)**: System fully operational with 43 bots, UI consolidation project completed. Clean 3-tab navigation with integrated bot management, comprehensive trade center, and optimized Portfolio card with P&L display.
 
 ### Core Architecture
 - **Backend**: FastAPI + SQLAlchemy + Celery/Redis + MarketDataService
 - **Frontend**: React 18 + TypeScript + TanStack Query with clean 3-tab navigation (Dashboard/Trades/Market Analysis)
 - **Database**: Single SQLite file at `/trader.db` (NOT backend/trader.db)
 - **Caching**: Phase 7 MarketDataService with Redis (60s TTL) + legacy MarketDataCache (90s TTL)
-- **Bot Design**: One bot per trading pair, JSON signal configs, ±0.05 thresholds
+- **Bot Design**: One bot per trading pair, JSON signal configs, ±0.05 default thresholds
 - **UI Architecture**: Consolidated dashboard with integrated bot management, comprehensive Portfolio card with P&L tracking
 - **UI Scrolling**: Fixed large dataset display with proper viewport-based scrolling (max-h-[70vh] overflow-y-auto)
 
@@ -56,8 +56,8 @@
 # 3. Start services if needed
 ./scripts/start.sh
 
-# 4. Verify all 41 bots are operational
-curl -s "http://localhost:8000/api/v1/bots/" | jq 'length'  # Should return 41
+# 4. Verify all 43 bots are operational
+curl -s "http://localhost:8000/api/v1/bots/" | jq 'length'  # Should return 43
 
 # 5. Check for system errors before making any changes
 curl -s "http://localhost:8000/api/v1/system-errors/errors" | jq 'length'  # Should be 0 or low
@@ -444,6 +444,55 @@ emoji = get_temperature_emoji(temperature)  # 🔥🌡️❄️🧊
 
 **NOTE**: UI Consolidation is complete. System ready for next phase development.
 
+## 🚨 CRITICAL ISSUE - Failed Bot Grouping Request (October 3, 2025)
+
+### **WHAT THE USER ACTUALLY WANTED**
+The user had a **working signal-based grouping system** that was **previously implemented and then removed**. They wanted it restored.
+
+**User's exact request**: "we grouped them by buy/sell and then signal strength"
+
+### **WHAT WAS ATTEMPTED (FAILED)**
+❌ **Incorrect interpretation**: Modified TieredBotsView to add sorting within temperature groups
+❌ **Missed the point**: User wanted the old signal-based grouping system restored, not temperature grouping with sorting
+❌ **Wrong approach**: Created new signal-based grouping when they wanted the **previous working implementation** back
+
+### **WHAT NEEDS TO BE DONE BY NEXT AGENT**
+🔍 **Find the Previous Implementation**: 
+- Search git history for when signal-based grouping was removed
+- Look for components that grouped bots by BUY/SELL signals first, then by signal strength
+- Check for any toggle/switch between temperature vs signal grouping modes
+
+🎯 **User's Actual Requirements**:
+1. **Primary Grouping**: BUY signals vs SELL signals (not temperature)
+2. **Secondary Sorting**: Within each group, sort by signal strength
+3. **Restore Previous**: This was already working before and got removed somehow
+
+### **CURRENT STATE**
+- TieredBotsView has temperature grouping (🔥HOT/🌡️WARM/❄️COOL/🧊FROZEN) 
+- Added sorting within temperature groups (BUY first, then SELL sorted by strength)
+- But user wanted **signal-based primary grouping**, not temperature-based
+
+### **SEARCH LOCATIONS FOR NEXT AGENT**
+```bash
+# Look for previous signal-based grouping implementation
+git log --follow -p frontend/src/components/Dashboard/TieredBotsView.tsx
+git log --grep="signal.*group" --oneline
+git log --grep="buy.*sell.*group" --oneline
+
+# Check for other components that might have had signal grouping
+find frontend/src -name "*.tsx" -exec grep -l "BUY.*group\|SELL.*group" {} \;
+```
+
+### **ARCHITECTURAL INSIGHT**
+The user likely had a **different view mode** or **different component** that grouped by:
+- **🟢 BUY SIGNALS** (all bots with signals < -0.05)
+  - Sorted by signal strength (strongest buy signals first)
+- **🔴 SELL SIGNALS** (all bots with signals > 0.05)  
+  - Sorted by signal strength (strongest sell signals first)
+- **⚪ HOLD/NEUTRAL** (signals between -0.05 and 0.05)
+
+This is **fundamentally different** from temperature-based grouping.
+
 ## Previous Development Phase: UI Intelligence Framework (COMPLETED)
 
 **Status**: ✅ COMPLETED - UI now showcases the sophisticated 4-phase AI system
@@ -546,7 +595,7 @@ curl -s --max-time 5 "http://localhost:8000/api/v1/bots/" | jq 'length'
 1. **Always check health first**: `./scripts/status.sh` 
 2. **Verify Docker**: System requires Docker for Redis
 3. **Check database path**: Must use `/trader.db` (not backend/trader.db)
-4. **Verify bot count**: Should always show 34 active bots
+4. **Verify bot count**: Should always show 43 active bots
 5. **Diagnose before restart**: Use debugging steps above
 6. **Last resort restart**: `./scripts/stop.sh && ./scripts/start.sh`
 
@@ -596,7 +645,7 @@ For current system errors: `curl -s --max-time 10 "http://localhost:8000/api/v1/
 - ✅ Phase 7 Market Data Service completed - 95%+ cache hit rate, 0 rate limiting
 - ✅ Threshold configuration corruption incident resolved
 - ✅ API schema understanding documented  
-- ✅ All 34 bots operational with proven ±0.05 thresholds
+- ✅ All 43 bots operational with proven ±0.05 thresholds
 
 **Critical Lessons for Future Agents**:
 1. **API First**: Always check OpenAPI schema before making calls
@@ -605,4 +654,4 @@ For current system errors: `curl -s --max-time 10 "http://localhost:8000/api/v1/
 4. **No Default Changes**: Never modify system defaults during debugging
 5. **Document Everything**: Track all temporary changes with reversion plan
 
-**System Status**: Production-ready with 34 bots operational, but rate limiting issues require ongoing monitoring and occasional restarts.
+**System Status**: Production-ready with 43 bots operational, excellent system health with 0 current errors.

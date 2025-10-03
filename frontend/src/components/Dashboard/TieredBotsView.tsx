@@ -27,15 +27,26 @@ export const TieredBotsView: React.FC<TieredBotsViewProps> = ({
     return <div className={`animate-pulse bg-gray-100 rounded-lg h-64 ${className}`}></div>;
   }
 
-  // Group bots by temperature
-  const groupedBots = {
-    HOT: botsData.filter(bot => bot.temperature === 'HOT'),
-    WARM: botsData.filter(bot => bot.temperature === 'WARM'),
-    COOL: botsData.filter(bot => bot.temperature === 'COOL'),
-    FROZEN: botsData.filter(bot => bot.temperature === 'FROZEN')
+  // Helper function to sort bots by signal strength
+  const sortBySignalStrength = (bots: any[]) => {
+    return bots.sort((a, b) => {
+      const scoreA = Math.abs(a.current_combined_score || 0);
+      const scoreB = Math.abs(b.current_combined_score || 0);
+      return scoreB - scoreA; // Strongest signals first
+    });
   };
 
-  const TemperatureGroup = ({ title, icon, bots, bgColor }: { title: string; icon: string; bots: any[]; bgColor: string }) => {
+  // Group bots by signal type (BUY/SELL/HOLD)
+  const groupedBots = {
+    BUY: sortBySignalStrength(botsData.filter(bot => (bot.current_combined_score || 0) < -0.05)),
+    SELL: sortBySignalStrength(botsData.filter(bot => (bot.current_combined_score || 0) > 0.05)),
+    HOLD: sortBySignalStrength(botsData.filter(bot => {
+      const score = bot.current_combined_score || 0;
+      return score >= -0.05 && score <= 0.05;
+    }))
+  };
+
+  const SignalGroup = ({ title, icon, bots, bgColor }: { title: string; icon: string; bots: any[]; bgColor: string }) => {
     if (bots.length === 0) return null;
     
     return (
@@ -82,29 +93,23 @@ export const TieredBotsView: React.FC<TieredBotsViewProps> = ({
 
   return (
     <div className={`space-y-4 ${className}`}>
-      <TemperatureGroup 
-        title="HOT BOTS" 
-        icon="🔥" 
-        bots={groupedBots.HOT} 
-        bgColor="bg-gradient-to-r from-red-50 to-orange-50" 
+      <SignalGroup 
+        title="BUY SIGNALS" 
+        icon="�" 
+        bots={groupedBots.BUY} 
+        bgColor="bg-gradient-to-r from-green-50 to-emerald-50" 
       />
-      <TemperatureGroup 
-        title="WARM BOTS" 
-        icon="🌡️" 
-        bots={groupedBots.WARM} 
-        bgColor="bg-gradient-to-r from-orange-50 to-yellow-50" 
+      <SignalGroup 
+        title="SELL SIGNALS" 
+        icon="🔴" 
+        bots={groupedBots.SELL} 
+        bgColor="bg-gradient-to-r from-red-50 to-rose-50" 
       />
-      <TemperatureGroup 
-        title="COOL BOTS" 
-        icon="❄️" 
-        bots={groupedBots.COOL} 
-        bgColor="bg-gradient-to-r from-blue-50 to-cyan-50" 
-      />
-      <TemperatureGroup 
-        title="FROZEN BOTS" 
-        icon="🧊" 
-        bots={groupedBots.FROZEN} 
-        bgColor="bg-gradient-to-r from-gray-50 to-slate-50" 
+      <SignalGroup 
+        title="HOLD SIGNALS" 
+        icon="🟡" 
+        bots={groupedBots.HOLD} 
+        bgColor="bg-gradient-to-r from-yellow-50 to-amber-50" 
       />
     </div>
   );
