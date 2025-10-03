@@ -29,10 +29,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Start centralized API coordinator for Phase 6.2 deployment
-from .services.api_coordinator import api_coordinator
-api_coordinator.start()
-logger.info("🚀 Phase 6.2: Centralized API Coordinator started for production deployment")
+# Note: Using sync_api_coordinator for production (Phase 6.4)
+# Centralized coordination handled by sync_coordinated_coinbase_service
+logger.info("🚀 Phase 6.4: Using sync API coordination for production deployment")
 
 # Include API routers
 # API Routes

@@ -48,23 +48,16 @@ def evaluate_bot_signals(enable_automatic_trading: bool = False):
                 try:
                     logger.info(f"Evaluating bot {bot.id} ({bot.name}) - {i+1}/{len(active_bots)}")
                     
-                    # Add delay between API calls to prevent rate limiting (except for first bot)
-                    if i > 0:
-                        import time
-                        delay = 5  # 5 second delay between each bot evaluation (increased from 3s)
-                        logger.info(f"⏳ Waiting {delay}s before next API call to prevent rate limiting...")
-                        time.sleep(delay)
+                    # PHASE 7: Use centralized Market Data Service (eliminates rate limiting)
+                    from ..services.market_data_service import get_market_data_service
+                    market_service = get_market_data_service()
                     
-                    # Check cache first
-                    if bot.pair in market_data_cache:
-                        logger.info(f"📋 Using cached market data for {bot.pair}")
-                        market_data = market_data_cache[bot.pair]
-                    else:
-                        # Get market data for this bot's pair with coordinated service (reduced limit to prevent rate limiting)
-                        logger.info(f"📡 Fetching fresh market data for {bot.pair}")
-                        coordinated_service = get_coordinated_coinbase_service()
-                        market_data = coordinated_service.get_historical_data(bot.pair, limit=30, priority=RequestPriority.HIGH)
-                        market_data_cache[bot.pair] = market_data
+                    # Get market data from Phase 7 service (always cached, no API calls)
+                    logger.info(f"� Getting cached market data for {bot.pair} from Phase 7 service")
+                    market_data = market_service.get_candles(bot.pair, granularity='ONE_HOUR', limit=30)
+                    
+                    # Update legacy cache for backward compatibility
+                    market_data_cache[bot.pair] = market_data
                     
                     if market_data.empty:
                         logger.warning(f"No market data available for {bot.pair}, skipping bot {bot.id}")
@@ -159,15 +152,17 @@ def fast_trading_evaluation():
             trade_attempts = 0
             successful_trades = 0
             
-            # Cache market data to avoid redundant API calls
+            # Cache market data using Phase 7 service (no API calls)
+            from ..services.market_data_service import get_market_data_service
+            market_service = get_market_data_service()
             market_data_cache = {}
             unique_pairs = set(bot.pair for bot in active_bots)
             for pair in unique_pairs:
                 try:
-                    coordinated_service = get_coordinated_coinbase_service()
-                    market_data_cache[pair] = coordinated_service.get_historical_data(pair, granularity=3600, limit=100, priority=RequestPriority.MEDIUM)
+                    # Use Phase 7 cached data (eliminates rate limiting)
+                    market_data_cache[pair] = market_service.get_candles(pair, granularity='ONE_HOUR', limit=100)
                 except Exception as e:
-                    logger.warning(f"Failed to get market data for {pair}: {e}")
+                    logger.warning(f"Failed to get cached market data for {pair}: {e}")
                     continue
             
             for bot in active_bots:
@@ -249,9 +244,10 @@ def fetch_market_data(product_id: str = "BTC-USD"):
         
         db = SessionLocal()
         try:
-            # Get historical data from Coinbase with coordinated service
-            coordinated_service = get_coordinated_coinbase_service()
-            df = coordinated_service.get_historical_data(product_id, granularity=3600, limit=100, priority=RequestPriority.MEDIUM)
+            # PHASE 7: Use cached market data service (no API calls)
+            from ..services.market_data_service import get_market_data_service
+            market_service = get_market_data_service()
+            df = market_service.get_candles(product_id, granularity='ONE_HOUR', limit=100)
             
             if df.empty:
                 logger.warning(f"No market data received for {product_id}")

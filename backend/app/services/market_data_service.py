@@ -370,13 +370,65 @@ class MarketDataService:
     
     def get_historical_data(self, product_id: str, granularity: int = 3600, limit: int = 100) -> pd.DataFrame:
         """
-        Get historical data - delegated to coinbase_service since it's already cached there.
-        This method maintains compatibility with existing code.
+        Get historical candlestick data with Redis caching.
+        
+        Args:
+            product_id: Trading pair (e.g., "BTC-USD")
+            granularity: Candlestick granularity in seconds (3600 = 1 hour)
+            limit: Number of candles to fetch
+            
+        Returns:
+            DataFrame with OHLCV data
         """
+        cache_key = self.get_cache_key("historical", f"{product_id}:{granularity}:{limit}")
+        
+        # Try cache first
+        if self.redis_client:
+            try:
+                cached_data = self.redis_client.get(cache_key)
+                if cached_data:
+                    data_dict = json.loads(cached_data)
+                    self.stats['cache_hits'] += 1
+                    logger.debug(f"📦 Cache HIT for historical {product_id}:{granularity}:{limit}")
+                    # Convert back to DataFrame
+                    return pd.DataFrame(data_dict['data'])
+            except Exception as e:
+                logger.warning(f"Cache read error for historical {product_id}: {e}")
+        
+        # Cache miss - fetch from API
+        self.stats['cache_misses'] += 1
+        logger.debug(f"📦 Cache MISS for historical {product_id}:{granularity}:{limit}")
+        
         try:
-            return self.coinbase_service.get_historical_data(product_id, granularity, limit)
+            # Get data directly from coinbase_service (no cache)
+            df = self.coinbase_service.get_historical_data(product_id, granularity, limit)
+            
+            if not df.empty and self.redis_client:
+                # Cache the DataFrame as JSON
+                try:
+                    cache_data = {
+                        'data': df.to_dict('records'),
+                        'cached_at': time.time(),
+                        'product_id': product_id,
+                        'granularity': granularity,
+                        'limit': limit
+                    }
+                    # Cache for 5 minutes (historical data changes less frequently)
+                    self.redis_client.setex(
+                        cache_key,
+                        300,  # 5 minutes for historical data
+                        json.dumps(cache_data, default=str)
+                    )
+                    logger.debug(f"📦 Cached historical data for {product_id}:{granularity}:{limit}")
+                except Exception as e:
+                    logger.warning(f"Cache write error for historical {product_id}: {e}")
+            
+            self.stats['api_calls'] += 1
+            return df
+            
         except Exception as e:
             logger.error(f"❌ Failed to get historical data for {product_id}: {e}")
+            self.stats['errors'] += 1
             return pd.DataFrame()
     
     def get_cache_stats(self) -> Dict[str, Any]:

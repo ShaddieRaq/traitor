@@ -18,9 +18,9 @@ async def get_trading_diagnosis(db: Session = Depends(get_db)) -> Dict[str, Any]
     """
     try:
         bots = db.query(Bot).all()
-        evaluator = BotSignalEvaluator()
+        evaluator = BotSignalEvaluator(db)
         coinbase_service = get_coordinated_coinbase_service()
-        safety_service = TradingSafetyService()
+        safety_service = TradingSafetyService(db)
         
         diagnosis = {
             "system_status": {},
@@ -46,7 +46,7 @@ async def get_trading_diagnosis(db: Session = Depends(get_db)) -> Dict[str, Any]
         
         # Safety status
         try:
-            safety_status = await safety_service.get_safety_status(db)
+            safety_status = safety_service.get_safety_status()
             diagnosis["system_status"]["safety_limits"] = safety_status
         except Exception as e:
             diagnosis["blocking_issues"].append({
@@ -69,17 +69,17 @@ async def get_trading_diagnosis(db: Session = Depends(get_db)) -> Dict[str, Any]
         
         # Recent trades analysis
         recent_trades = db.query(Trade).filter(
-            Trade.executed_at >= datetime.utcnow() - timedelta(hours=2)
-        ).order_by(Trade.executed_at.desc()).limit(10).all()
+            Trade.filled_at >= datetime.utcnow() - timedelta(hours=2)
+        ).order_by(Trade.filled_at.desc()).limit(10).all()
         
         diagnosis["recent_activity"] = [
             {
                 "bot_id": trade.bot_id,
                 "side": trade.side,
-                "amount": trade.amount,
+                "amount": trade.size_usd or (trade.size * trade.price) if trade.size and trade.price else 0,
                 "status": trade.status,
-                "executed_at": trade.executed_at.isoformat() if trade.executed_at else None,
-                "minutes_ago": int((datetime.utcnow() - trade.executed_at).total_seconds() / 60) if trade.executed_at else None
+                "executed_at": trade.filled_at.isoformat() if trade.filled_at else None,
+                "minutes_ago": int((datetime.utcnow() - trade.filled_at).total_seconds() / 60) if trade.filled_at else None
             }
             for trade in recent_trades
         ]
@@ -134,9 +134,9 @@ async def get_trading_diagnosis(db: Session = Depends(get_db)) -> Dict[str, Any]
                             })
                 
                 # Check recent trades
-                last_trade = db.query(Trade).filter(Trade.bot_id == bot.id).order_by(Trade.executed_at.desc()).first()
-                if last_trade and last_trade.status == "pending":
-                    minutes_since = int((datetime.utcnow() - last_trade.executed_at).total_seconds() / 60) if last_trade.executed_at else 0
+                last_trade = db.query(Trade).filter(Trade.bot_id == bot.id).order_by(Trade.filled_at.desc()).first()
+                if last_trade:
+                    minutes_since = int((datetime.utcnow() - last_trade.filled_at).total_seconds() / 60) if last_trade.filled_at else 0
                     if minutes_since > 5:
                         bot_diagnosis["issues"].append({
                             "issue": "Pending Trade Stuck",

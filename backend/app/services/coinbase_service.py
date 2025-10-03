@@ -47,7 +47,7 @@ class CoinbaseService:
         self.cached_accounts = None
         self.cached_accounts_timestamp = None
         
-        # Initialize market data cache
+        # Initialize market data cache (centralized caching)
         self.market_data_cache = get_market_data_cache()
         
         # Rate limiting circuit breaker
@@ -303,7 +303,10 @@ class CoinbaseService:
     
     def get_historical_data(self, product_id: str, granularity: int = 3600, limit: int = 100) -> pd.DataFrame:
         """
-        Get historical candlestick data with intelligent caching.
+        Get historical candlestick data directly from API.
+        
+        NOTE: This method no longer includes caching - use MarketDataService.get_historical_data() 
+        for cached access. This method is primarily for internal use by MarketDataService.
         
         Args:
             product_id: Trading pair (e.g., "BTC-USD")
@@ -313,11 +316,8 @@ class CoinbaseService:
         if not self.client:
             return pd.DataFrame()
         
-        # Use cache to get data, falling back to API if needed
-        def fetch_from_api():
-            return self._fetch_historical_data_from_api(product_id, granularity, limit)
-        
-        return self.market_data_cache.get_or_fetch(product_id, granularity, limit, fetch_from_api)
+        # Direct API call without legacy cache
+        return self._fetch_historical_data_from_api(product_id, granularity, limit)
     
     def _fetch_historical_data_from_api(self, product_id: str, granularity: int, limit: int) -> pd.DataFrame:
         """
@@ -1071,12 +1071,13 @@ class CoinbaseService:
             }
     
     def get_cache_stats(self) -> dict:
-        """Get market data cache performance statistics."""
-        return self.market_data_cache.get_stats()
+        """Get market data cache performance statistics from MarketDataCache."""
+        return self.market_data_cache.get_cache_stats()
     
     def get_cache_info(self) -> dict:
-        """Get detailed cache information for debugging."""
-        return self.market_data_cache.get_cache_info()
+        """Get detailed cache information for debugging from MarketDataCache."""
+        # MarketDataCache doesn't have get_cache_info, so return cache stats
+        return self.market_data_cache.get_cache_stats()
     
     def invalidate_cache(self, product_id: Optional[str] = None) -> int:
         """
@@ -1089,7 +1090,12 @@ class CoinbaseService:
         Returns:
             Number of cache entries invalidated
         """
-        return self.market_data_cache.invalidate(product_id)
+        if product_id:
+            pattern = f"market_data:*:{product_id}*"
+        else:
+            pattern = "market_data:*"
+        result = self.market_data_cache.clear_cache(pattern)
+        return result.get('deleted_count', 0)
 
 
 # Global instance
