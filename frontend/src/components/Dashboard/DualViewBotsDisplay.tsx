@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { CompactPerformanceCard, AdvancedAnalyticsCard } from './BotCardSamples';
 import { useEnhancedBotsStatus, usePnLData, useStartBot, useStopBot, useDeleteBot } from '../../hooks/useBots';
-import { Edit3, Play, Pause, Trash2, LayoutGrid, List, ChevronDown, ChevronUp } from 'lucide-react';
+import { Edit3, Play, Pause, Trash2, LayoutGrid, List, ChevronDown, ChevronUp, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface DualViewBotsDisplayProps {
@@ -9,6 +9,7 @@ interface DualViewBotsDisplayProps {
   botsData?: any[];
   showAllMode?: boolean;
   onEditBot?: (bot: any) => void;
+  onCreateBot?: () => void;
 }
 
 type ViewMode = 'compact' | 'advanced' | 'smart';
@@ -16,7 +17,8 @@ type ViewMode = 'compact' | 'advanced' | 'smart';
 export const DualViewBotsDisplay: React.FC<DualViewBotsDisplayProps> = ({ 
   className = '',
   botsData: propBotsData,
-  onEditBot
+  onEditBot,
+  onCreateBot
 }) => {
   const { data: hookBotsData } = useEnhancedBotsStatus();
   const { data: pnlData } = usePnLData();
@@ -27,11 +29,48 @@ export const DualViewBotsDisplay: React.FC<DualViewBotsDisplayProps> = ({
     COOL: false,
     FROZEN: true  // Start with FROZEN collapsed since they're usually inactive
   });
+  
+  // Scroll position preservation refs
+  const scrollRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
+  
   const startBot = useStartBot();
   const stopBot = useStopBot();
   const deleteBot = useDeleteBot();
   
   const botsData = propBotsData || hookBotsData;
+
+  // Simple scroll position preservation
+  const preserveScrollPosition = useCallback((groupKey: string) => {
+    return (el: HTMLDivElement | null) => {
+      if (el) {
+        // Store the element ref
+        scrollRefs.current[groupKey] = el;
+        
+        // Get saved position BEFORE doing anything else
+        const savedPosition = sessionStorage.getItem(`scroll-${groupKey}`);
+        const scrollTop = savedPosition ? parseInt(savedPosition) : 0;
+        
+        // Set scroll position IMMEDIATELY to prevent any jumping
+        el.scrollTop = scrollTop;
+        
+        // Use both immediate and frame-based restoration for reliability
+        requestAnimationFrame(() => {
+          el.scrollTop = scrollTop;
+          // And one more time in the next frame to be absolutely sure
+          requestAnimationFrame(() => {
+            el.scrollTop = scrollTop;
+          });
+        });
+        
+        // On every scroll, save the position
+        const handleScroll = () => {
+          sessionStorage.setItem(`scroll-${groupKey}`, el.scrollTop.toString());
+        };
+        
+        el.addEventListener('scroll', handleScroll, { passive: true });
+      }
+    };
+  }, []);
 
   if (!botsData) {
     return <div className={`animate-pulse bg-gray-100 rounded-lg h-64 ${className}`}></div>;
@@ -99,7 +138,14 @@ export const DualViewBotsDisplay: React.FC<DualViewBotsDisplayProps> = ({
         <div className={`transition-all duration-300 ease-in-out ${
           isCollapsed ? 'max-h-0 overflow-hidden' : 'max-h-none'
         }`}>
-          <div className="p-4 max-h-[70vh] overflow-y-auto">
+          <div 
+            ref={preserveScrollPosition(groupKey)}
+            className="p-4 max-h-[70vh] overflow-y-auto"
+            style={{ 
+              scrollBehavior: 'auto',
+              scrollbarGutter: 'stable' // Prevents layout shift when scrollbar appears/disappears
+            }}
+          >
             <div className={`grid gap-4 ${
               // Responsive grid that adapts to card type
               viewMode === 'compact' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' :
@@ -188,10 +234,10 @@ export const DualViewBotsDisplay: React.FC<DualViewBotsDisplayProps> = ({
 
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* View Mode Selector */}
+      {/* Integrated Bot Management Header */}
       <div className="flex items-center justify-between bg-white rounded-lg border p-4">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">Bot Display Options</h3>
+          <h2 className="text-lg font-semibold text-gray-900">Trading Bots</h2>
           <p className="text-sm text-gray-600">
             {viewMode === 'smart' 
               ? 'Smart view: Advanced analytics for active bots (🔥HOT/🌡️WARM), compact performance cards for inactive bots (❄️COOL/🧊FROZEN)'
@@ -202,7 +248,19 @@ export const DualViewBotsDisplay: React.FC<DualViewBotsDisplayProps> = ({
           </p>
         </div>
         
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-3">
+          {/* Create Bot Button */}
+          {onCreateBot && (
+            <button
+              onClick={onCreateBot}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create Bot</span>
+            </button>
+          )}
+          
+          {/* View Mode Selector */}
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => setViewMode('compact')}

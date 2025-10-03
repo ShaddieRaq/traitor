@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bot, BotCreate, SignalConfiguration, RSISignalConfig, MovingAverageSignalConfig, MACDSignalConfig } from '../types';
+import { Bot, BotCreate, SignalConfiguration, MovingAverageSignalConfig, MACDSignalConfig } from '../types';
 import { useProducts } from '../hooks/useMarket';
 
 interface BotFormProps {

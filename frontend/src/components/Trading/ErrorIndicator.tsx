@@ -18,7 +18,7 @@ interface BotError {
   resolved: boolean;
 }
 
-const ErrorIndicator: React.FC<ErrorIndicatorProps> = ({ botId, botName, className = '' }) => {
+const ErrorIndicator: React.FC<ErrorIndicatorProps> = ({ botId, className = '' }) => {
   const [showDetails, setShowDetails] = useState(false);
 
   // Fetch errors for this specific bot

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Activity, TrendingUp, Clock, DollarSign, Brain, Target } from 'lucide-react';
+import { ChevronDown, ChevronUp, Activity, TrendingUp, Clock, DollarSign, Brain } from 'lucide-react';
 import PerformanceTrend from './PerformanceTrend';
 import { useLivePortfolio } from '../../hooks/useLivePortfolio';
 

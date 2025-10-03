@@ -1,5 +1,6 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, Activity, Clock, Target, Shield, Zap } from 'lucide-react';
+import { useTrendAnalysis, getTrendDirection, getRegimeDisplay } from '../../hooks/useTrends';
 
 // Sample 1: Compact Performance-Focused Card
 export const CompactPerformanceCard: React.FC<{ bot: any, pnlData?: any }> = ({ bot, pnlData }) => {
@@ -31,7 +32,7 @@ export const CompactPerformanceCard: React.FC<{ bot: any, pnlData?: any }> = ({ 
           </div>
           <div className={`text-right ${isProfit ? 'text-green-600' : 'text-red-600'}`}>
             <div className="text-lg font-bold">
-              {isProfit ? '+' : ''}${Math.abs(botPnL?.net_pnl_usd || 0).toFixed(2)}
+              {isProfit ? '+' : '-'}${Math.abs(botPnL?.net_pnl_usd || 0).toFixed(2)}
             </div>
             <div className="text-xs opacity-75">{winRate}% Win Rate</div>
           </div>
@@ -63,6 +64,12 @@ export const CompactPerformanceCard: React.FC<{ bot: any, pnlData?: any }> = ({ 
           <div className="bg-gray-50 rounded-lg p-2">
             <div className="text-xs text-gray-600">Position</div>
             <div className="font-bold text-sm">${Math.abs(bot.current_position_size || 0).toFixed(0)}</div>
+            {/* Add holdings info for compact card */}
+            {botPnL && botPnL.current_holdings > 0 && (
+              <div className="text-xs text-emerald-600 mt-1">
+                {botPnL.current_holdings.toFixed(2)} units
+              </div>
+            )}
           </div>
           <div className="bg-gray-50 rounded-lg p-2">
             <div className="text-xs text-gray-600">Last Trade</div>
@@ -93,7 +100,8 @@ export const CompactPerformanceCard: React.FC<{ bot: any, pnlData?: any }> = ({ 
 // Sample 2: Advanced Analytics Card
 export const AdvancedAnalyticsCard: React.FC<{ bot: any, pnlData?: any }> = ({ bot, pnlData }) => {
   const botPnL = pnlData?.find((p: any) => p.product_id === bot.pair);
-  const trend = bot.trend_analysis;
+  const { data: trendData } = useTrendAnalysis(bot.pair);
+  const trend = trendData || bot.trend_analysis;
   const position = bot.position_sizing;
   
   const getSignalDirection = () => {
@@ -117,7 +125,7 @@ export const AdvancedAnalyticsCard: React.FC<{ bot: any, pnlData?: any }> = ({ b
           </div>
           <div className="text-right">
             <div className="text-lg font-bold">
-              {isProfit ? '+' : ''}${Math.abs(botPnL?.net_pnl_usd || 0).toFixed(2)}
+              {isProfit ? '+' : '-'}${Math.abs(botPnL?.net_pnl_usd || 0).toFixed(2)}
             </div>
             <div className="text-indigo-200 text-xs">
               {botPnL ? `${((botPnL.net_pnl_usd / botPnL.total_spent_usd) * 100).toFixed(1)}% ROI` : 'No trades'}
@@ -160,16 +168,29 @@ export const AdvancedAnalyticsCard: React.FC<{ bot: any, pnlData?: any }> = ({ b
                 <Activity className="h-4 w-4 mr-1" />
                 Market Regime
               </span>
-              <span className={`text-xs px-2 py-1 rounded-full ${
-                trend.regime === 'TRENDING' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'
-              }`}>
-                {trend.regime}
-              </span>
+              {(() => {
+                const direction = getTrendDirection(trend.trend_strength, trend.moving_average_alignment);
+                const regimeDisplay = getRegimeDisplay(trend.regime, direction.direction);
+                return (
+                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                    direction.direction === 'UP' ? 'bg-green-100 text-green-800' :
+                    direction.direction === 'DOWN' ? 'bg-red-100 text-red-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {direction.emoji} {regimeDisplay}
+                  </span>
+                );
+              })()}
             </div>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div>
                 <span className="text-gray-600">Trend Strength:</span>
-                <span className="ml-1 font-medium">{(trend.trend_strength * 100).toFixed(1)}%</span>
+                <span className={`ml-1 font-medium ${
+                  trend.trend_strength > 0 ? 'text-green-600' : 
+                  trend.trend_strength < 0 ? 'text-red-600' : 'text-gray-600'
+                }`}>
+                  {trend.trend_strength > 0 ? '+' : ''}{(trend.trend_strength * 100).toFixed(1)}%
+                </span>
               </div>
               <div>
                 <span className="text-gray-600">Confidence:</span>
@@ -192,6 +213,15 @@ export const AdvancedAnalyticsCard: React.FC<{ bot: any, pnlData?: any }> = ({ b
             <div className="text-xs text-blue-600">
               {position ? `$${position.final_position_size}` : `$${bot.position_size_usd || 20}`} max
             </div>
+            {/* Add balance details if available */}
+            {botPnL && (
+              <div className="text-xs text-blue-500 mt-1">
+                {botPnL.current_holdings > 0 
+                  ? `${botPnL.current_holdings.toFixed(2)} units`
+                  : 'Cash position'
+                }
+              </div>
+            )}
           </div>
           
           <div className="text-center p-2 bg-purple-50 rounded-lg">
@@ -208,6 +238,31 @@ export const AdvancedAnalyticsCard: React.FC<{ bot: any, pnlData?: any }> = ({ b
             <div className="text-xs text-purple-600">of base</div>
           </div>
         </div>
+
+        {/* Balance Details - Only show if we have P&L data */}
+        {botPnL && botPnL.current_holdings > 0 && (
+          <div className="mb-4 p-3 bg-emerald-50 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-emerald-700 flex items-center">
+                <Target className="h-4 w-4 mr-1" />
+                Holdings
+              </span>
+              <span className="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-800">
+                {botPnL.current_holdings.toFixed(4)} {bot.pair.split('-')[0]}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <span className="text-gray-600">Current Value:</span>
+                <span className="ml-1 font-medium text-emerald-700">${botPnL.current_value?.toFixed(2)}</span>
+              </div>
+              <div>
+                <span className="text-gray-600">Avg Buy Price:</span>
+                <span className="ml-1 font-medium text-emerald-700">${botPnL.average_buy_price?.toFixed(4)}</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Activity Timeline */}
         <div className="flex items-center justify-between text-xs text-gray-600">
@@ -260,7 +315,7 @@ export const MinimalModernCard: React.FC<{ bot: any, pnlData?: any }> = ({ bot, 
         
         <div className="text-right">
           <div className={`text-2xl font-bold ${isProfit ? 'text-green-600' : 'text-red-600'}`}>
-            {isProfit ? '+' : ''}${Math.abs(botPnL?.net_pnl_usd || 0).toFixed(2)}
+            {isProfit ? '+' : '-'}${Math.abs(botPnL?.net_pnl_usd || 0).toFixed(2)}
           </div>
           <div className="text-sm text-gray-500">
             {botPnL && botPnL.total_spent_usd > 0 ? 
@@ -332,6 +387,12 @@ export const MinimalModernCard: React.FC<{ bot: any, pnlData?: any }> = ({ bot, 
         
         <div className="text-sm font-medium text-gray-900">
           ${Math.abs(bot.current_position_size || 0).toFixed(0)} position
+          {/* Add holdings info for minimal card */}
+          {botPnL && botPnL.current_holdings > 0 && (
+            <div className="text-xs text-emerald-600">
+              {botPnL.current_holdings.toFixed(2)} {bot.pair.split('-')[0]}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -342,12 +403,11 @@ export const MinimalModernCard: React.FC<{ bot: any, pnlData?: any }> = ({ bot, 
 export const MetricDenseCard: React.FC<{ bot: any, pnlData?: any }> = ({ bot, pnlData }) => {
   const botPnL = pnlData?.find((p: any) => p.product_id === bot.pair);
   const trend = bot.trend_analysis;
-  const position = bot.position_sizing;
   
   const metrics = [
     {
       label: 'P&L',
-      value: botPnL ? `${botPnL.net_pnl_usd >= 0 ? '+' : ''}$${Math.abs(botPnL.net_pnl_usd).toFixed(2)}` : '$0.00',
+      value: botPnL ? `${botPnL.net_pnl_usd >= 0 ? '+' : '-'}$${Math.abs(botPnL.net_pnl_usd).toFixed(2)}` : '$0.00',
       color: botPnL && botPnL.net_pnl_usd >= 0 ? 'text-green-600' : 'text-red-600',
       icon: <TrendingUp className="h-3 w-3" />
     },
@@ -372,6 +432,7 @@ export const MetricDenseCard: React.FC<{ bot: any, pnlData?: any }> = ({ bot, pn
     {
       label: 'Position',
       value: `$${Math.abs(bot.current_position_size || 0).toFixed(0)}`,
+      subValue: botPnL && botPnL.current_holdings > 0 ? `${botPnL.current_holdings.toFixed(2)} ${bot.pair.split('-')[0]}` : null,
       color: 'text-purple-600',
       icon: <Shield className="h-3 w-3" />
     },
@@ -413,6 +474,12 @@ export const MetricDenseCard: React.FC<{ bot: any, pnlData?: any }> = ({ bot, pn
             <div className={`text-sm font-bold ${metric.color}`}>
               {metric.value}
             </div>
+            {/* Add subValue display for holdings info */}
+            {metric.subValue && (
+              <div className="text-xs text-emerald-600 mt-1">
+                {metric.subValue}
+              </div>
+            )}
           </div>
         ))}
       </div>

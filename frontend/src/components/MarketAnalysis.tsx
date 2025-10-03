@@ -8,7 +8,7 @@ import api from '../lib/api';
 const MarketAnalysis: React.FC = () => {
   const [limit, setLimit] = useState(50);
   const [includeGems, setIncludeGems] = useState(true);
-  const [showNotifications, setShowNotifications] = useState(false);
+  const [, setShowNotifications] = useState(false);
   const { data: analysis, isLoading, error, refetch } = useMarketAnalysis(limit, includeGems);
   const { data: notificationsData } = useNotifications(50, false);
   const queryClient = useQueryClient();

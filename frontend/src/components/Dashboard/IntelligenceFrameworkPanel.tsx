@@ -19,7 +19,7 @@ interface IntelligenceFrameworkPanelProps {
 export const IntelligenceFrameworkPanel: React.FC<IntelligenceFrameworkPanelProps> = ({
   className = ''
 }) => {
-  const { data: intelligenceStatus, isLoading, dataUpdatedAt } = useIntelligenceFramework();
+  const { data: intelligenceStatus, isLoading } = useIntelligenceFramework();
 
   // Show loading state
   if (isLoading || !intelligenceStatus) {

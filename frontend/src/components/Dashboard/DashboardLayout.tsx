@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { DashboardGrid, GridArea } from './DashboardGrid';
 import PortfolioSummaryCard from './PortfolioSummaryCard';
 import SystemHealthCard from './SystemHealthCard';
-import DualViewBotsDisplay from './DualViewBotsDisplay';
+import { DualViewBotsDisplay } from './DualViewBotsDisplay';
 import UnifiedStatusBar from './UnifiedStatusBar';
 import BotForm from '../BotForm';
 import SystemDiagnosticsModal from './SystemDiagnosticsModal';
 import { useEnhancedBotsStatus, useCreateBot, useUpdateBot } from '../../hooks/useBots';
-import { Eye, EyeOff, Plus, Brain } from 'lucide-react';
+import { useBitcoinTrend, getTrendDirection, getRegimeDisplay } from '../../hooks/useTrends';
+import { Brain } from 'lucide-react';
 import { Bot, BotCreate, BotUpdate } from '../../types';
 import toast from 'react-hot-toast';
 
@@ -26,22 +27,17 @@ interface DashboardLayoutProps {
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ 
   className = '' 
 }) => {
-  const [isFocusMode, setIsFocusMode] = useState(false);
   const [showBotForm, setShowBotForm] = useState(false);
   const [editingBot, setEditingBot] = useState<Bot | null>(null);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   
   const { data: enhancedBotsStatus } = useEnhancedBotsStatus();
+  const { data: bitcoinTrend, isLoading: trendLoading } = useBitcoinTrend();
   const createBot = useCreateBot();
   const updateBot = useUpdateBot();
 
   // Show ALL bots - no filtering
   const botsToShow = enhancedBotsStatus || [];
-
-  const handleCreateBot = () => {
-    setEditingBot(null);
-    setShowBotForm(true);
-  };
 
   const handleEditBot = (bot: Bot) => {
     setEditingBot(bot);
@@ -110,41 +106,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               Showing all {enhancedBotsStatus?.length || 0} bots
             </p>
           </div>
-          
-          <div className="flex items-center space-x-3">
-            {/* Create Bot Button */}
-            <button
-              onClick={handleCreateBot}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Create Bot</span>
-            </button>
-            
-            {/* Focus Mode */}
-            <button
-              onClick={() => setIsFocusMode(!isFocusMode)}
-              className={`
-                flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm
-                ${isFocusMode 
-                  ? 'bg-orange-100 text-orange-700 ring-1 ring-orange-200' 
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }
-              `}
-            >
-              {isFocusMode ? (
-                <>
-                  <EyeOff className="w-4 h-4" />
-                  <span>Focus Mode</span>
-                </>
-              ) : (
-                <>
-                  <Eye className="w-4 h-4" />
-                  <span>Focus</span>
-                </>
-              )}
-            </button>
-          </div>
         </div>
 
         {/* Critical Financial Data Grid */}
@@ -172,7 +133,19 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 </div>
                 <div className="flex items-center space-x-6">
                   <div className="text-center">
-                    <div className="text-sm font-bold text-green-600">✓ TRENDING</div>
+                    {!trendLoading && bitcoinTrend ? (() => {
+                      const direction = getTrendDirection(bitcoinTrend.trend_strength, bitcoinTrend.moving_average_alignment);
+                      const regimeDisplay = getRegimeDisplay(bitcoinTrend.regime, direction.direction);
+                      return (
+                        <div className={`text-sm font-bold ${direction.color}`}>
+                          {direction.emoji} {regimeDisplay}
+                        </div>
+                      );
+                    })() : (
+                      <div className="text-sm font-bold text-gray-400">
+                        ⏳ LOADING...
+                      </div>
+                    )}
                     <div className="text-xs text-gray-500">Market Regime</div>
                   </div>
                   <div className="text-center">
@@ -189,22 +162,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </GridArea>
         </DashboardGrid>
 
-        {/* Bot Management with Smart Defaults */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Trading Bots</h2>
-              <p className="text-sm text-gray-600">
-                Organized by signal strength and trading activity
-              </p>
-            </div>
-          </div>
-          
-          <DualViewBotsDisplay 
-            botsData={botsToShow} 
-            onEditBot={handleEditBot}
-          />
-        </div>
+        {/* Bot Management - Integrated Header and Controls */}
+        <DualViewBotsDisplay 
+          botsData={botsToShow} 
+          onEditBot={handleEditBot}
+          onCreateBot={() => setShowBotForm(true)}
+        />
       </div>
 
       {/* Bot Form Modal */}

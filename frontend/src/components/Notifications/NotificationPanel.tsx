@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useNotifications, useMarkAsRead } from '../../hooks/useNotifications';
-import type { Notification } from '../../hooks/useNotifications';
 
 const NotificationPanel: React.FC = () => {
   const [filter, setFilter] = useState<'all' | 'unread'>('all');

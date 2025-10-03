@@ -8,8 +8,8 @@ interface CircularConfirmationTimerProps {
 }
 
 const CircularConfirmationTimer: React.FC<CircularConfirmationTimerProps> = ({ 
-  confirmation, 
-  tradingIntent,
+  confirmation: _, 
+  tradingIntent: __,
   className = '' 
 }) => {
   

@@ -36,8 +36,8 @@ const useProductPerformance = () => {
   return { performance, loading };
 };
 
-const ConsolidatedBotCardWithPerformance = ({ bot }) => {
-  const { performance, loading } = useProductPerformance();
+export const ConsolidatedBotCardWithPerformance = ({ bot }: { bot: any }) => {
+  const { performance, loading: _loading } = useProductPerformance();
   
   // Find performance data for this bot's product
   const botPerformance = performance.find(p => p.product_id === bot.pair);
