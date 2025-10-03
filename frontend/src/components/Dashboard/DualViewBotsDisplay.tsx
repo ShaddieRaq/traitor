@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CompactPerformanceCard, AdvancedAnalyticsCard } from './BotCardSamples';
 import { useEnhancedBotsStatus, usePnLData, useStartBot, useStopBot, useDeleteBot } from '../../hooks/useBots';
-import { Edit3, Play, Pause, Trash2, LayoutGrid, List } from 'lucide-react';
+import { Edit3, Play, Pause, Trash2, LayoutGrid, List, ChevronDown, ChevronUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface DualViewBotsDisplayProps {
@@ -21,6 +21,12 @@ export const DualViewBotsDisplay: React.FC<DualViewBotsDisplayProps> = ({
   const { data: hookBotsData } = useEnhancedBotsStatus();
   const { data: pnlData } = usePnLData();
   const [viewMode, setViewMode] = useState<ViewMode>('smart');
+  const [collapsed, setCollapsed] = useState<{[key: string]: boolean}>({
+    HOT: false,
+    WARM: false, 
+    COOL: false,
+    FROZEN: true  // Start with FROZEN collapsed since they're usually inactive
+  });
   const startBot = useStartBot();
   const stopBot = useStopBot();
   const deleteBot = useDeleteBot();
@@ -42,6 +48,13 @@ export const DualViewBotsDisplay: React.FC<DualViewBotsDisplayProps> = ({
       : CompactPerformanceCard;
   };
 
+  const toggleCollapsed = (groupKey: string) => {
+    setCollapsed(prev => ({
+      ...prev,
+      [groupKey]: !prev[groupKey]
+    }));
+  };
+
   // Group bots by temperature
   const groupedBots = {
     HOT: botsData.filter(bot => bot.temperature === 'HOT'),
@@ -50,105 +63,123 @@ export const DualViewBotsDisplay: React.FC<DualViewBotsDisplayProps> = ({
     FROZEN: botsData.filter(bot => bot.temperature === 'FROZEN')
   };
 
-  const TemperatureGroup = ({ title, icon, bots, bgColor }: { title: string; icon: string; bots: any[]; bgColor: string }) => {
+  const TemperatureGroup = ({ title, icon, bots, bgColor, groupKey }: { title: string; icon: string; bots: any[]; bgColor: string; groupKey: string }) => {
     if (bots.length === 0) return null;
+    
+    const isCollapsed = collapsed[groupKey];
     
     return (
       <div className="border rounded-lg border-gray-200 bg-gray-50 mb-4">
-        <div className={`px-4 py-3 border-b border-gray-200 ${bgColor}`}>
+        <div 
+          className={`px-4 py-3 border-b border-gray-200 ${bgColor} cursor-pointer hover:opacity-90 transition-opacity`}
+          onClick={() => toggleCollapsed(groupKey)}
+        >
           <div className="font-medium text-gray-900 flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <span className="text-xl">{icon}</span>
               <span>{title} ({bots.length})</span>
+              {/* Collapse/Expand indicator */}
+              {isCollapsed ? (
+                <ChevronDown className="h-4 w-4 text-gray-500" />
+              ) : (
+                <ChevronUp className="h-4 w-4 text-gray-500" />
+              )}
             </div>
-            {/* Show card type indicator for this group */}
-            {viewMode === 'smart' && (
-              <span className="text-xs text-gray-600 bg-white px-2 py-1 rounded-full">
-                {(title === 'HOT BOTS' || title === 'WARM BOTS') ? 'Advanced View' : 'Compact View'}
-              </span>
-            )}
+            <div className="flex items-center space-x-2">
+              {/* Show card type indicator for this group */}
+              {viewMode === 'smart' && !isCollapsed && (
+                <span className="text-xs text-gray-600 bg-white px-2 py-1 rounded-full">
+                  {(title === 'HOT BOTS' || title === 'WARM BOTS') ? 'Advanced View' : 'Compact View'}
+                </span>
+              )}
+            </div>
           </div>
         </div>
-        <div className="p-4">
-          <div className={`grid gap-4 ${
-            // Responsive grid that adapts to card type
-            viewMode === 'compact' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' :
-            viewMode === 'advanced' ? 'grid-cols-1 lg:grid-cols-2 xl:grid-cols-3' :
-            // Smart mode: different grids for different groups
-            (title === 'HOT BOTS' || title === 'WARM BOTS') 
-              ? 'grid-cols-1 lg:grid-cols-2 xl:grid-cols-3'  // Advanced cards - fewer per row
-              : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'  // Compact cards - more per row
-          }`}>
-            {bots.map((bot: any) => {
-              const CardComponent = getCardComponent(bot);
-              return (
-                <div key={bot.id} className="relative group">
-                  <CardComponent 
-                    bot={bot} 
-                    pnlData={pnlData}
-                  />
-                  
-                  {/* Floating Action Menu */}
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    <div className="flex items-center space-x-1 bg-white rounded-lg shadow-lg border p-1">
-                      {onEditBot && (
-                        <button
-                          onClick={() => onEditBot(bot)}
-                          className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                          title="Edit Bot"
-                        >
-                          <Edit3 className="h-3 w-3" />
-                        </button>
-                      )}
-                      
-                      {/* Start/Stop toggle */}
-                      {bot.status === 'RUNNING' ? (
+        {/* Collapsible content with proper scrolling */}
+        <div className={`transition-all duration-300 ease-in-out ${
+          isCollapsed ? 'max-h-0 overflow-hidden' : 'max-h-none'
+        }`}>
+          <div className="p-4 max-h-[70vh] overflow-y-auto">
+            <div className={`grid gap-4 ${
+              // Responsive grid that adapts to card type
+              viewMode === 'compact' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' :
+              viewMode === 'advanced' ? 'grid-cols-1 lg:grid-cols-2 xl:grid-cols-3' :
+              // Smart mode: different grids for different groups
+              (title === 'HOT BOTS' || title === 'WARM BOTS') 
+                ? 'grid-cols-1 lg:grid-cols-2 xl:grid-cols-3'  // Advanced cards - fewer per row
+                : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'  // Compact cards - more per row
+            }`}>
+              {bots.map((bot: any) => {
+                const CardComponent = getCardComponent(bot);
+                return (
+                  <div key={bot.id} className="relative group">
+                    <CardComponent 
+                      bot={bot} 
+                      pnlData={pnlData}
+                    />
+                    
+                    {/* Floating Action Menu */}
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <div className="flex items-center space-x-1 bg-white rounded-lg shadow-lg border p-1">
+                        {onEditBot && (
+                          <button
+                            onClick={() => onEditBot(bot)}
+                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                            title="Edit Bot"
+                          >
+                            <Edit3 className="h-3 w-3" />
+                          </button>
+                        )}
+                        
+                        {/* Start/Stop toggle */}
+                        {bot.status === 'RUNNING' ? (
+                          <button
+                            onClick={() => {
+                              stopBot.mutate(bot.id, {
+                                onSuccess: () => toast.success(`Bot "${bot.pair}" stopped`),
+                                onError: () => toast.error(`Failed to stop bot "${bot.pair}"`)
+                              });
+                            }}
+                            className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
+                            title="Stop Bot"
+                          >
+                            <Pause className="h-3 w-3" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              startBot.mutate(bot.id, {
+                                onSuccess: () => toast.success(`Bot "${bot.pair}" started`),
+                                onError: () => toast.error(`Failed to start bot "${bot.pair}"`)
+                              });
+                            }}
+                            className="p-1.5 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-md transition-colors"
+                            title="Start Bot"
+                          >
+                            <Play className="h-3 w-3" />
+                          </button>
+                        )}
+                        
                         <button
                           onClick={() => {
-                            stopBot.mutate(bot.id, {
-                              onSuccess: () => toast.success(`Bot "${bot.pair}" stopped`),
-                              onError: () => toast.error(`Failed to stop bot "${bot.pair}"`)
-                            });
+                            if (confirm(`Are you sure you want to delete bot "${bot.pair}"?`)) {
+                              deleteBot.mutate(bot.id, {
+                                onSuccess: () => toast.success(`Bot "${bot.pair}" deleted`),
+                                onError: () => toast.error(`Failed to delete bot "${bot.pair}"`)
+                              });
+                            }
                           }}
-                          className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
-                          title="Stop Bot"
+                          className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                          title="Delete Bot"
                         >
-                          <Pause className="h-3 w-3" />
+                          <Trash2 className="h-3 w-3" />
                         </button>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            startBot.mutate(bot.id, {
-                              onSuccess: () => toast.success(`Bot "${bot.pair}" started`),
-                              onError: () => toast.error(`Failed to start bot "${bot.pair}"`)
-                            });
-                          }}
-                          className="p-1.5 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-md transition-colors"
-                          title="Start Bot"
-                        >
-                          <Play className="h-3 w-3" />
-                        </button>
-                      )}
-                      
-                      <button
-                        onClick={() => {
-                          if (confirm(`Are you sure you want to delete bot "${bot.pair}"?`)) {
-                            deleteBot.mutate(bot.id, {
-                              onSuccess: () => toast.success(`Bot "${bot.pair}" deleted`),
-                              onError: () => toast.error(`Failed to delete bot "${bot.pair}"`)
-                            });
-                          }
-                        }}
-                        className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                        title="Delete Bot"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -218,24 +249,28 @@ export const DualViewBotsDisplay: React.FC<DualViewBotsDisplayProps> = ({
         icon="🔥" 
         bots={groupedBots.HOT} 
         bgColor="bg-gradient-to-r from-red-50 to-orange-50" 
+        groupKey="HOT"
       />
       <TemperatureGroup 
         title="WARM BOTS" 
         icon="🌡️" 
         bots={groupedBots.WARM} 
         bgColor="bg-gradient-to-r from-orange-50 to-yellow-50" 
+        groupKey="WARM"
       />
       <TemperatureGroup 
         title="COOL BOTS" 
         icon="❄️" 
         bots={groupedBots.COOL} 
         bgColor="bg-gradient-to-r from-blue-50 to-cyan-50" 
+        groupKey="COOL"
       />
       <TemperatureGroup 
         title="FROZEN BOTS" 
         icon="🧊" 
         bots={groupedBots.FROZEN} 
         bgColor="bg-gradient-to-r from-gray-50 to-slate-50" 
+        groupKey="FROZEN"
       />
     </div>
   );

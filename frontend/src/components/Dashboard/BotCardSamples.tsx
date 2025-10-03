@@ -3,7 +3,7 @@ import { TrendingUp, TrendingDown, Activity, Clock, Target, Shield, Zap } from '
 
 // Sample 1: Compact Performance-Focused Card
 export const CompactPerformanceCard: React.FC<{ bot: any, pnlData?: any }> = ({ bot, pnlData }) => {
-  const botPnL = pnlData?.products?.find((p: any) => p.product_id === bot.pair);
+  const botPnL = pnlData?.find((p: any) => p.product_id === bot.pair);
   const isProfit = (botPnL?.net_pnl_usd || 0) >= 0;
   const winRate = botPnL ? ((botPnL.sell_trades / botPnL.trade_count) * 100).toFixed(1) : '0';
   
@@ -92,7 +92,7 @@ export const CompactPerformanceCard: React.FC<{ bot: any, pnlData?: any }> = ({ 
 
 // Sample 2: Advanced Analytics Card
 export const AdvancedAnalyticsCard: React.FC<{ bot: any, pnlData?: any }> = ({ bot, pnlData }) => {
-  const botPnL = pnlData?.products?.find((p: any) => p.product_id === bot.pair);
+  const botPnL = pnlData?.find((p: any) => p.product_id === bot.pair);
   const trend = bot.trend_analysis;
   const position = bot.position_sizing;
   
@@ -233,7 +233,7 @@ export const AdvancedAnalyticsCard: React.FC<{ bot: any, pnlData?: any }> = ({ b
 
 // Sample 3: Minimal Modern Card
 export const MinimalModernCard: React.FC<{ bot: any, pnlData?: any }> = ({ bot, pnlData }) => {
-  const botPnL = pnlData?.products?.find((p: any) => p.product_id === bot.pair);
+  const botPnL = pnlData?.find((p: any) => p.product_id === bot.pair);
   const isProfit = (botPnL?.net_pnl_usd || 0) >= 0;
   
   const getTemperatureEmoji = () => {
@@ -340,7 +340,7 @@ export const MinimalModernCard: React.FC<{ bot: any, pnlData?: any }> = ({ bot, 
 
 // Sample 4: Metric-Dense Dashboard Card
 export const MetricDenseCard: React.FC<{ bot: any, pnlData?: any }> = ({ bot, pnlData }) => {
-  const botPnL = pnlData?.products?.find((p: any) => p.product_id === bot.pair);
+  const botPnL = pnlData?.find((p: any) => p.product_id === bot.pair);
   const trend = bot.trend_analysis;
   const position = bot.position_sizing;
   

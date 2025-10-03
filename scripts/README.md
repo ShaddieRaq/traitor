@@ -46,6 +46,30 @@ This directory contains shell scripts to manage the Trading Bot application life
 ./scripts/quick-test.sh
 ```
 
+## UI Debugging Tools (October 2025)
+
+### 🔍 `debug-ui.sh` **NEW**
+**Debug UI layout issues and responsive design problems**
+- Viewport size testing for mobile/tablet/desktop
+- Overflow element detection and bot card visibility checks
+- Quick fix recommendations for common CSS issues
+
+```bash
+# Debug UI layout problems
+./scripts/debug-ui.sh
+```
+
+### ⚡ `monitor-frontend-performance.sh` **NEW**
+**Monitor frontend performance and identify bottlenecks**
+- API endpoint response time testing
+- Component render time analysis and memory usage monitoring
+- Browser console performance test scripts
+
+```bash
+# Monitor frontend performance
+./scripts/monitor-frontend-performance.sh
+```
+
 ### 🔧 `position-reconcile.sh`
 **Position tracking validation and correction**
 - Check for discrepancies between bot tracking and Coinbase holdings

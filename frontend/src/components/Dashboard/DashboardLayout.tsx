@@ -4,7 +4,6 @@ import PortfolioSummaryCard from './PortfolioSummaryCard';
 import SystemHealthCard from './SystemHealthCard';
 import DualViewBotsDisplay from './DualViewBotsDisplay';
 import UnifiedStatusBar from './UnifiedStatusBar';
-import StickyActivityPanel from '../Trading/StickyActivityPanel';
 import BotForm from '../BotForm';
 import SystemDiagnosticsModal from './SystemDiagnosticsModal';
 import { useEnhancedBotsStatus, useCreateBot, useUpdateBot } from '../../hooks/useBots';
@@ -99,13 +98,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     <div className={`min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 ${className}`}>
       {/* Status Bar */}
       <UnifiedStatusBar />
-
-      {/* Smart Activity Panel - Only show when there's actual activity */}
-      {enhancedBotsStatus && enhancedBotsStatus.some(bot => 
-        bot.confirmation?.is_active || bot.trade_readiness?.can_trade
-      ) && (
-        <StickyActivityPanel bots={enhancedBotsStatus} />
-      )}
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">

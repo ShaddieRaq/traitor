@@ -1,6 +1,7 @@
 import React from 'react';
 import { useSystemStatus } from '../../hooks/useSystemStatus';
 import { useCacheStats } from '../../hooks/useCacheStats';
+import { useEnhancedBotsStatus } from '../../hooks/useBots';
 import { DataFreshnessIndicator } from '../DataFreshnessIndicators';
 import { Settings } from 'lucide-react';
 
@@ -18,6 +19,7 @@ export const SystemHealthCard: React.FC<SystemHealthCardProps> = ({
 }) => {
   const { data: systemStatus, isLoading: statusLoading, dataUpdatedAt } = useSystemStatus();
   const { data: cacheStats } = useCacheStats();
+  const { data: botsData } = useEnhancedBotsStatus();
 
   if (statusLoading) {
     return (
@@ -31,6 +33,11 @@ export const SystemHealthCard: React.FC<SystemHealthCardProps> = ({
   const isHealthy = systemStatus?.status === 'healthy';
   const hitRate = cacheStats?.cache_performance?.cache_hit_rate ?? 0;
   const hasError = cacheStats?.cache_performance?.status === 'error';
+  
+  // Bot statistics
+  const activeBotsCount = botsData?.filter(bot => bot.status === 'RUNNING').length || 0;
+  const hotBotsCount = botsData?.filter(bot => bot.temperature === 'HOT').length || 0;
+  const totalBotsCount = botsData?.length || 0;
 
   const getStatusColor = () => {
     if (isHealthy && !hasError) return 'bg-green-50 border-green-200';
@@ -88,6 +95,26 @@ export const SystemHealthCard: React.FC<SystemHealthCardProps> = ({
             {systemStatus?.services ? Object.keys(systemStatus.services).length : 0}/3
           </span>
         </div>
+        <div className="flex justify-between">
+          <span className="text-gray-600">Bots:</span>
+          <span className="font-medium text-gray-900">
+            {totalBotsCount} total
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-600">Running:</span>
+          <span className="font-medium text-green-600">
+            {activeBotsCount}
+          </span>
+        </div>
+        {hotBotsCount > 0 && (
+          <div className="flex justify-between col-span-2">
+            <span className="text-gray-600">🔥 Hot bots:</span>
+            <span className="font-medium text-red-600">
+              {hotBotsCount}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* View Details Button - Compact */}

@@ -25,6 +25,7 @@
 - **Caching**: Phase 7 MarketDataService with Redis (60s TTL) + legacy MarketDataCache (90s TTL)
 - **Bot Design**: One bot per trading pair, JSON signal configs, ±0.05 thresholds
 - **UI Architecture**: Consolidated dashboard with integrated bot management, comprehensive Portfolio card with P&L tracking
+- **UI Scrolling**: Fixed large dataset display with proper viewport-based scrolling (max-h-[70vh] overflow-y-auto)
 
 ### Key Architectural Principles
 - **Dual-Table Pattern**: `Trade` (operational) + `RawTrade` (Coinbase truth)
@@ -35,6 +36,13 @@
 - **Real-Time Frontend**: 5-second polling more reliable than WebSocket
 - **Service Coordination**: Global service instances with dependency injection pattern
 - **Phase 7 Caching**: 30-second batch refresh cycles via Celery
+
+### Critical UI Patterns (October 2025)
+- **Collapsible Temperature Groups**: Smart collapse/expand with `max-h-0` (collapsed) and `max-h-none` (expanded)
+- **Responsive Scrolling**: Use `max-h-[70vh] overflow-y-auto` for large datasets to prevent content cutoff
+- **Grid Responsiveness**: `grid-cols-1 lg:grid-cols-2 xl:grid-cols-3` for advanced cards, `grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4` for compact cards
+- **Dual-View System**: Smart/Compact/Advanced modes with temperature-based card selection
+- **Smooth Animations**: `transition-all duration-300 ease-in-out` for collapse/expand with proper overflow handling
 
 ## 🚨 CRITICAL FIRST STEPS FOR AI AGENTS
 
@@ -525,6 +533,7 @@ curl -s --max-time 5 "http://localhost:8000/api/v1/bots/" | jq 'length'
 **RESOLVED ISSUES**:
 1. ✅ **Threshold Configuration**: Fixed corrupted defaults from ±0.1 back to ±0.05 in both bot_evaluator.py and bots.py
 2. ✅ **Signal Configuration Errors**: Eliminated "No signal configuration found" errors
+3. ✅ **UI Scrolling Fix**: Fixed bot cards being cut off in large datasets (October 3, 2025)
 4. ✅ **API Understanding**: Documented proper API usage patterns and schema requirements
 
 **ARCHITECTURAL SOLUTIONS IMPLEMENTED**:
