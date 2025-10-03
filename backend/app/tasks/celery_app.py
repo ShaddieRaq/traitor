@@ -48,14 +48,15 @@ celery_app.conf.update(
             "task": "app.tasks.trading_tasks.update_trade_statuses",
             "schedule": 120.0,  # Every 2 minutes - reduced from 30s to prevent rate limiting
         },
-        "periodic-market-scan": {
-            "task": "app.tasks.market_analysis_tasks.periodic_market_scan",
-            "schedule": 3600.0,  # Every hour - comprehensive market analysis
-        },
-        "market-opportunity-alert": {
-            "task": "app.tasks.market_analysis_tasks.market_opportunity_alert",
-            "schedule": 1800.0,  # Every 30 minutes - check for exceptional opportunities
-        },
+        # Auto bot scanner disabled - user prefers Market Analysis tab
+        # "periodic-market-scan": {
+        #     "task": "app.tasks.market_analysis_tasks.periodic_market_scan",
+        #     "schedule": 3600.0,  # Every hour - comprehensive market analysis
+        # },
+        # "market-opportunity-alert": {
+        #     "task": "app.tasks.market_analysis_tasks.market_opportunity_alert",
+        #     "schedule": 1800.0,  # Every 30 minutes - check for exceptional opportunities
+        # },
         "scan-for-new-pairs": {
             "task": "app.tasks.new_pair_tasks.scan_for_new_pairs_task",
             "schedule": 7200.0,  # Every 2 hours - detect newly listed pairs

@@ -1,7 +1,6 @@
 import React from 'react';
 import { useLivePortfolio } from '../../hooks/useLivePortfolio';
 import { useCleanProductPerformance } from '../../hooks/useCleanTrades';
-import { useBots } from '../../hooks/useBots';
 import { DataFreshnessIndicator } from '../DataFreshnessIndicators';
 
 interface PortfolioSummaryCardProps {
@@ -23,13 +22,10 @@ export const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
   // Get live portfolio data from Coinbase (source of truth for current value)
   const { data: livePortfolioData, isLoading: isLiveLoading, dataUpdatedAt: liveUpdatedAt } = useLivePortfolio();
   
-  // Get bots data to count active trading pairs
-  const { data: botsData, isLoading: isBotsLoading } = useBots();
-  
-  // Get historical performance data for P&L calculations
+  // Get P&L performance data
   const { data: performanceData, isLoading: isPerfLoading } = useCleanProductPerformance();
 
-  const isLoading = isLiveLoading || isPerfLoading || isBotsLoading;
+  const isLoading = isLiveLoading || isPerfLoading;
 
   if (isLoading) {
     return (
@@ -56,27 +52,18 @@ export const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
   const usdCash = livePortfolioData?.holdings?.find((h: any) => h.currency === 'USD')?.value_usd || 0;
   const cryptoValue = totalValue - usdCash;
   
-  // Calculate historical P&L from database (for trend analysis only)
+  // Calculate P&L from performance data
   const totalPnL = performanceData?.products?.reduce((sum: number, product: any) => 
     sum + (product.net_pnl_usd || 0), 0) || 0;
-  
-  // Use bots data to count actual active trading pairs (each bot = one pair)
-  const activePairs = botsData?.filter((bot: any) => bot.status === 'RUNNING').length || 0;
-
-  // Determine P&L styling with enhanced gradients
   const isProfit = totalPnL >= 0;
-  const bgGradient = isProfit 
-    ? 'bg-gradient-to-br from-green-50 via-emerald-50 to-green-100 border-green-300' 
-    : 'bg-gradient-to-br from-red-50 via-rose-50 to-red-100 border-red-300';
 
   return (
-    <div className={`
-      ${bgGradient}
+    <div className="
+      bg-gradient-to-br from-green-50 via-emerald-50 to-green-100 border-green-300
       rounded-xl shadow-xl border-2 p-8 h-80
       transition-all duration-300 hover:shadow-2xl
-      ${className}
-    `}>
-      {/* Header - Enhanced */}
+      
+    ">{/* Header - Enhanced */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-3">
           <h2 className="text-2xl font-bold text-gray-900">Portfolio</h2>
@@ -104,37 +91,30 @@ export const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
         </div>
       </div>
 
-      {/* Portfolio Allocation - Enhanced Grid Layout */}
-      <div className="grid grid-cols-2 gap-6 mb-6">
+      {/* Portfolio Allocation & Performance - 3-column Grid Layout */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="text-center">
           <div className="text-sm font-medium text-gray-600 mb-1">Cash (USD)</div>
-          <div className="text-2xl font-bold text-blue-600">${usdCash.toFixed(0)}</div>
+          <div className="text-xl font-bold text-blue-600">${usdCash.toFixed(0)}</div>
           <div className="text-xs text-gray-500">
             {((usdCash / totalValue) * 100).toFixed(1)}%
           </div>
         </div>
         <div className="text-center">
           <div className="text-sm font-medium text-gray-600 mb-1">Crypto Value</div>
-          <div className="text-2xl font-bold text-purple-600">${cryptoValue.toFixed(0)}</div>
+          <div className="text-xl font-bold text-purple-600">${cryptoValue.toFixed(0)}</div>
           <div className="text-xs text-gray-500">
             {((cryptoValue / totalValue) * 100).toFixed(1)}%
           </div>
         </div>
-      </div>
-
-      {/* Performance & Activity Indicators */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="text-center p-3 bg-white bg-opacity-50 rounded-lg">
-          <div className="text-sm font-medium text-gray-600">Total P&L</div>
-          <div className={`text-xl font-bold ${
-            isProfit ? 'text-green-600' : 'text-red-600'
-          }`}>
+        <div className="text-center">
+          <div className="text-sm font-medium text-gray-600 mb-1">Total P&L</div>
+          <div className={`text-xl font-bold ${isProfit ? 'text-green-600' : 'text-red-600'}`}>
             {isProfit ? '+' : ''}${totalPnL.toFixed(2)}
           </div>
-        </div>
-        <div className="text-center p-3 bg-white bg-opacity-50 rounded-lg">
-          <div className="text-sm font-medium text-gray-600">Active Pairs</div>
-          <div className="text-xl font-bold text-gray-900">{activePairs}</div>
+          <div className="text-xs text-gray-500">
+            {isProfit ? '📈 Profit' : '📉 Loss'}
+          </div>
         </div>
       </div>
     </div>

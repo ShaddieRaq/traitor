@@ -31,7 +31,7 @@ export const DashboardGrid: React.FC<DashboardGridProps> = ({
 
 interface GridAreaProps {
   children: React.ReactNode;
-  area: 'portfolio' | 'systemHealth' | 'hotBots' | 'allBots' | 'activity';
+  area: 'portfolio' | 'systemHealth' | 'intelligence' | 'hotBots' | 'allBots' | 'activity';
   className?: string;
 }
 
@@ -49,6 +49,8 @@ export const GridArea: React.FC<GridAreaProps> = ({
         return 'col-span-1 md:col-span-2 xl:col-span-2 row-span-2';
       case 'systemHealth':
         return 'col-span-1 md:col-span-2 xl:col-span-2 row-span-2';
+      case 'intelligence':
+        return 'col-span-1 md:col-span-2 xl:col-span-4 row-span-1';
       case 'hotBots':
         return 'col-span-1 md:col-span-2 xl:col-span-4 row-span-2';
       case 'allBots':

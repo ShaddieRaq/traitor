@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMarketAnalysis } from '../hooks/useMarketAnalysis';
 import { useNotifications } from '../hooks/useNotifications';
 import NewPairsCard from './NewPairs/NewPairsCard';
+import api from '../lib/api';
 
 const MarketAnalysis: React.FC = () => {
   const [limit, setLimit] = useState(50);
@@ -9,6 +11,39 @@ const MarketAnalysis: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const { data: analysis, isLoading, error, refetch } = useMarketAnalysis(limit, includeGems);
   const { data: notificationsData } = useNotifications(50, false);
+  const queryClient = useQueryClient();
+
+  // Bot creation mutation
+  const createBotMutation = useMutation({
+    mutationFn: async (productId: string) => {
+      const botName = `Auto-${productId.replace('-USD', '')}-USD Bot`;
+      const botData = {
+        name: botName,
+        description: `Auto-created bot for ${productId} from Market Analysis`,
+        pair: productId,
+        position_size_usd: 50.0,
+        max_positions: 3,
+        stop_loss_pct: 5.0,
+        take_profit_pct: 10.0
+      };
+      const response = await api.post('/bots/', botData);
+      return response.data;
+    },
+    onSuccess: (data, productId) => {
+      queryClient.invalidateQueries({ queryKey: ['bots'] });
+      queryClient.invalidateQueries({ queryKey: ['enhanced-bots-status'] });
+      // You could add a toast notification here if you want
+      console.log(`✅ Bot created successfully for ${productId}:`, data.name);
+    },
+    onError: (error, productId) => {
+      console.error(`❌ Failed to create bot for ${productId}:`, error);
+      // You could add error toast notification here if you want
+    }
+  });
+
+  const handleCreateBot = (productId: string) => {
+    createBotMutation.mutate(productId);
+  };
 
   const getRiskColor = (color: string) => {
     switch (color) {
@@ -269,6 +304,9 @@ const MarketAnalysis: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
                   Total Score
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                  Action
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -322,6 +360,15 @@ const MarketAnalysis: React.FC = () => {
                       {candidate.total_score.toFixed(1)}
                     </div>
                     <div className="text-sm text-gray-500">/25</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <button
+                      onClick={() => handleCreateBot(candidate.product_id)}
+                      disabled={createBotMutation.isPending}
+                      className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {createBotMutation.isPending ? 'Creating...' : 'Create Bot'}
+                    </button>
                   </td>
                 </tr>
               ))}

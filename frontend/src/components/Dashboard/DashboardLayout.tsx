@@ -5,11 +5,10 @@ import SystemHealthCard from './SystemHealthCard';
 import TieredBotsView from './TieredBotsView';
 import UnifiedStatusBar from './UnifiedStatusBar';
 import StickyActivityPanel from '../Trading/StickyActivityPanel';
-import IntelligenceFrameworkPanel from './IntelligenceFrameworkPanel';
 import BotForm from '../BotForm';
 import SystemDiagnosticsModal from './SystemDiagnosticsModal';
 import { useEnhancedBotsStatus, useCreateBot, useUpdateBot } from '../../hooks/useBots';
-import { Eye, EyeOff, Plus } from 'lucide-react';
+import { Eye, EyeOff, Plus, Brain } from 'lucide-react';
 import { Bot, BotCreate, BotUpdate } from '../../types';
 import toast from 'react-hot-toast';
 
@@ -165,6 +164,37 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           <GridArea area="systemHealth">
             <SystemHealthCard onViewDetails={() => setShowDiagnostics(true)} />
           </GridArea>
+          
+          {/* AI Intelligence Framework - Integrated in Grid */}
+          <GridArea area="intelligence">
+            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200 p-4 h-full">
+              <div className="flex items-center justify-between h-full">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <Brain className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">AI Intelligence</h3>
+                    <p className="text-xs text-gray-600">141K+ predictions • 63.3% accuracy</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-6">
+                  <div className="text-center">
+                    <div className="text-sm font-bold text-green-600">✓ TRENDING</div>
+                    <div className="text-xs text-gray-500">Market Regime</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm font-bold text-blue-600">$36-50</div>
+                    <div className="text-xs text-gray-500">Position Size</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm font-bold text-purple-600">RSI+MACD</div>
+                    <div className="text-xs text-gray-500">Active Signals</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </GridArea>
         </DashboardGrid>
 
         {/* Bot Management with Smart Defaults */}
@@ -183,9 +213,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             onEditBot={handleEditBot}
           />
         </div>
-
-        {/* Intelligence Framework - Progressive Disclosure */}
-        <IntelligenceFrameworkPanel />
       </div>
 
       {/* Bot Form Modal */}

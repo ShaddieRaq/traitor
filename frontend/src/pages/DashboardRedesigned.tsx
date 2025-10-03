@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import DashboardLayout from '../components/Dashboard/DashboardLayout';
-import MarketTicker from '../components/Market/MarketTicker';
 import MarketAnalysis from '../components/MarketAnalysis';
-import AutoBotCreator from '../components/Trading/AutoBotCreator';
 import { TradeProgressIndicator } from '../components/Trading/TradeProgressIndicator';
 import { useTradeExecutionToasts } from '../hooks/useTradeExecutionToasts';
 import NotificationBell from '../components/Notifications/NotificationBell';
@@ -43,15 +41,6 @@ const Dashboard: React.FC = () => {
                 <TradeProgressIndicator updates={tradeUpdates} isExecuting={isExecuting} />
               </div>
             )}
-
-            {/* Additional Components - Lower Priority */}
-            <div className="max-w-7xl mx-auto px-4 space-y-6">
-              {/* Market Ticker */}
-              <MarketTicker />
-
-              {/* Auto Bot Creator */}
-              <AutoBotCreator />
-            </div>
           </div>
         );
     }
