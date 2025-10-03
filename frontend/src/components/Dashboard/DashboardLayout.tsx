@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { DashboardGrid, GridArea } from './DashboardGrid';
 import PortfolioSummaryCard from './PortfolioSummaryCard';
 import SystemHealthCard from './SystemHealthCard';
-import TieredBotsView from './TieredBotsView';
+import DualViewBotsDisplay from './DualViewBotsDisplay';
 import UnifiedStatusBar from './UnifiedStatusBar';
 import StickyActivityPanel from '../Trading/StickyActivityPanel';
 import BotForm from '../BotForm';
@@ -208,7 +208,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             </div>
           </div>
           
-          <TieredBotsView 
+          <DualViewBotsDisplay 
             botsData={botsToShow} 
             onEditBot={handleEditBot}
           />
