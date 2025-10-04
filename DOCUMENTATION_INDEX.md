@@ -208,29 +208,38 @@ curl http://localhost:8000/api/v1/system-errors/errors | jq 'length'
 
 ---
 
-## 📈 **Roadmap Overview**
+## 📈 **Updated Roadmap (October 4, 2025)**
 
-### **Phase 1: Architecture Cleanup (Weeks 1-2)**
-- Extract microservices from monolithic app
-- Implement proper service communication
-- Clean up database and caching architecture
+### **🎯 PRIORITY PHASE: Profit-Focused Learning System (Weeks 1-4)**
+**CRITICAL DISCOVERY**: Sophisticated learning system exists (141K+ predictions) but optimizes for accuracy instead of profit!
 
-### **Phase 2: Core Intelligence (Weeks 3-4)**
-- Add regime detection service
-- Implement correlation-aware position sizing
-- Build portfolio-level risk management
+- **Week 1**: Redirect AdaptiveSignalWeightingService to optimize for $ profit per signal
+- **Week 2**: Implement market-based learning (alt-coins +$2.89 vs major coins -$4.49)
+- **Week 3**: Transform AI Intelligence dashboard to show profit metrics
+- **Week 4**: Auto-pause losers, auto-scale winners using existing infrastructure
 
-### **Phase 3: Execution Optimization (Weeks 5-6)**
+### **Phase 1: Execution Optimization (Weeks 5-6)**
 - Replace market orders with smart execution
-- Implement maker/taker optimization
-- Add TWAP for large orders
+- Implement maker/taker optimization  
+- Add dynamic position sizing based on performance
 
-### **Phase 4: Strategy Enhancement (Weeks 7-8)**
-- Convert bots to strategy pattern
-- Add regime-aware strategy selection
-- Implement portfolio optimization
+### **Phase 2: Strategy Enhancement (Weeks 7-8)**
+- Advanced market regime detection
+- Portfolio-level risk management
+- Correlation-aware position sizing
 
-### **Success Criteria**
+### **Phase 3: Architecture Optimization (Weeks 9-12)**
+- Extract microservices (ONLY after profitability achieved)
+- Implement proper service communication
+- Database and caching optimization
+
+### **Success Criteria (Profit-First)**
+- **Portfolio P&L**: +$50 (from current -$24.70)
+- **Success Rate**: 60% profitable pairs (from current 33%)
+- **Learning Effectiveness**: Profit per signal trending positive
+- **Architecture Preservation**: Keep existing 141K prediction database
+
+### **Previous Success Criteria (Deferred)**
 - Sharpe ratio >1.5
 - Portfolio correlation to BTC <0.3
 - 40% reduction in execution costs

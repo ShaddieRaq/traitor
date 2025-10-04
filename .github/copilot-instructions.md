@@ -14,9 +14,9 @@
 
 ## System Overview
 
-**Production-ready cryptocurrency trading system** with **43 active bots** managing live funds across major trading pairs. Features sophisticated 4-phase AI intelligence and proven profitable performance.
+**Production-ready cryptocurrency trading system** with **45 active bots** managing live funds across major trading pairs. Features sophisticated learning system with 141,587+ signal predictions.
 
-**✅ CURRENT STATUS (October 2025)**: System fully operational with 43 bots, UI consolidation project completed. Clean 3-tab navigation with integrated bot management, comprehensive trade center, and optimized Portfolio card with P&L display.
+**✅ CURRENT STATUS (October 4, 2025)**: System operational with sophisticated learning infrastructure discovered. However, learning system optimizes for signal accuracy (63%) while portfolio loses money (-$24.70). **NEXT PHASE**: Redirect learning system to optimize for profit instead of accuracy.
 
 ### Core Architecture
 - **Backend**: FastAPI + SQLAlchemy + Celery/Redis + MarketDataService
@@ -25,6 +25,7 @@
 - **Real-Time Data**: 🚀 **WebSocket streaming** for all price data (eliminates rate limiting)
 - **Caching**: Phase 7 MarketDataService with Redis (1-hour TTL) + WebSocket price cache
 - **Bot Design**: One bot per trading pair, JSON signal configs, ±0.05 default thresholds
+- **Learning System**: Sophisticated SignalPredictionRecord + AdaptiveSignalWeighting (141K+ predictions)
 - **UI Architecture**: Consolidated dashboard with integrated bot management, comprehensive Portfolio card with P&L tracking
 - **UI Scrolling**: Fixed large dataset display with proper viewport-based scrolling (max-h-[70vh] overflow-y-auto)
 
@@ -34,6 +35,8 @@
   - Maps: `'rsi'` → `RSISignal`, `'moving_average'` → `MovingAverageSignal`, `'macd'` → `MACDSignal`
   - Parameters extracted from Bot.signal_config JSON, excluding 'enabled' and 'weight'
 - **🚀 WebSocket-First Data**: Real-time price streaming eliminates REST API rate limiting
+- **🧠 Learning Infrastructure**: SignalPerformanceTracker + AdaptiveSignalWeightingService with 141K+ predictions
+- **❌ Learning Problem**: Optimizes for signal accuracy (63%) instead of profit (-$24.70 portfolio)
 - **Real-Time Frontend**: 5-second polling more reliable than WebSocket
 - **Service Coordination**: Global service instances with dependency injection pattern
 - **Phase 7 Caching**: Disabled scheduled tasks to prevent rate limiting
@@ -590,7 +593,59 @@ This is **fundamentally different** from temperature-based grouping.
 3. ✅ **Visualization components** - market regime indicators and performance analytics
 4. ✅ **API extensions** - intelligence framework data exposed through endpoints
 
-**NOTE**: UI Intelligence Framework is complete. Current focus is Phase 6 Centralized Data Management.
+**NOTE**: UI Intelligence Framework is complete. Current focus is **Phase 8: Profit-Focused Learning System**.
+
+## 🎯 CURRENT DEVELOPMENT PHASE: Profit-Focused Learning System (October 4, 2025)
+
+**Status**: 🚧 IN PROGRESS - Redirecting existing learning system from accuracy to profit optimization
+**Goal**: Fix learning system objective function to optimize for $ profit instead of signal accuracy
+**Discovery**: Sophisticated learning infrastructure exists (141K+ predictions) but optimizes for wrong metric
+
+### 🔍 **Critical Discovery (October 4, 2025)**
+- ✅ **Sophisticated Learning System Found**: SignalPredictionRecord, AdaptiveSignalWeightingService, 141K+ predictions
+- ❌ **Fatal Flaw**: System optimizes for 63% "accuracy" while portfolio loses -$24.70
+- 🎯 **Root Cause**: All bots use identical signal weights despite "adaptive" system
+- 💡 **Solution**: Redirect existing architecture to optimize for profit, not accuracy
+
+### 📊 **Performance Analysis Results**
+- **Portfolio P&L**: -$24.70 (12/36 pairs profitable = 33% success)
+- **Winners**: AVNT-USD (+$60.31), XAN-USD (+$8.11), USELESS-USD (+$3.02)  
+- **Losers**: SQD-USD (-$25.44), ZORA-USD (-$19.28), IP-USD (-$9.38)
+- **Key Insight**: Alt-coins average +$2.89 vs major coins -$4.49
+- **Market Selection > Signal Optimization**: Success driven by market characteristics, not signal accuracy
+
+### 🚀 **Phase 8 Implementation Plan**
+
+#### **8.1: Redirect Learning Objective (Week 1)**
+- Fix `AdaptiveSignalWeightingService` to optimize for `avg_profit_per_signal` instead of `accuracy`
+- Update `calculate_performance_metrics()` to use `trade_pnl_usd` from existing SignalPredictionRecord
+- Keep existing architecture, change objective function only
+
+#### **8.2: Profit-Based Adaptive Weighting (Week 1-2)**  
+- AVNT-USD signals generate $0.28 profit → increase weights
+- SQD-USD signals lose -$0.44 → decrease weights  
+- Use existing safety controls (15% max change, 12h cooldown)
+
+#### **8.3: Market-Based Learning (Week 2)**
+- Auto-pause major coin bots (ADA, SUI, BTC, ETH) - consistently unprofitable
+- Auto-scale alt-coin bots (AVNT, XAN, USELESS) - consistently profitable
+- Use existing position sizing engine for scaling
+
+#### **8.4: Transform AI Intelligence Dashboard (Week 2-3)**
+- Replace accuracy metrics with profit metrics in existing UI
+- Show "AVNT-USD: $0.28 profit per signal" instead of "RSI: 65% accuracy"
+- Keep existing components, change data source
+
+#### **8.5: Automated Profit Optimization (Week 3-4)**
+- Auto-pause bots with >$10 losses using existing infrastructure
+- Auto-scale bots with consistent profits using existing position sizing
+- Integrate with existing Celery task system
+
+### 🎯 **Success Metrics**
+- **Portfolio P&L**: Target +$50 (from current -$24.70)
+- **Success Rate**: Target 60% profitable pairs (from current 33%)
+- **Learning Effectiveness**: Profit per signal trending positive
+- **Architecture Preservation**: Keep existing 141K prediction database and infrastructure
 
 ## 🛠️ API DEBUGGING BEST PRACTICES - MANDATORY 🛠️
 
