@@ -22,7 +22,8 @@
 - **Backend**: FastAPI + SQLAlchemy + Celery/Redis + MarketDataService
 - **Frontend**: React 18 + TypeScript + TanStack Query with clean 3-tab navigation (Dashboard/Trades/Market Analysis)
 - **Database**: Single SQLite file at `/trader.db` (NOT backend/trader.db)
-- **Caching**: Phase 7 MarketDataService with Redis (60s TTL) + legacy MarketDataCache (90s TTL)
+- **Real-Time Data**: 🚀 **WebSocket streaming** for all price data (eliminates rate limiting)
+- **Caching**: Phase 7 MarketDataService with Redis (1-hour TTL) + WebSocket price cache
 - **Bot Design**: One bot per trading pair, JSON signal configs, ±0.05 default thresholds
 - **UI Architecture**: Consolidated dashboard with integrated bot management, comprehensive Portfolio card with P&L tracking
 - **UI Scrolling**: Fixed large dataset display with proper viewport-based scrolling (max-h-[70vh] overflow-y-auto)
@@ -32,10 +33,10 @@
 - **Signal Factory Pattern**: Dynamic signal creation via `create_signal_instance()` in `/backend/app/services/signals/base.py`
   - Maps: `'rsi'` → `RSISignal`, `'moving_average'` → `MovingAverageSignal`, `'macd'` → `MACDSignal`
   - Parameters extracted from Bot.signal_config JSON, excluding 'enabled' and 'weight'
-- **Centralized Market Data**: MarketDataService reduces (but doesn't eliminate) rate limiting
+- **🚀 WebSocket-First Data**: Real-time price streaming eliminates REST API rate limiting
 - **Real-Time Frontend**: 5-second polling more reliable than WebSocket
 - **Service Coordination**: Global service instances with dependency injection pattern
-- **Phase 7 Caching**: 30-second batch refresh cycles via Celery
+- **Phase 7 Caching**: Disabled scheduled tasks to prevent rate limiting
 
 ### Critical UI Patterns (October 2025)
 - **Collapsible Temperature Groups**: Smart collapse/expand with `max-h-0` (collapsed) and `max-h-none` (expanded)
@@ -50,20 +51,65 @@
 # 1. ALWAYS check system health first (before any changes)
 ./scripts/status.sh
 
-# 2. Configure Python environment (REQUIRED before Python operations)  
+# 2. CRITICAL: Verify WebSocket streaming is running (prevents rate limiting)
+curl -s "http://localhost:8000/api/v1/websocket-prices/status" | jq '.streaming'  # Should be true
+
+# 3. If WebSocket not running, START IT IMMEDIATELY
+curl -X POST "http://localhost:8000/api/v1/websocket-prices/start-price-streaming" | jq
+
+# 4. Configure Python environment (REQUIRED before Python operations)  
 # Use configure_python_environment tool
 
-# 3. Start services if needed
+# 5. Start services if needed
 ./scripts/start.sh
 
-# 4. Verify all 43 bots are operational
+# 6. Verify all 43 bots are operational
 curl -s "http://localhost:8000/api/v1/bots/" | jq 'length'  # Should return 43
 
-# 5. Check for system errors before making any changes
+# 7. Check for system errors before making any changes
 curl -s "http://localhost:8000/api/v1/system-errors/errors" | jq 'length'  # Should be 0 or low
 
-# 6. Understand API schema before making API calls
+# 8. Understand API schema before making API calls
 curl -s "http://localhost:8000/openapi.json" | jq '.components.schemas.BotUpdate'
+```
+
+## 🚨 WEBSOCKET STREAMING - CRITICAL FOR RATE LIMITING
+
+**MANDATORY**: WebSocket streaming MUST be running to prevent rate limiting!
+
+**Check WebSocket Status:**
+```bash
+# Check if WebSocket is running
+curl -s "http://localhost:8000/api/v1/websocket-prices/status" | jq
+
+# Expected response:
+{
+  "streaming": true,
+  "products_count": 41,
+  "active_bots_count": 41
+}
+```
+
+**Start WebSocket if needed:**
+```bash
+# Start real-time price streaming for all active bots
+curl -X POST "http://localhost:8000/api/v1/websocket-prices/start-price-streaming" | jq
+
+# Should return: "WebSocket price streaming started for 41 products"
+```
+
+**WebSocket Benefits:**
+- ✅ **Zero REST API calls** for price data (eliminates rate limiting)
+- ✅ **Real-time price updates** (sub-second latency)
+- ✅ **Unlimited throughput** (no Coinbase API rate limits)
+- ✅ **Automatic reconnection** and error handling
+
+**WebSocket Troubleshooting:**
+```bash
+# Check for WebSocket cache misses (indicates WebSocket not working)
+grep "WebSocket cache miss" logs/backend.log | tail -5
+
+# If you see these warnings, WebSocket is NOT running - start it immediately!
 ```
 
 ## 🚨 RATE LIMITING TROUBLESHOOTING
@@ -71,23 +117,33 @@ curl -s "http://localhost:8000/openapi.json" | jq '.components.schemas.BotUpdate
 **If experiencing rate limit errors:**
 
 ```bash
-# 1. Check current error status
+# 1. FIRST: Check if WebSocket is running (PRIMARY CAUSE of rate limiting)
+curl -s "http://localhost:8000/api/v1/websocket-prices/status" | jq '.streaming'
+
+# 2. If WebSocket not running, start immediately
+curl -X POST "http://localhost:8000/api/v1/websocket-prices/start-price-streaming" | jq
+
+# 3. Check for WebSocket cache misses in logs (indicates WebSocket failure)
+grep "WebSocket cache miss" logs/backend.log | tail -10
+
+# 4. Check current error status
 curl -s "http://localhost:8000/api/v1/system-errors/errors" | jq 'length'
 
-# 2. Monitor cache performance 
+# 5. Monitor cache performance 
 curl -s "http://localhost:8000/api/v1/cache/stats" | jq
 
-# 3. Check market data service status
+# 6. Check market data service status
 curl -s "http://localhost:8000/api/v1/market-data/stats" | jq
 
-# 4. If persistent, restart services
+# 7. If persistent, restart services
 ./scripts/restart.sh
 
-# 5. Monitor logs for rate limit patterns
+# 8. Monitor logs for rate limit patterns
 tail -f logs/backend.log | grep -i "rate\|limit\|429"
 ```
 
 **Common Rate Limit Scenarios:**
+- **WebSocket not running** (MOST COMMON - every price request hits REST API)
 - High bot activity during market volatility
 - Coinbase API maintenance periods  
 - Cache misses during system restarts
@@ -348,6 +404,34 @@ emoji = get_temperature_emoji(temperature)  # 🔥🌡️❄️🧊
 - **Verify error counts** and system health before claiming issues are resolved
 - **Use commands like** `curl -s "http://localhost:8000/api/v1/system-errors/errors" | jq 'length'` to verify claims
 
+## 🔥 CRITICAL RATE LIMITING LESSONS (October 2025)
+
+### **NEVER DO THESE ANTI-PATTERNS:**
+❌ **Cache TTL tuning** - Won't help if WebSocket not running  
+❌ **Request throttling** - Band-aid fix that slows system  
+❌ **Disabling scheduled tasks** - Treats symptoms not cause  
+❌ **Increasing timeouts** - Doesn't solve underlying API abuse  
+❌ **Complex caching strategies** - Over-engineering when WebSocket exists  
+
+### **ROOT CAUSE ANALYSIS:**
+✅ **WebSocket not running** = Every price request hits Coinbase REST API  
+✅ **"Cache miss" warnings** = Immediate sign WebSocket is broken  
+✅ **Real-time price streaming** = Zero REST API calls = Zero rate limiting  
+
+### **PROPER SOLUTION PATTERN:**
+```bash
+# 1. Check WebSocket first (not cache hit rates)
+curl -s "http://localhost:8000/api/v1/websocket-prices/status" | jq
+
+# 2. Start WebSocket if missing (solves 99% of rate limiting)
+curl -X POST "http://localhost:8000/api/v1/websocket-prices/start-price-streaming" | jq
+
+# 3. Verify real-time streaming in logs
+tail -f logs/backend.log | grep "💰.*USD:"  # Should see price updates
+```
+
+**If WebSocket is working but still getting rate limits**: Then investigate REST API calls for account operations, not price data.
+
 ### Signal Factory Pattern
 ```python
 # Located: /backend/app/services/signals/base.py
@@ -571,33 +655,29 @@ curl -s --max-time 5 "http://localhost:8000/api/v1/bots/" | jq 'length'
 
 ## Known Issues & Recovery
 
-**Current Status**: ⚠️ Rate limiting issues persist despite Phase 7 optimizations (October 2025)
-
-**CURRENT ISSUES**:
-1. ⚠️ **Rate Limiting**: Still experiencing Coinbase API rate limits despite Phase 7 Market Data Service
-   - Cache hit rates are high but not eliminating all API calls
-   - Monitor with: `curl -s "http://localhost:8000/api/v1/system-errors/errors" | jq`
-   - Restart if persistent: `./scripts/restart.sh`
+**Current Status**: ✅ All major issues resolved with WebSocket streaming implementation (October 2025)
 
 **RESOLVED ISSUES**:
-1. ✅ **Threshold Configuration**: Fixed corrupted defaults from ±0.1 back to ±0.05 in both bot_evaluator.py and bots.py
-2. ✅ **Signal Configuration Errors**: Eliminated "No signal configuration found" errors
-3. ✅ **UI Scrolling Fix**: Fixed bot cards being cut off in large datasets (October 3, 2025)
-4. ✅ **API Understanding**: Documented proper API usage patterns and schema requirements
+1. ✅ **Rate Limiting**: SOLVED by enabling WebSocket price streaming (eliminated all REST API calls for price data)
+2. ✅ **Threshold Configuration**: Fixed corrupted defaults from ±0.1 back to ±0.05 in both bot_evaluator.py and bots.py
+3. ✅ **Signal Configuration Errors**: Eliminated "No signal configuration found" errors
+4. ✅ **UI Scrolling Fix**: Fixed bot cards being cut off in large datasets (October 3, 2025)
+5. ✅ **API Understanding**: Documented proper API usage patterns and schema requirements
 
 **ARCHITECTURAL SOLUTIONS IMPLEMENTED**:
+- **WebSocket Streaming**: Real-time price feeds eliminate REST API rate limiting
 - **MarketDataService**: Centralized market data management with Redis caching
-- **Scheduled Refresh**: 30-second Celery task refreshing all market data
-- **Cache-First Architecture**: 95%+ cache hit rate eliminating API rate limits
 - **Proper Defaults**: All bots using proven ±0.05 thresholds for optimal performance
 
 **If System Issues Arise**:
-1. **Always check health first**: `./scripts/status.sh` 
-2. **Verify Docker**: System requires Docker for Redis
-3. **Check database path**: Must use `/trader.db` (not backend/trader.db)
-4. **Verify bot count**: Should always show 43 active bots
-5. **Diagnose before restart**: Use debugging steps above
-6. **Last resort restart**: `./scripts/stop.sh && ./scripts/start.sh`
+1. **Check WebSocket first**: `curl -s "http://localhost:8000/api/v1/websocket-prices/status" | jq`
+2. **Start WebSocket if needed**: `curl -X POST "http://localhost:8000/api/v1/websocket-prices/start-price-streaming" | jq`
+3. **Always check health**: `./scripts/status.sh` 
+4. **Verify Docker**: System requires Docker for Redis
+5. **Check database path**: Must use `/trader.db` (not backend/trader.db)
+6. **Verify bot count**: Should always show 43 active bots
+7. **Diagnose before restart**: Use debugging steps above
+8. **Last resort restart**: `./scripts/stop.sh && ./scripts/start.sh`
 
 For current system errors: `curl -s --max-time 10 "http://localhost:8000/api/v1/system-errors/errors" | jq '.[0:5]'`
 

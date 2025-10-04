@@ -22,28 +22,28 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     beat_schedule={
-        # PHASE 7: Market Data Service - Centralized data management
-        "market-data-refresh": {
-            "task": "app.tasks.market_data_tasks.refresh_all_market_data",
-            "schedule": 30.0,  # Every 30 seconds - KEY OPTIMIZATION: Batch refresh all pairs
-        },
-        "products-list-refresh": {
-            "task": "app.tasks.market_data_tasks.refresh_products_list",
-            "schedule": 300.0,  # Every 5 minutes - products change rarely
-        },
+        # PHASE 7: Market Data Service - TEMPORARILY DISABLED to prevent rate limiting
+        # "market-data-refresh": {
+        #     "task": "app.tasks.market_data_tasks.refresh_all_market_data",
+        #     "schedule": 120.0,  # Every 2 minutes - DISABLED due to 41 API calls per run
+        # },
+        # "products-list-refresh": {
+        #     "task": "app.tasks.market_data_tasks.refresh_products_list",
+        #     "schedule": 300.0,  # Every 5 minutes - DISABLED (products change rarely)
+        # },
         "market-data-stats": {
             "task": "app.tasks.market_data_tasks.cache_stats_logger",
             "schedule": 60.0,  # Every minute - monitor cache performance
         },
-        # Existing tasks - kept for backward compatibility but will be optimized
-        "fetch-market-data": {
-            "task": "app.tasks.data_tasks.fetch_market_data_task",
-            "schedule": 300.0,  # Every 5 minutes - reduced from 60s to prevent rate limiting
-        },
-        "fast-trading-loop": {
-            "task": "app.tasks.trading_tasks.fast_trading_evaluation",
-            "schedule": 300.0,  # Every 5 minutes - reduced from 500ms to prevent rate limiting
-        },
+        # Existing tasks - TEMPORARILY DISABLED to prevent rate limiting
+        # "fetch-market-data": {
+        #     "task": "app.tasks.data_tasks.fetch_market_data_task",
+        #     "schedule": 300.0,  # Every 5 minutes - DISABLED
+        # },
+        # "fast-trading-loop": {
+        #     "task": "app.tasks.trading_tasks.fast_trading_evaluation", 
+        #     "schedule": 600.0,  # Every 10 minutes - DISABLED
+        # },
         "update-trade-statuses": {
             "task": "app.tasks.trading_tasks.update_trade_statuses",
             "schedule": 120.0,  # Every 2 minutes - reduced from 30s to prevent rate limiting

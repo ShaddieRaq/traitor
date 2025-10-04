@@ -104,7 +104,7 @@ class MarketDataService:
             self.redis_client = redis_client
         
         # Cache configuration
-        self.cache_ttl = 60  # 60 seconds cache TTL
+        self.cache_ttl = 3600  # 1 hour cache TTL - INCREASED to minimize API calls during rate limiting
         self.products_cache_ttl = 300  # 5 minutes for products (changes rarely)
         
         # Statistics tracking

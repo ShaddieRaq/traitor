@@ -340,6 +340,9 @@ class CoinbaseService:
         
         logger.info(f"🌐 Making API call for {product_id} (granularity={granularity}, limit={limit})")
         
+        # Add small delay to respect rate limits
+        time.sleep(0.5)  # 500ms delay between API calls
+        
         try:
             # Calculate start and end times as Unix timestamps
             end_timestamp = int(time.time())
