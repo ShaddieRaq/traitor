@@ -2,7 +2,7 @@
 Bot signal evaluation service for aggregating multiple signals with Phase 2.3 confirmation system.
 """
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import json
 import pandas as pd
 import logging
@@ -47,7 +47,13 @@ class BotSignalEvaluator:
             - confirmation_status: Confirmation tracking info
             - metadata: Evaluation metadata
         """
-        # Performance optimization: Skip signal processing if balance is insufficient
+        # EARLY BLOCKING CHECKS - Prevent all signal processing if bot can't trade
+        early_block_result = self._check_early_blocking_conditions(bot)
+        if early_block_result:
+            logger.debug(f"Bot {bot.id} ({bot.pair}) blocked early: {early_block_result['reason']}")
+            return early_block_result
+        
+        # Legacy balance check for bots with skip_signals_on_low_balance flag
         if hasattr(bot, 'skip_signals_on_low_balance') and bot.skip_signals_on_low_balance:
             balance_check = self._has_minimum_balance_for_any_trade(bot)
             if not balance_check.get('can_trade', True):
@@ -1140,6 +1146,101 @@ class BotSignalEvaluator:
                 'bot_name': bot.name,
                 'error': str(e)
             }
+
+    def _check_early_blocking_conditions(self, bot: Bot) -> Optional[Dict[str, Any]]:
+        """
+        Check all early blocking conditions before any signal processing.
+        Returns blocking result if bot should be blocked, None if bot can proceed.
+        
+        This prevents unnecessary signal processing and trade attempts when:
+        1. Bot is in cooldown period
+        2. Bot is stopped/disabled  
+        3. Bot has insufficient balance for any trading
+        4. Bot is in emergency safety mode
+        
+        Returns:
+            Dict with blocking info if blocked, None if bot can proceed
+        """
+        from .trading_safety import TradingSafetyService
+        
+        try:
+            # 1. Check if bot is stopped/disabled
+            if bot.status != 'RUNNING':
+                return {
+                    'overall_score': 0.0,
+                    'action': 'hold',
+                    'confidence': 0.0,
+                    'signal_results': {},
+                    'confirmation_status': {
+                        'confirmed': False,
+                        'consecutive_signals': 0,
+                        'required_signals': bot.confirmation_minutes,
+                        'last_signal_time': None,
+                        'message': f'Bot stopped: {bot.status}'
+                    },
+                    'metadata': {
+                        'evaluation_time': pd.Timestamp.now().isoformat(),
+                        'data_points_evaluated': 0,
+                        'early_blocked': True,
+                        'blocking_reason': 'bot_stopped'
+                    },
+                    'automatic_trade': False
+                }
+            
+            # 2. Check cooldown period
+            safety_checker = TradingSafetyService(self.db)
+            if not safety_checker._check_trade_cooldown(bot):
+                return {
+                    'overall_score': 0.0,
+                    'action': 'hold',
+                    'confidence': 0.0,
+                    'signal_results': {},
+                    'confirmation_status': {
+                        'confirmed': False,
+                        'consecutive_signals': 0,
+                        'required_signals': bot.confirmation_minutes,
+                        'last_signal_time': None,
+                        'message': f'Cooldown: {bot.cooldown_minutes} minutes remaining'
+                    },
+                    'metadata': {
+                        'evaluation_time': pd.Timestamp.now().isoformat(),
+                        'data_points_evaluated': 0,
+                        'early_blocked': True,
+                        'blocking_reason': 'cooldown_active'
+                    },
+                    'automatic_trade': False
+                }
+            
+            # 3. Check insufficient balance for ANY trading
+            balance_check = self._has_minimum_balance_for_any_trade(bot)
+            if not balance_check.get('can_trade', True):
+                return {
+                    'overall_score': 0.0,
+                    'action': 'hold',
+                    'confidence': 0.0,
+                    'signal_results': {},
+                    'confirmation_status': {
+                        'confirmed': False,
+                        'consecutive_signals': 0,
+                        'required_signals': bot.confirmation_minutes,
+                        'last_signal_time': None,
+                        'message': f'Insufficient balance: {balance_check.get("reason", "Cannot trade")}'
+                    },
+                    'metadata': {
+                        'evaluation_time': pd.Timestamp.now().isoformat(),
+                        'data_points_evaluated': 0,
+                        'early_blocked': True,
+                        'blocking_reason': 'insufficient_balance',
+                        'balance_details': balance_check
+                    },
+                    'automatic_trade': False
+                }
+                
+            return None  # No blocking conditions, proceed with signal processing
+            
+        except Exception as e:
+            logger.error(f"Error in early blocking check for bot {bot.id}: {e}")
+            return None  # Allow processing on error to avoid false blocks
 
     def _has_minimum_balance_for_any_trade(self, bot: Bot) -> Dict[str, Any]:
         """

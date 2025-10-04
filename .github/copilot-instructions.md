@@ -607,6 +607,14 @@ This is **fundamentally different** from temperature-based grouping.
 - 🎯 **Root Cause**: All bots use identical signal weights despite "adaptive" system
 - 💡 **Solution**: Redirect existing architecture to optimize for profit, not accuracy
 
+### 🚨 **Learning System Status Update (October 4, 2025)**
+- ✅ **Infrastructure Ready**: AdaptiveSignalWeightingService fully implemented with safety controls
+- ✅ **10 Bots Eligible**: Have sufficient prediction data for weight updates (BTC, ETH, SOL, etc.)
+- ❌ **No Updates Yet**: All bots still using original weights (`last_update: null` for all)
+- 🔧 **System Status**: Learning infrastructure exists but automatic updates haven't started
+- ⚠️ **Current Reality**: Signal weights are NOT updating automatically yet - system is dormant
+- 🎯 **Phase 8 Goal**: Activate AND redirect learning system to optimize for profit
+
 ### 📊 **Performance Analysis Results**
 - **Portfolio P&L**: -$24.70 (12/36 pairs profitable = 33% success)
 - **Winners**: AVNT-USD (+$60.31), XAN-USD (+$8.11), USELESS-USD (+$3.02)  
@@ -616,8 +624,9 @@ This is **fundamentally different** from temperature-based grouping.
 
 ### 🚀 **Phase 8 Implementation Plan**
 
-#### **8.1: Redirect Learning Objective (Week 1)**
-- Fix `AdaptiveSignalWeightingService` to optimize for `avg_profit_per_signal` instead of `accuracy`
+#### **8.1: Activate & Redirect Learning Objective (Week 1)**
+- **FIRST**: Investigate why automatic weight updates aren't happening (safety thresholds, triggers, etc.)
+- **THEN**: Fix `AdaptiveSignalWeightingService` to optimize for `avg_profit_per_signal` instead of `accuracy`
 - Update `calculate_performance_metrics()` to use `trade_pnl_usd` from existing SignalPredictionRecord
 - Keep existing architecture, change objective function only
 
