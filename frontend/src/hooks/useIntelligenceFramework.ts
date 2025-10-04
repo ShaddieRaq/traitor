@@ -173,8 +173,18 @@ export const useIntelligenceFramework = () => {
               enabled: (data.performance?.total_profit !== undefined)
             },
             topPerformers: {
-              winners: data.profit_leaders?.top_winners || [],
-              losers: data.profit_leaders?.top_losers || []
+              winners: (data.profit_leaders?.top_winners || []).map((w: any) => ({
+                pair: w.pair,
+                profit: w.profit,
+                profitPerTrade: w.profit_per_trade,
+                winRate: w.win_rate
+              })),
+              losers: (data.profit_leaders?.top_losers || []).map((l: any) => ({
+                pair: l.pair,
+                loss: l.loss,
+                lossPerTrade: l.loss_per_trade,
+                winRate: l.win_rate
+              }))
             },
             marketInsights: {
               primaryInsight: data.market_selection?.insights?.[0] || 'Learning market patterns',

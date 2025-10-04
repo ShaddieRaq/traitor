@@ -3,31 +3,7 @@ import { Brain, Target, TrendingUp, DollarSign, TrendingDown } from 'lucide-reac
 import { DataFreshnessIndicator } from '../components/DataFreshnessIndicators';
 import { useIntelligenceFramework } from '../hooks/useIntelligenceFramework';
 
-// Phase 8.4: Profit-focused analytics interfaces
-interface ProfitPerformanceStats {
-  total_profit: number;
-  profitable_bots: number;
-  losing_bots: number;
-  avg_profit_per_signal: number;
-  loss_prevention: number;
-  by_market_type: Record<string, {
-    total_pnl: number;
-    bot_count: number;
-    avg_pnl_per_bot: number;
-  }>;
-  top_performers: Array<{
-    pair: string;
-    profit: number;
-    profit_per_trade: number;
-    win_rate: number;
-    type: 'winner' | 'loser';
-  }>;
-  market_insights: {
-    primary_insight: string;
-    strategy: string;
-    risk_level: string;
-  };
-}
+// Phase 8.4: Profit-focused analytics using real API data
 
 interface IntelligenceAnalyticsProps {
   className?: string;
@@ -54,36 +30,64 @@ export const IntelligenceAnalytics: React.FC<IntelligenceAnalyticsProps> = ({
     );
   }
 
-  // Phase 8.4: Live profit performance data from enhanced intelligence API
-  const profitPerformance: ProfitPerformanceStats = {
-    total_profit: intelligenceData?.profitMetrics?.totalProfit || 0,
+    // Phase 8.4: Real-time profit-focused performance data (replacing hardcoded values)
+  // Calculate market type performance from actual winners/losers data
+  const winners = intelligenceData?.topPerformers?.winners || [];
+  const losers = intelligenceData?.topPerformers?.losers || [];
+  
+  // Define major coins (typically BTC, ETH, ADA, etc.)
+  const majorCoins = ['BTC-USD', 'ETH-USD', 'ADA-USD', 'SOL-USD', 'SUI-USD'];
+  
+  // Calculate alt-coins vs major coins performance
+  const altCoinsProfit = winners.filter(w => !majorCoins.includes(w.pair || '')).reduce((sum, w) => sum + (w.profit || 0), 0) +
+                        losers.filter(l => !majorCoins.includes(l.pair || '')).reduce((sum, l) => sum + (l.loss || 0), 0);
+  
+  const majorCoinsProfit = winners.filter(w => majorCoins.includes(w.pair || '')).reduce((sum, w) => sum + (w.profit || 0), 0) +
+                          losers.filter(l => majorCoins.includes(l.pair || '')).reduce((sum, l) => sum + (l.loss || 0), 0);
+  
+  const altCoinsCount = winners.filter(w => !majorCoins.includes(w.pair || '')).length + 
+                       losers.filter(l => !majorCoins.includes(l.pair || '')).length;
+  
+  const majorCoinsCount = winners.filter(w => majorCoins.includes(w.pair || '')).length + 
+                         losers.filter(l => majorCoins.includes(l.pair || '')).length;
+
+  const profitPerformance = {
+    total_pnl: intelligenceData?.profitMetrics?.totalProfit || 0,
     profitable_bots: intelligenceData?.profitMetrics?.profitableBots || 0,
     losing_bots: intelligenceData?.profitMetrics?.losingBots || 0,
     avg_profit_per_signal: intelligenceData?.profitMetrics?.avgProfitPerSignal || 0,
     loss_prevention: intelligenceData?.profitMetrics?.lossPrevention || 0,
     by_market_type: {
-      'Alt-Coins': { total_pnl: 17.34, bot_count: 38, avg_pnl_per_bot: 0.46 },
-      'Major-Coins': { total_pnl: 0, bot_count: 7, avg_pnl_per_bot: 0 }
+      'Alt-Coins': { 
+        total_pnl: altCoinsProfit, 
+        bot_count: altCoinsCount, 
+        avg_pnl_per_bot: altCoinsCount > 0 ? altCoinsProfit / altCoinsCount : 0 
+      },
+      'Major-Coins': { 
+        total_pnl: majorCoinsProfit, 
+        bot_count: majorCoinsCount, 
+        avg_pnl_per_bot: majorCoinsCount > 0 ? majorCoinsProfit / majorCoinsCount : 0 
+      }
     },
     top_performers: [
       ...(intelligenceData?.topPerformers?.winners || []).map(w => ({ 
         pair: w.pair || 'Unknown',
         profit: w.profit || 0,
-        profit_per_trade: w.profitPerTrade || 0,
-        win_rate: w.winRate || 0,
+        profit_per_trade: w.profitPerTrade || 0,  // Fixed: use transformed camelCase property
+        win_rate: w.winRate || 0,                 // Fixed: use transformed camelCase property
         type: 'winner' as const 
       })),
       ...(intelligenceData?.topPerformers?.losers || []).map(l => ({ 
         pair: l.pair || 'Unknown', 
         profit: l.loss || 0, 
-        profit_per_trade: l.lossPerTrade || 0, 
-        win_rate: l.winRate || 0, 
+        profit_per_trade: l.lossPerTrade || 0,    // Fixed: use transformed camelCase property
+        win_rate: l.winRate || 0,                 // Fixed: use transformed camelCase property
         type: 'loser' as const 
       }))
     ],
     market_insights: {
       primary_insight: intelligenceData?.marketInsights?.primaryInsight || 'Learning market patterns',
-      strategy: intelligenceData?.marketInsights?.strategy || 'Balanced approach',
+      strategy: intelligenceData?.marketInsights?.strategy || 'Optimizing for profit',
       risk_level: intelligenceData?.marketInsights?.riskLevel || 'Medium'
     }
   };
@@ -131,10 +135,10 @@ export const IntelligenceAnalytics: React.FC<IntelligenceAnalyticsProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white bg-opacity-70 rounded-lg p-4 text-center">
             <div className={`text-2xl font-bold ${
-              profitPerformance.total_profit > 0 ? 'text-green-600' : 
-              profitPerformance.total_profit < 0 ? 'text-red-600' : 'text-gray-600'
+              profitPerformance.total_pnl > 0 ? 'text-green-600' : 
+              profitPerformance.total_pnl < 0 ? 'text-red-600' : 'text-gray-600'
             }`}>
-              ${profitPerformance.total_profit.toFixed(2)}
+              ${profitPerformance.total_pnl.toFixed(2)}
             </div>
             <div className="text-sm text-gray-600">Portfolio Profit</div>
           </div>
@@ -334,7 +338,7 @@ export const IntelligenceAnalytics: React.FC<IntelligenceAnalyticsProps> = ({
           <div className="bg-white bg-opacity-70 rounded-lg p-4">
             <h4 className="font-medium text-gray-900 mb-2">🧠 Profit-Focused Learning</h4>
             <p className="text-sm text-gray-600 mb-3">
-              Phase 8.4 learning system now optimizes for <strong>${profitPerformance.total_profit.toFixed(2)} portfolio profit</strong> 
+              Phase 8.4 learning system now optimizes for <strong>${profitPerformance.total_pnl.toFixed(2)} portfolio profit</strong> 
               instead of accuracy metrics. System identified <strong>{profitPerformance.profitable_bots} profitable pairs</strong> 
               and <strong>{profitPerformance.losing_bots} losing pairs</strong> for strategic optimization.
             </p>

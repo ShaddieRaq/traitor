@@ -33,6 +33,77 @@ app.add_middleware(
 # Centralized coordination handled by sync_coordinated_coinbase_service
 logger.info("🚀 Phase 6.4: Using sync API coordination for production deployment")
 
+@app.on_event("startup")
+async def startup_validation():
+    """
+    CRITICAL STARTUP VALIDATION
+    
+    This function validates all critical services on startup.
+    If ANY critical service fails, the entire application will CRASH.
+    This prevents the application from running in a broken state.
+    """
+    from .services.coinbase_service import coinbase_service
+    from .core.database import SessionLocal
+    
+    logger.info("🔍 STARTUP VALIDATION: Checking critical services...")
+    
+    try:
+        # 1. Validate Database Connection
+        logger.info("📋 Validating database connection...")
+        db = SessionLocal()
+        try:
+            # Test database connection
+            from .models.models import Bot
+            bot_count = db.query(Bot).count()
+            logger.info(f"✅ Database OK: {bot_count} bots found")
+        finally:
+            db.close()
+        
+        # 2. Validate Coinbase API Connection
+        logger.info("🏦 Validating Coinbase API connection...")
+        if not coinbase_service.client:
+            raise Exception("Coinbase client not initialized")
+        
+        # Test API call
+        try:
+            products = coinbase_service.get_products()
+            if not products:
+                raise Exception("Failed to fetch products from Coinbase API")
+            logger.info(f"✅ Coinbase API OK: {len(products)} products available")
+        except Exception as e:
+            raise Exception(f"Coinbase API connection failed: {e}")
+        
+        # 3. AUTO-START WEBSOCKET STREAMING (Critical for rate limiting prevention)
+        logger.info("🌐 Auto-starting WebSocket price streaming...")
+        db = SessionLocal()
+        try:
+            from .models.models import Bot
+            active_bots = db.query(Bot).filter(Bot.status == "RUNNING").all()
+            
+            if active_bots:
+                product_ids = list(set([bot.pair for bot in active_bots if bot.pair]))
+                if product_ids:
+                    result = coinbase_service.start_price_websocket_streaming(product_ids)
+                    if result.get('success'):
+                        logger.info(f"✅ WebSocket streaming started for {len(product_ids)} products")
+                    else:
+                        logger.warning(f"⚠️ WebSocket streaming failed to start: {result.get('message')}")
+                        # Don't fail startup for WebSocket - it can be started manually
+                else:
+                    logger.info("ℹ️ No products to stream (no active bots with pairs)")
+            else:
+                logger.info("ℹ️ No active bots found - WebSocket streaming not started")
+        finally:
+            db.close()
+        
+        logger.info("🎉 STARTUP VALIDATION COMPLETE: All critical services validated successfully!")
+        
+    except Exception as e:
+        logger.error(f"💥 STARTUP VALIDATION FAILED: {e}")
+        logger.error("🚨 CRASHING APPLICATION - Cannot run with failed critical services")
+        import sys
+        sys.exit(1)  # CRASH THE APPLICATION
+
 # Include API routers
 # API Routes
 app.include_router(bots.router, prefix="/api/v1/bots", tags=["bots"])
