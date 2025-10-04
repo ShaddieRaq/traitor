@@ -70,7 +70,7 @@ interface ComprehensiveIntelligenceData {
   last_updated: string;
 }
 
-// Backward compatibility interface
+// Backward compatibility interface with Phase 8.4 profit-focused enhancements
 interface IntelligenceFrameworkData {
   marketRegime: {
     regime: string;
@@ -94,6 +94,34 @@ interface IntelligenceFrameworkData {
     eligibleBots: number;
     totalBots: number;
     enabled: boolean;
+  };
+  // NEW: Phase 8.4 Profit-focused metrics
+  profitMetrics: {
+    totalProfit: number;
+    avgProfitPerSignal: number;
+    profitableBots: number;
+    losingBots: number;
+    lossPrevention: number;
+    enabled: boolean;
+  };
+  topPerformers: {
+    winners: Array<{
+      pair: string;
+      profit: number;
+      profitPerTrade: number;
+      winRate: number;
+    }>;
+    losers: Array<{
+      pair: string;
+      loss: number;
+      lossPerTrade: number;
+      winRate: number;
+    }>;
+  };
+  marketInsights: {
+    primaryInsight: string;
+    strategy: string;
+    riskLevel: string;
   };
 }
 
@@ -134,6 +162,24 @@ export const useIntelligenceFramework = () => {
               eligibleBots: data.bots?.ai_enabled || 0,
               totalBots: data.bots?.total || 12,
               enabled: (data.bots?.ai_enabled || 0) > 0
+            },
+            // NEW: Phase 8.4 Profit-focused metrics
+            profitMetrics: {
+              totalProfit: data.performance?.total_profit || 0,
+              avgProfitPerSignal: data.performance?.avg_profit_per_signal || 0,
+              profitableBots: data.performance?.profitable_bots || 0,
+              losingBots: data.performance?.losing_bots || 0,
+              lossPrevention: data.performance?.loss_prevention_amount || 0,
+              enabled: (data.performance?.total_profit !== undefined)
+            },
+            topPerformers: {
+              winners: data.profit_leaders?.top_winners || [],
+              losers: data.profit_leaders?.top_losers || []
+            },
+            marketInsights: {
+              primaryInsight: data.market_selection?.insights?.[0] || 'Learning market patterns',
+              strategy: data.market_selection?.insights?.[2] || 'Balanced approach',
+              riskLevel: data.market_selection?.insights?.[1]?.replace('Risk Level: ', '') || 'Medium'
             }
           };
         } else {
@@ -200,6 +246,24 @@ function getFallbackIntelligenceData(): IntelligenceFrameworkData {
       eligibleBots: 10,
       totalBots: 12,
       enabled: false
+    },
+    // NEW: Phase 8.4 Profit-focused fallback metrics
+    profitMetrics: {
+      totalProfit: 0,
+      avgProfitPerSignal: 0,
+      profitableBots: 0,
+      losingBots: 0,
+      lossPrevention: 0,
+      enabled: false
+    },
+    topPerformers: {
+      winners: [],
+      losers: []
+    },
+    marketInsights: {
+      primaryInsight: 'Loading market insights...',
+      strategy: 'Balanced approach',
+      riskLevel: 'Medium'
     }
   };
 }

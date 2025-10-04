@@ -128,8 +128,8 @@ class AdaptiveSignalWeightingService:
             
             # Calculate average confidence and PnL
             avg_confidence = np.mean([p.confidence for p in predictions]) if predictions else 0.0
-            pnl_predictions = [p for p in predictions if p.trade_pnl is not None]
-            avg_pnl = np.mean([p.trade_pnl for p in pnl_predictions]) if pnl_predictions else 0.0
+            pnl_predictions = [p for p in predictions if p.trade_pnl_usd is not None]
+            avg_pnl = np.mean([p.trade_pnl_usd for p in pnl_predictions]) if pnl_predictions else 0.0
             
             metrics[signal_type] = {
                 'accuracy': accuracy,
@@ -147,12 +147,29 @@ class AdaptiveSignalWeightingService:
         """
         Calculate composite performance score for signal weighting.
         
-        Formula: (accuracy * 0.4) + (precision * 0.3) + (confidence * 0.2) + (pnl_factor * 0.1)
-        """
-        # Normalize PnL to 0-1 range (assuming typical range -0.05 to +0.05)
-        pnl_factor = max(0, min(1, (avg_pnl + 0.05) / 0.1)) if avg_pnl != 0 else 0.5
+        PROFIT-FOCUSED Formula: Prioritize actual $ profit over signal accuracy
+        - avg_pnl: 60% weight (PROFIT IS PRIMARY OBJECTIVE)
+        - confidence: 25% weight (reliable signals matter)
+        - accuracy: 15% weight (accuracy still matters but secondary)
         
-        score = (accuracy * 0.4) + (precision * 0.3) + (confidence * 0.2) + (pnl_factor * 0.1)
+        This fixes the core issue: learning system now optimizes for $ profit!
+        """
+        # Normalize PnL to 0-1 range
+        # Typical profitable signals: +$0.10 to +$1.00
+        # Typical losing signals: -$1.00 to -$0.10  
+        # Neutral point: $0.00
+        if avg_pnl > 0:
+            # Positive PnL: Scale $0.01 to $1.00 → 0.51 to 1.0
+            pnl_factor = min(1.0, 0.5 + (avg_pnl / 2.0))
+        elif avg_pnl < 0:
+            # Negative PnL: Scale -$1.00 to -$0.01 → 0.0 to 0.49  
+            pnl_factor = max(0.0, 0.5 + (avg_pnl / 2.0))
+        else:
+            # Neutral PnL
+            pnl_factor = 0.5
+            
+        # PROFIT-FOCUSED SCORING: P&L dominates the calculation
+        score = (pnl_factor * 0.6) + (confidence * 0.25) + (accuracy * 0.15)
         return max(0, min(1, score))  # Ensure 0-1 range
     
     def calculate_adaptive_weights(self, bot: Bot, performance_metrics: Dict[str, Dict[str, float]]) -> Dict[str, float]:
@@ -199,7 +216,7 @@ class AdaptiveSignalWeightingService:
                 
                 # Apply safety controls - gradual adjustment
                 current_weight = current_weights[signal_type]
-                max_change = self.max_weight_change
+                max_change = self.max_weight_change_percent / 100.0  # Convert percentage to decimal
                 
                 # Calculate bounded new weight
                 if performance_weight > current_weight:

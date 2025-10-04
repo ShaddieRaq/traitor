@@ -102,6 +102,38 @@ export const IntelligenceFrameworkPanel: React.FC<IntelligenceFrameworkPanelProp
         </div>
       </div>
 
+      {/* Phase 8.4: Market Selection Insights */}
+      {intelligenceStatus.profitMetrics.enabled && intelligenceStatus.topPerformers.winners.length > 0 && (
+        <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-red-50 rounded-lg border border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-800 mb-3">💰 Profit-Focused Learning Insights</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-green-700">🏆 Top Winners</div>
+              {intelligenceStatus.topPerformers.winners.slice(0, 2).map((winner, idx) => (
+                <div key={idx} className="flex justify-between items-center bg-green-100 px-3 py-2 rounded">
+                  <span className="text-sm font-medium text-green-800">{winner.pair}</span>
+                  <span className="text-sm font-bold text-green-600">+${winner.profit.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-red-700">📉 Top Losers</div>
+              {intelligenceStatus.topPerformers.losers.slice(0, 2).map((loser, idx) => (
+                <div key={idx} className="flex justify-between items-center bg-red-100 px-3 py-2 rounded">
+                  <span className="text-sm font-medium text-red-800">{loser.pair}</span>
+                  <span className="text-sm font-bold text-red-600">${loser.loss.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="mt-3 text-center">
+            <span className="text-xs text-gray-600 italic">
+              💡 {intelligenceStatus.marketInsights.primaryInsight} • {intelligenceStatus.marketInsights.strategy}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* 4-Phase Status Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Phase 1: Market Regime Detection */}
@@ -163,30 +195,34 @@ export const IntelligenceFrameworkPanel: React.FC<IntelligenceFrameworkPanelProp
           </div>
         </div>
 
-        {/* Phase 3A: Signal Performance Tracking */}
+        {/* Phase 8.4: Profit Performance Learning - Updated */}
         <div className={`
           bg-white rounded-lg p-4 border-l-4 shadow-sm hover:shadow-md transition-shadow
           ${getPhaseColor('performance')}
         `}>
           <div className="flex items-center space-x-2 mb-3">
             {getPhaseIcon('performance')}
-            <div className="text-sm font-semibold text-gray-600">Phase 3A</div>
+            <div className="text-sm font-semibold text-gray-600">Phase 8.4</div>
           </div>
-          <div className="text-sm font-medium text-gray-600 mb-1">Learning Data</div>
-          <div className={`text-xl font-bold ${getPhaseTextColor('performance')}`}>
-            {intelligenceStatus.signalPerformance.totalPredictions.toLocaleString()}
+          <div className="text-sm font-medium text-gray-600 mb-1">Portfolio Profit</div>
+          <div className={`text-xl font-bold ${
+            intelligenceStatus.profitMetrics.totalProfit > 0 ? 'text-green-600' : 
+            intelligenceStatus.profitMetrics.totalProfit < 0 ? 'text-red-600' : 
+            getPhaseTextColor('performance')
+          }`}>
+            ${intelligenceStatus.profitMetrics.totalProfit.toFixed(2)}
           </div>
           <div className="text-xs text-gray-500 mt-1">
-            {intelligenceStatus.signalPerformance.evaluatedOutcomes} evaluated
+            {intelligenceStatus.profitMetrics.profitableBots} winners • {intelligenceStatus.profitMetrics.losingBots} losers
           </div>
           <div className="mt-2">
             <div className={`
               inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
-              ${intelligenceStatus.signalPerformance.enabled ? 
+              ${intelligenceStatus.profitMetrics.enabled ? 
                 'bg-green-100 text-green-800' : 
                 'bg-gray-100 text-gray-600'}
             `}>
-              {intelligenceStatus.signalPerformance.enabled ? '✓ Tracking' : '○ Disabled'}
+              {intelligenceStatus.profitMetrics.enabled ? '✓ Optimizing' : '○ Learning'}
             </div>
           </div>
         </div>
@@ -245,12 +281,18 @@ export const IntelligenceFrameworkPanel: React.FC<IntelligenceFrameworkPanelProp
             <div className="font-semibold text-green-600">{intelligenceStatus.positionSizing.activeBots} Active Bots</div>
           </div>
           <div>
-            <div className="text-xs text-gray-500">Signal Learning</div>
-            <div className="font-semibold text-orange-600">{Math.floor(intelligenceStatus.signalPerformance.totalPredictions / 1000)}k+ Predictions</div>
+            <div className="text-xs text-gray-500">Profit Learning</div>
+            <div className={`font-semibold ${
+              intelligenceStatus.profitMetrics.totalProfit > 0 ? 'text-green-600' : 
+              intelligenceStatus.profitMetrics.totalProfit < 0 ? 'text-red-600' : 
+              'text-orange-600'
+            }`}>
+              ${intelligenceStatus.profitMetrics.totalProfit?.toFixed(2) || '0.00'} Portfolio
+            </div>
           </div>
           <div>
-            <div className="text-xs text-gray-500">Adaptive Updates</div>
-            <div className="font-semibold text-purple-600">{intelligenceStatus.adaptiveWeights.eligibleBots} Bots Ready</div>
+            <div className="text-xs text-gray-500">Loss Prevention</div>
+            <div className="font-semibold text-purple-600">${intelligenceStatus.profitMetrics.lossPrevention?.toFixed(0) || '0'} Saved</div>
           </div>
         </div>
       </div>

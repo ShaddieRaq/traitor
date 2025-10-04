@@ -8,6 +8,7 @@ import BotForm from '../BotForm';
 import SystemDiagnosticsModal from './SystemDiagnosticsModal';
 import { useEnhancedBotsStatus, useCreateBot, useUpdateBot } from '../../hooks/useBots';
 import { useBitcoinTrend, getTrendDirection, getRegimeDisplay } from '../../hooks/useTrends';
+import { useIntelligenceFramework } from '../../hooks/useIntelligenceFramework';
 import { Brain } from 'lucide-react';
 import { Bot, BotCreate, BotUpdate } from '../../types';
 import toast from 'react-hot-toast';
@@ -33,6 +34,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   
   const { data: enhancedBotsStatus } = useEnhancedBotsStatus();
   const { data: bitcoinTrend, isLoading: trendLoading } = useBitcoinTrend();
+  const { data: intelligenceData } = useIntelligenceFramework();
   const createBot = useCreateBot();
   const updateBot = useUpdateBot();
 
@@ -128,7 +130,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">AI Intelligence</h3>
-                    <p className="text-xs text-gray-600">141K+ predictions • 63.3% accuracy</p>
+                    <p className="text-xs text-gray-600">
+                      {intelligenceData?.profitMetrics ? (
+                        `$${(intelligenceData.profitMetrics.totalProfit || 0).toFixed(2)} total profit • ${intelligenceData?.topPerformers?.winners?.length || 0} winners identified • ${intelligenceData?.topPerformers?.losers?.length || 0} losers to pause`
+                      ) : (
+                        "Loading profit analysis..."
+                      )}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-6">

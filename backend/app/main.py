@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api import bots, market, trades, bot_evaluation, websocket, bot_temperatures, coinbase_sync, trading_diagnosis, validation, market_analysis, raw_trades, positions, system_errors, websocket_prices, health_monitoring, market_data_cache, notifications, new_pairs, trends, intelligence_analytics, cache_monitoring, market_data
+from .api import bots, market, trades, bot_evaluation, websocket, bot_temperatures, coinbase_sync, trading_diagnosis, validation, market_analysis, raw_trades, positions, system_errors, websocket_prices, health_monitoring, market_data_cache, notifications, new_pairs, trends, intelligence_analytics, cache_monitoring, market_data, market_selection
 from .core.config import settings
 from .core.database import engine, Base
 import logging
@@ -78,6 +78,9 @@ app.include_router(new_pairs.router, prefix="/api/v1/new-pairs", tags=["new-pair
 # Position Reconciliation API
 from .api import position_reconciliation
 app.include_router(position_reconciliation.router, prefix="/api/v1/position-reconciliation", tags=["position-reconciliation"])
+
+# Market Selection Learning API (Phase 8.2)
+app.include_router(market_selection.router, tags=["market-selection"])
 
 # Phase 3A: Signal Performance Analytics API
 from .api import signal_performance

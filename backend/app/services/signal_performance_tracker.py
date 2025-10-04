@@ -371,9 +371,19 @@ class SignalPerformanceTracker:
             key = f"{pair}_{regime}_{signal_type}"
             if key in self.performance_cache:
                 metrics = self.performance_cache[key]
-                # Composite performance score
-                performance_score = (metrics.accuracy * metrics.precision * 
-                                   (1 + metrics.avg_pnl / 10.0))  # Boost for profitable signals
+                # PROFIT-FOCUSED performance score: P&L is the primary factor
+                if metrics.avg_pnl > 0:
+                    # Profitable signals get boosted significantly
+                    profit_factor = 1.0 + min(2.0, metrics.avg_pnl * 10.0)  # Up to 3x boost for profitable signals
+                elif metrics.avg_pnl < 0:
+                    # Losing signals get penalized heavily  
+                    profit_factor = max(0.1, 1.0 + metrics.avg_pnl * 10.0)  # Down to 0.1x for losing signals
+                else:
+                    profit_factor = 1.0
+                    
+                # Base score uses accuracy but profit factor dominates
+                base_score = metrics.accuracy * metrics.precision
+                performance_score = base_score * profit_factor
                 signal_performances[signal_type] = performance_score
             else:
                 signal_performances[signal_type] = 0.5  # Neutral score for unknown performance
