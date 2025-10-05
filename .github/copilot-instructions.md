@@ -656,47 +656,62 @@ This is **fundamentally different** from temperature-based grouping.
 - **Learning Effectiveness**: Profit per signal trending positive
 - **Architecture Preservation**: Keep existing 141K prediction database and infrastructure
 
-## 🚀 NEXT DEVELOPMENT PHASE: Automated Portfolio Management (Phase 9)
+## 🚀 NEXT DEVELOPMENT PHASE: Intelligent Portfolio Management (Phase 9)
 
-**Status**: 📋 PLANNED - Portfolio management system with adjustable parameters
-**Goal**: Transform from "45 independent bots" to "1 intelligent portfolio" that automatically reallocates capital
-**Foundation**: Build on Phase 8 profit-focused learning to create holistic portfolio optimization
+**Status**: 📋 PLANNED - Hybrid Learning + Scaling System  
+**Goal**: Combine profit-focused learning with dynamic position scaling for intelligent portfolio management
+**Foundation**: Build on Phase 8 learning system + add position scaling risk management
 
-### 🎯 **Phase 9 Vision: The AVNT Case Study**
-- **Current Reality**: AVNT-USD generated +$53 profit with static $20 position
-- **Lost Opportunity**: Could have generated $80-120+ with dynamic scaling
-- **Solution**: Automated momentum detection → dynamic position scaling → capital reallocation
+### 🧠 **Phase 9 Vision: Intelligent Hybrid Approach**
+**Key Insight**: Parameter adjustment (learning) and position scaling are **complementary, not competitive**
 
-### 🎯 **Phase 9 Key Features**
-- **Momentum Detection**: Automatically detect AVNT-style breakout opportunities
-- **Dynamic Scaling**: Scale successful positions 1x → 1.5x → 2x → 3x as profits grow
-- **Capital Reallocation**: Free capital from losers (SQD-USD -$25) to fund winners
-- **Adjustable Parameters**: 12+ configurable thresholds for momentum, scaling, liquidation
-- **Risk Management**: Balance high volatility (293%) with opportunity scaling
+- **Learning System**: Optimizes signal weights, thresholds, timing for each bot
+- **Position Scaling**: Dynamically adjusts capital allocation based on performance  
+- **Combined Power**: Learn while protecting capital, scale up winners, scale down losers
+- **Real-World Example**: SQD-USD (-$26) gets parameter tuning + position scaling rather than crude liquidation
 
-### 🛠️ **Phase 9 Implementation Architecture**
-```python
-# Extend existing Bot model (don't replace)
-class Bot(Base):
-    # ... existing fields preserved ...
-    portfolio_tier = Column(String(20), default="NEUTRAL")  # WINNER/LOSER/NEUTRAL
-    current_portfolio_multiplier = Column(Float, default=1.0)  # 0.5x-3.0x scaling
-    momentum_detected_at = Column(DateTime)
-    
-# New portfolio management service
-class PortfolioManagementService:
-    def run_portfolio_evaluation(self):
-        # 1. Detect momentum (AVNT-style)
-        # 2. Identify liquidation candidates (SQD-style)  
-        # 3. Calculate capital reallocation
-        # 4. Execute portfolio adjustments
+### 🎯 **Phase 9 Hybrid Decision Framework**
+```
+For Each Position:
+├─ Loss > $40? → LIQUIDATE (emergency stop)
+├─ Loss $10-40?
+│  ├─ SCALE DOWN: Reduce position 50% (immediate protection)
+│  ├─ LEARN: Activate parameter adjustment (long-term fix)
+│  └─ MONITOR: 2-week evaluation period
+├─ After 2 weeks:
+│  ├─ Improving? → Scale back up gradually
+│  ├─ Stable? → Maintain reduced position
+│  └─ Still losing? → Scale down further or liquidate  
+└─ Profit $10+? → Scale up with momentum detection + optimize winning signals
 ```
 
-### 📋 **Phase 9 Adjustable Parameters**
-- **Momentum Detection**: Profit threshold ($5-50), time window (24-72h), confidence minimum (50-90%)
-- **Dynamic Scaling**: Tier triggers ($10/$25/$40), max scaling (1.5x-3.0x), volatility adjustments
-- **Liquidation Logic**: Loss thresholds (-$10 to -$30), stagnation periods (3-14 days)
-- **Risk Controls**: Max concentration (10-25%), minimum active bots, portfolio balance
+### 🛠️ **Phase 9 Hybrid Architecture**
+```python
+class HybridPortfolioDecisionEngine:
+    """
+    Combines AdaptiveSignalWeightingService with PositionScalingService
+    Makes intelligent decisions: when to learn vs when to scale
+    """
+    def evaluate_bot_action(self, bot: Bot) -> Dict[str, Any]:
+        # Emergency liquidation: Loss > $40
+        # Momentum scaling: Profit > $15 (scale up + optimize signals)  
+        # Risk management: Loss $10-40 (scale down + learn)
+        # Stable optimization: -$10 to +$15 (maintain + learn)
+        
+# Extend existing Bot model (preserve all existing fields)
+class Bot(Base):
+    # ... ALL existing fields preserved ...
+    current_portfolio_multiplier = Column(Float, default=1.0)  # 0.2x-3.0x scaling
+    last_portfolio_adjustment = Column(DateTime)
+    portfolio_tier = Column(String(20), default="NEUTRAL")  # WINNER/SCALING/LEARNING/LIQUIDATED
+```
+
+### 📋 **Phase 9 Key Benefits Over Simple Liquidation**
+- **SQD-USD Example**: Instead of liquidating -$26 loss, scale to $10 + retune RSI weights
+- **AVNT-USD Example**: Instead of static $20, scale to $40+ while optimizing winning signals  
+- **Capital Protection**: Reduce risk immediately while strategies learn and adapt
+- **Intelligent Growth**: Scale up verified winners with optimized parameters
+- **Data Preservation**: Keep learning from scaled-down positions instead of losing data from liquidations
 
 **See `/PHASE_9_AUTOMATED_PORTFOLIO_MANAGEMENT_PLAN.md` for complete implementation roadmap.**
 
