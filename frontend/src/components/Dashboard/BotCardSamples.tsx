@@ -1,5 +1,5 @@
 import React from 'react';
-import { TrendingUp, TrendingDown, Activity, Clock, Target, Shield, Zap } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Clock, Target, Shield, Zap, Brain, BarChart3 } from 'lucide-react';
 import { useTrendAnalysis, getTrendDirection, getRegimeDisplay } from '../../hooks/useTrends';
 
 // Sample 1: Compact Performance-Focused Card
@@ -713,9 +713,277 @@ export const MetricDenseCard: React.FC<{ bot: any, pnlData?: any }> = ({ bot, pn
   );
 };
 
+// NEW: Learning-Enhanced Bot Card - Shows Phase 8 profit-focused learning activity
+export const LearningEnhancedCard: React.FC<{ bot: any, pnlData?: any }> = ({ bot, pnlData }) => {
+  const botPnL = pnlData?.find((p: any) => p.product_id === bot.pair);
+  const isProfit = (botPnL?.net_pnl_usd || 0) >= 0;
+  const winRate = botPnL ? ((botPnL.sell_trades / botPnL.trade_count) * 100).toFixed(1) : '0';
+  
+  // Extract signal weights from bot configuration
+  const signalConfig = bot.signal_config;
+  const rsiWeight = signalConfig?.rsi?.weight || 0;
+  const maWeight = signalConfig?.moving_average?.weight || 0;
+  const macdWeight = signalConfig?.macd?.weight || 0;
+  
+  // Determine learning status based on signal weights (our 8 learning bots have specific patterns)
+  const isLearningBot = [4, 6, 7, 8, 12, 13, 14, 15].includes(bot.id);
+  const learningStatus = getLearningStatus(bot.id, rsiWeight, maWeight, macdWeight);
+  
+  const getTemperatureColor = () => {
+    switch (bot.temperature) {
+      case 'HOT': return 'from-red-500 to-orange-500';
+      case 'WARM': return 'from-orange-400 to-yellow-400';
+      case 'COOL': return 'from-blue-400 to-cyan-400';
+      case 'FROZEN': return 'from-gray-400 to-slate-400';
+      default: return 'from-gray-300 to-gray-400';
+    }
+  };
+
+  return (
+    <div className="relative overflow-hidden bg-white rounded-xl shadow-lg border hover:shadow-xl transition-all duration-300">
+      {/* Temperature + Learning Status Header */}
+      <div className={`h-2 bg-gradient-to-r ${getTemperatureColor()}`}></div>
+      
+      {/* Learning Status Indicator */}
+      {isLearningBot && (
+        <div className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-medium ${learningStatus.bgColor} ${learningStatus.textColor} border border-opacity-30`}>
+          <div className="flex items-center space-x-1">
+            <Brain className="h-3 w-3" />
+            <span>{learningStatus.status}</span>
+          </div>
+        </div>
+      )}
+      
+      <div className="p-4">
+        {/* Header Row */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center space-x-2">
+            <div className="text-lg font-bold text-gray-900">{bot.pair}</div>
+            <span className="text-xl">{bot.temperature === 'HOT' ? '🔥' : bot.temperature === 'WARM' ? '🌡️' : bot.temperature === 'COOL' ? '❄️' : '🧊'}</span>
+            {isLearningBot && <span className="text-sm">🧠</span>}
+          </div>
+          <div className={`text-right ${isProfit ? 'text-green-600' : 'text-red-600'}`}>
+            <div className="text-lg font-bold">
+              {isProfit ? '+' : '-'}${Math.abs(botPnL?.net_pnl_usd || 0).toFixed(2)}
+            </div>
+            <div className="text-xs opacity-75">{winRate}% Win Rate</div>
+          </div>
+        </div>
+
+        {/* Learning Activity Section */}
+        {isLearningBot && (
+          <div className="mb-3 p-3 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-purple-700 flex items-center">
+                <BarChart3 className="h-3 w-3 mr-1" />
+                Profit-Focused Learning
+              </span>
+              <span className="text-xs text-purple-600">{learningStatus.strategy}</span>
+            </div>
+            
+            {/* Signal Weight Visualization */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-600">RSI</span>
+                <div className="flex items-center space-x-2">
+                  <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-red-400 rounded-full transition-all duration-300"
+                      style={{ width: `${(rsiWeight * 100)}%` }}
+                    ></div>
+                  </div>
+                  <span className="font-mono text-xs w-8">{(rsiWeight * 100).toFixed(0)}%</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-600">MA</span>
+                <div className="flex items-center space-x-2">
+                  <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-blue-400 rounded-full transition-all duration-300"
+                      style={{ width: `${(maWeight * 100)}%` }}
+                    ></div>
+                  </div>
+                  <span className="font-mono text-xs w-8">{(maWeight * 100).toFixed(0)}%</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-600">MACD</span>
+                <div className="flex items-center space-x-2">
+                  <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-green-400 rounded-full transition-all duration-300"
+                      style={{ width: `${(macdWeight * 100)}%` }}
+                    ></div>
+                  </div>
+                  <span className="font-mono text-xs w-8">{(macdWeight * 100).toFixed(0)}%</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Learning Impact */}
+            <div className="mt-2 text-xs text-purple-600">
+              {learningStatus.impact}
+            </div>
+          </div>
+        )}
+
+        {/* Signal Strength Visualization */}
+        <div className="mb-3">
+          <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+            <span>Signal Strength</span>
+            <div className="flex items-center space-x-2">
+              <span className="font-mono">{(bot.current_combined_score || 0).toFixed(3)}</span>
+              <span>({(Math.abs(bot.current_combined_score || 0) * 100).toFixed(1)}%)</span>
+            </div>
+          </div>
+          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div 
+              className={`h-full transition-all duration-500 ${
+                (bot.current_combined_score || 0) > 0 
+                  ? 'bg-gradient-to-r from-green-400 to-green-500' 
+                  : 'bg-gradient-to-r from-red-400 to-red-500'
+              }`}
+              style={{ 
+                width: `${Math.abs(bot.current_combined_score || 0) * 100}%`,
+                marginLeft: (bot.current_combined_score || 0) < 0 ? `${100 - Math.abs(bot.current_combined_score || 0) * 100}%` : '0%'
+              }}
+            ></div>
+          </div>
+        </div>
+
+        {/* Quick Stats Grid */}
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="bg-gray-50 rounded-lg p-2">
+            <div className="text-xs text-gray-600">Trades</div>
+            <div className="font-bold text-sm">{botPnL?.trade_count || 0}</div>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-2">
+            <div className="text-xs text-gray-600">Position</div>
+            <div className="font-bold text-sm">${Math.abs(bot.current_position_size || 0).toFixed(0)}</div>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-2">
+            <div className="text-xs text-gray-600">Holdings</div>
+            <div className="font-bold text-sm">{(bot.current_holdings || 0).toFixed(2)}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Helper function to determine learning status based on bot ID and weights
+function getLearningStatus(botId: number, rsiWeight: number, maWeight: number, macdWeight: number) {
+  // Our learning bot mappings
+  const botStrategies: { [key: number]: any } = {
+    13: { // SUI-USD (test case)
+      name: "Test Case",
+      strategy: "Aggressive Rebalance", 
+      expectedRsi: 0.235,
+      expectedMa: 0.412,
+      impact: "Reduced failing RSI, boosted working MA",
+      bgColor: "bg-red-100",
+      textColor: "text-red-700"
+    },
+    14: { // AVAX-USD
+      name: "Major Loser",
+      strategy: "Aggressive Rebalance",
+      expectedRsi: 0.25,
+      expectedMa: 0.55,
+      impact: "Major RSI reduction, MA boost for major loser",
+      bgColor: "bg-red-100", 
+      textColor: "text-red-700"
+    },
+    4: { // ETH-USD
+      name: "Minor Loser",
+      strategy: "Moderate Rebalance",
+      expectedRsi: 0.32,
+      expectedMacd: 0.33,
+      impact: "Gentle RSI reduction, MACD boost",
+      bgColor: "bg-orange-100",
+      textColor: "text-orange-700"
+    },
+    6: { // SOL-USD
+      name: "Minor Loser",
+      strategy: "Moderate Rebalance", 
+      expectedRsi: 0.32,
+      expectedMacd: 0.33,
+      impact: "Gentle RSI reduction, MACD boost",
+      bgColor: "bg-orange-100",
+      textColor: "text-orange-700"
+    },
+    7: { // XRP-USD
+      name: "Minor Loser",
+      strategy: "Moderate Rebalance",
+      expectedRsi: 0.32,
+      expectedMacd: 0.33,
+      impact: "Gentle RSI reduction, MACD boost",
+      bgColor: "bg-orange-100",
+      textColor: "text-orange-700"
+    },
+    8: { // DOGE-USD
+      name: "Minor Loser", 
+      strategy: "Moderate Rebalance",
+      expectedRsi: 0.32,
+      expectedMacd: 0.33,
+      impact: "Gentle RSI reduction, MACD boost",
+      bgColor: "bg-orange-100",
+      textColor: "text-orange-700"
+    },
+    12: { // AERO-USD
+      name: "Winner",
+      strategy: "Winner Optimization",
+      expectedMa: 0.429,
+      impact: "Fine-tuned MA for winner optimization", 
+      bgColor: "bg-green-100",
+      textColor: "text-green-700"
+    },
+    15: { // TOSHI-USD
+      name: "Winner",
+      strategy: "Winner Optimization",
+      expectedMa: 0.429,
+      impact: "Fine-tuned MA for winner optimization",
+      bgColor: "bg-green-100", 
+      textColor: "text-green-700"
+    }
+  };
+
+  const botStrategy = botStrategies[botId];
+  if (!botStrategy) {
+    return {
+      status: "Learning",
+      strategy: "Active",
+      impact: "Profit-focused optimization",
+      bgColor: "bg-purple-100",
+      textColor: "text-purple-700"
+    };
+  }
+
+  // Check if weights match expected learning adjustments (with tolerance)
+  const tolerance = 0.02;
+  let status = "Learning";
+  
+  if (botStrategy.expectedRsi && Math.abs(rsiWeight - botStrategy.expectedRsi) < tolerance) {
+    status = "Optimized";
+  } else if (botStrategy.expectedMa && Math.abs(maWeight - botStrategy.expectedMa) < tolerance) {
+    status = "Optimized";
+  } else if (botStrategy.expectedMacd && Math.abs(macdWeight - botStrategy.expectedMacd) < tolerance) {
+    status = "Optimized";
+  }
+
+  return {
+    status,
+    strategy: botStrategy.strategy,
+    impact: botStrategy.impact,
+    bgColor: botStrategy.bgColor,
+    textColor: botStrategy.textColor
+  };
+}
+
 export default {
   CompactPerformanceCard,
   AdvancedAnalyticsCard,
   MinimalModernCard,
-  MetricDenseCard
+  MetricDenseCard,
+  LearningEnhancedCard
 };

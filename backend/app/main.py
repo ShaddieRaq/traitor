@@ -158,6 +158,10 @@ app.include_router(market_selection.router, tags=["market-selection"])
 from .api import signal_performance
 app.include_router(signal_performance.router, prefix="/api/v1/signal-performance", tags=["signal-performance"])
 
+# Phase 8.1: Learning System API
+from .api import learning_system
+app.include_router(learning_system.router, prefix="/api/v1/learning", tags=["learning-system"])
+
 # Phase 5D: Intelligence Framework Analytics API
 app.include_router(intelligence_analytics.router, prefix="/api/v1/intelligence", tags=["intelligence-analytics"])
 

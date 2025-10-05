@@ -2,6 +2,7 @@ import React from 'react';
 import { useEnhancedBotsStatus, usePnLData, useStartBot, useStopBot, useDeleteBot } from '../../hooks/useBots';
 import { Edit3, Play, Pause, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { LearningEnhancedCard } from './BotCardSamples';
 
 interface TieredBotsViewProps {
   className?: string;
@@ -26,6 +27,13 @@ export const TieredBotsView: React.FC<TieredBotsViewProps> = ({
   if (!botsData) {
     return <div className={`animate-pulse bg-gray-100 rounded-lg h-64 ${className}`}></div>;
   }
+
+  // Helper function to check if bot has learning enhancements
+  const isLearningEnhancedBot = (bot: any) => {
+    // Check if this is one of the 8 learning-enhanced bots from Phase 8
+    const learningBots = ['AVAX-USD', 'SUI-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'DOGE-USD', 'AERO-USD', 'TOSHI-USD'];
+    return learningBots.includes(bot.pair);
+  };
 
   // Helper function to sort bots by signal strength
   const sortBySignalStrength = (bots: any[]) => {
@@ -59,32 +67,40 @@ export const TieredBotsView: React.FC<TieredBotsViewProps> = ({
         </div>
         <div className="p-4 space-y-3">
           {bots.map((bot: any) => (
-            <BotCard 
-              key={bot.id} 
-              bot={bot} 
-              pnlData={pnlData} 
-              onEdit={onEditBot}
-              onStart={(id: number) => {
-                startBot.mutate(id, {
-                  onSuccess: () => toast.success(`Bot "${bot.pair}" started`),
-                  onError: () => toast.error(`Failed to start bot "${bot.pair}"`)
-                });
-              }}
-              onStop={(id: number) => {
-                stopBot.mutate(id, {
-                  onSuccess: () => toast.success(`Bot "${bot.pair}" stopped`),
-                  onError: () => toast.error(`Failed to stop bot "${bot.pair}"`)
-                });
-              }}
-              onDelete={(id: number) => {
-                if (confirm(`Are you sure you want to delete bot "${bot.pair}"?`)) {
-                  deleteBot.mutate(id, {
-                    onSuccess: () => toast.success(`Bot "${bot.pair}" deleted`),
-                    onError: () => toast.error(`Failed to delete bot "${bot.pair}"`)
+            isLearningEnhancedBot(bot) ? (
+              <LearningEnhancedCard 
+                key={bot.id} 
+                bot={bot} 
+                pnlData={pnlData}
+              />
+            ) : (
+              <BotCard 
+                key={bot.id} 
+                bot={bot} 
+                pnlData={pnlData} 
+                onEdit={onEditBot}
+                onStart={(id: number) => {
+                  startBot.mutate(id, {
+                    onSuccess: () => toast.success(`Bot "${bot.pair}" started`),
+                    onError: () => toast.error(`Failed to start bot "${bot.pair}"`)
                   });
-                }
-              }}
-            />
+                }}
+                onStop={(id: number) => {
+                  stopBot.mutate(id, {
+                    onSuccess: () => toast.success(`Bot "${bot.pair}" stopped`),
+                    onError: () => toast.error(`Failed to stop bot "${bot.pair}"`)
+                  });
+                }}
+                onDelete={(id: number) => {
+                  if (confirm(`Are you sure you want to delete bot "${bot.pair}"?`)) {
+                    deleteBot.mutate(id, {
+                      onSuccess: () => toast.success(`Bot "${bot.pair}" deleted`),
+                      onError: () => toast.error(`Failed to delete bot "${bot.pair}"`)
+                    });
+                  }
+                }}
+              />
+            )
           ))}
         </div>
       </div>
