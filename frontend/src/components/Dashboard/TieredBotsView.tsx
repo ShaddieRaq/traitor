@@ -30,9 +30,30 @@ export const TieredBotsView: React.FC<TieredBotsViewProps> = ({
 
   // Helper function to check if bot has learning enhancements
   const isLearningEnhancedBot = (bot: any) => {
-    // Check if this is one of the 8 learning-enhanced bots from Phase 8
-    const learningBots = ['AVAX-USD', 'SUI-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'DOGE-USD', 'AERO-USD', 'TOSHI-USD'];
-    return learningBots.includes(bot.pair);
+    // Check if bot has non-default signal weights (indicating learning has been applied)
+    const signalConfig = bot.signal_config || {};
+    
+    // Default weights: RSI: 0.4, MA: 0.35, MACD: 0.25
+    const hasModifiedRSI = signalConfig.rsi?.weight && Math.abs(signalConfig.rsi.weight - 0.4) > 0.01;
+    const hasModifiedMA = signalConfig.moving_average?.weight && Math.abs(signalConfig.moving_average.weight - 0.35) > 0.01;
+    const hasModifiedMACD = signalConfig.macd?.weight && Math.abs(signalConfig.macd.weight - 0.25) > 0.01;
+    
+    // Debug logging
+    const isLearning = hasModifiedRSI || hasModifiedMA || hasModifiedMACD;
+    if (bot.pair === 'BTC-USD') {
+      console.log('🔍 Learning Detection Debug for BTC-USD:', {
+        rsi_weight: signalConfig.rsi?.weight,
+        ma_weight: signalConfig.moving_average?.weight,
+        macd_weight: signalConfig.macd?.weight,
+        hasModifiedRSI,
+        hasModifiedMA,
+        hasModifiedMACD,
+        isLearning
+      });
+    }
+    
+    // Bot is learning-enhanced if any signal weight has been modified from defaults
+    return isLearning;
   };
 
   // Helper function to sort bots by signal strength

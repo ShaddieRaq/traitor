@@ -7,6 +7,7 @@ import NotificationBell from '../components/Notifications/NotificationBell';
 import NotificationPanel from '../components/Notifications/NotificationPanel';
 import IntelligenceAnalytics from '../components/IntelligenceAnalytics';
 import LearningPerformanceDashboard from '../components/Dashboard/LearningPerformanceDashboard';
+import { SimpleLearningStatus } from '../components/SimpleLearningStatus';
 
 const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');

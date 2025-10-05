@@ -2,6 +2,7 @@ import React from 'react';
 import { Brain, TrendingUp, Target, BarChart3, Zap } from 'lucide-react';
 import { DataFreshnessIndicator } from '../DataFreshnessIndicators';
 import { useIntelligenceFramework } from '../../hooks/useIntelligenceFramework';
+import { useBots } from '../../hooks/useBots';
 
 interface IntelligenceFrameworkPanelProps {
   className?: string;
@@ -20,6 +21,33 @@ export const IntelligenceFrameworkPanel: React.FC<IntelligenceFrameworkPanelProp
   className = ''
 }) => {
   const { data: intelligenceStatus, isLoading } = useIntelligenceFramework();
+  const { data: botsData } = useBots();
+
+  // Calculate learning bot statistics
+  const calculateLearningStats = () => {
+    if (!botsData) {
+      console.log('🔍 Intelligence Panel: No bots data available');
+      return { learningBots: 0, totalBots: 0 };
+    }
+    
+    const totalBots = botsData.length;
+    const learningBots = botsData.filter((bot: any) => {
+      const signalConfig = bot.signal_config || {};
+      
+      // Check if any signal weight differs from defaults (RSI: 0.4, MA: 0.35, MACD: 0.25)
+      const hasModifiedRSI = signalConfig.rsi?.weight && Math.abs(signalConfig.rsi.weight - 0.4) > 0.01;
+      const hasModifiedMA = signalConfig.moving_average?.weight && Math.abs(signalConfig.moving_average.weight - 0.35) > 0.01;
+      const hasModifiedMACD = signalConfig.macd?.weight && Math.abs(signalConfig.macd.weight - 0.25) > 0.01;
+      
+      return hasModifiedRSI || hasModifiedMA || hasModifiedMACD;
+    }).length;
+    
+    console.log('🧠 Intelligence Panel: Found', learningBots, 'learning bots out of', totalBots);
+    
+    return { learningBots, totalBots };
+  };
+
+  const { learningBots, totalBots } = calculateLearningStats();
 
   // Show loading state
   if (isLoading || !intelligenceStatus) {
@@ -100,6 +128,46 @@ export const IntelligenceFrameworkPanel: React.FC<IntelligenceFrameworkPanelProp
           />
           <div className="text-xs text-gray-500 mt-1">All Systems Operational</div>
         </div>
+      </div>
+
+      {/* 🚨 UNIVERSAL LEARNING VERIFICATION - USER REQUESTED PROOF */}
+      <div className="mb-6 p-4 bg-gradient-to-r from-purple-100 to-indigo-100 rounded-lg border-2 border-purple-300">
+        <h3 className="text-lg font-bold text-purple-900 mb-3 flex items-center">
+          <Brain className="h-5 w-5 mr-2" />
+          🚨 Universal Learning System Status
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white rounded-lg p-3 text-center">
+            <div className="text-2xl font-bold text-indigo-600">{totalBots}</div>
+            <div className="text-sm text-gray-600">Total Bots</div>
+          </div>
+          <div className="bg-white rounded-lg p-3 text-center">
+            <div className="text-2xl font-bold text-green-600">{learningBots}</div>
+            <div className="text-sm text-gray-600">Learning Active</div>
+          </div>
+          <div className="bg-white rounded-lg p-3 text-center">
+            <div className="text-2xl font-bold text-purple-600">
+              {totalBots > 0 ? Math.round((learningBots / totalBots) * 100) : 0}%
+            </div>
+            <div className="text-sm text-gray-600">Coverage</div>
+          </div>
+          <div className="bg-white rounded-lg p-3 text-center">
+            <div className={`text-2xl font-bold ${learningBots === totalBots && totalBots > 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {learningBots === totalBots && totalBots > 0 ? '✅' : '❌'}
+            </div>
+            <div className="text-sm text-gray-600">Universal</div>
+          </div>
+        </div>
+        {botsData && botsData.length > 0 && (
+          <div className="mt-3 text-sm text-purple-800">
+            <strong>Quick Verification:</strong> Bot 1 weights = RSI: {botsData[0]?.signal_config?.rsi?.weight?.toFixed(3) || 'N/A'}, 
+            MA: {botsData[0]?.signal_config?.moving_average?.weight?.toFixed(3) || 'N/A'}, 
+            MACD: {botsData[0]?.signal_config?.macd?.weight?.toFixed(3) || 'N/A'}
+            {(botsData[0]?.signal_config?.rsi?.weight !== 0.4 || botsData[0]?.signal_config?.moving_average?.weight !== 0.35) && (
+              <span className="ml-2 px-2 py-1 bg-green-200 text-green-800 rounded text-xs">Modified ✓</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Phase 8.4: Market Selection Insights */}
@@ -238,7 +306,7 @@ export const IntelligenceFrameworkPanel: React.FC<IntelligenceFrameworkPanelProp
           </div>
           <div className="text-sm font-medium text-gray-600 mb-1">Learning System</div>
           <div className={`text-xl font-bold ${getPhaseTextColor('adaptive')}`}>
-            8/8 ACTIVE
+            {learningBots}/{totalBots} ACTIVE
           </div>
           <div className="text-xs text-gray-500 mt-1">
             profit-focused learning deployed
@@ -250,7 +318,7 @@ export const IntelligenceFrameworkPanel: React.FC<IntelligenceFrameworkPanelProp
           </div>
           {/* Learning Activity Indicator */}
           <div className="mt-2 text-xs text-purple-600">
-            🧠 ETH: +$3.12 • AVAX: +$0.71 • SUI: +$0.38
+            🧠 {learningBots > 0 ? `${learningBots} bots with optimized weights` : 'No learning active'}
           </div>
         </div>
       </div>

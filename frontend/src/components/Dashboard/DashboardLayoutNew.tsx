@@ -3,6 +3,7 @@ import ExecutiveSummary from './ExecutiveSummary';
 import TieredBotsView from './TieredBotsView';
 import UnifiedStatusBar from './UnifiedStatusBar';
 import IntelligenceFrameworkPanel from './IntelligenceFrameworkPanel';
+import { UniversalLearningVerification } from './UniversalLearningVerification';
 import { Eye, EyeOff } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -82,6 +83,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 Advanced Analytics
               </h2>
               <IntelligenceFrameworkPanel />
+            </div>
+            
+            {/* 🚨 UNIVERSAL LEARNING VERIFICATION - User requested UI proof */}
+            <div className="border-t pt-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                🧠 Universal Learning System Verification
+              </h2>
+              <UniversalLearningVerification />
             </div>
           </div>
         )}

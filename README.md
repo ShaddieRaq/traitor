@@ -49,12 +49,13 @@
 
 - **Backend**: FastAPI + SQLAlchemy ORM + Celery/Redis + 4-phase AI intelligence framework
 - **Frontend**: React 18 + TypeScript + Vite + TailwindCSS + TanStack Query (5-second polling)
-- **Database**: Single unified SQLite at `/trader.db` with dual-table pattern (Trade + RawTrade)
+- **Database**: Single unified SQLite at `/trader.db` with RawTrade table (clean Coinbase data)
 - **Queue**: Redis for background task processing with Celery beat scheduler
 - **API**: Coinbase Advanced Trade API + JWT auth + triple-layer rate limiting (90s cache + circuit breaker)
 - **AI Framework**: Market regime detection + dynamic position sizing + performance tracking + adaptive weighting
 - **Real-time**: Aggressive 5-second polling with 90s backend cache achieving high hit rates
 - **Testing**: 185+ comprehensive tests with signal validation, live API integration, and system stability verification
+- **API Clean-up**: Deprecated /api/v1/trades/ endpoints removed (October 2025) - use /api/v1/raw-trades/ only
 
 ## Active Trading Bots (17 Total)
 

@@ -16,7 +16,7 @@
 
 **Production-ready cryptocurrency trading system** with **45 active bots** managing live funds across major trading pairs. Features sophisticated learning system with 141,587+ signal predictions.
 
-**✅ CURRENT STATUS (October 5, 2025)**: ✅ **UI ENHANCEMENT COMPLETE** - Learning system now fully visible to users! All 8 eligible bots display learning activity through enhanced UI components. Major achievements: Intelligence Framework Panel shows 8/8 learning active, LearningPerformanceDashboard integrated, learning-enhanced bot cards with signal weight visualizations.
+**✅ CURRENT STATUS (October 5, 2025)**: ✅ **UNIVERSAL LEARNING DEPLOYED** - Learning system successfully applied to all 45 bots based on individual P&L performance! Major achievement: Complete transition from 8 hardcoded bots to dynamic, performance-based learning for entire portfolio. **⚠️ Known Issue**: API performance degradation affecting UI display - learning is active but frontend cannot load updated bot data due to slow /api/v1/bots/ endpoint.
 
 ### Core Architecture
 - **Backend**: FastAPI + SQLAlchemy + Celery/Redis + MarketDataService
@@ -210,9 +210,10 @@ market_service = get_market_data_service()
 ```
 
 ### Dual-Table Data Pattern (CRITICAL)
-- **Trade Table**: Operational data (bot decisions, signals) 
-- **RawTrade Table**: Financial truth (exact Coinbase fills) - AUTO-SYNCED
+- **Trade Table**: DEPRECATED - Contains corrupted data (removed endpoints October 5, 2025)
+- **RawTrade Table**: Financial truth (exact Coinbase fills) - USE THIS
 - **Database Location**: `/trader.db` at project root (NOT backend/trader.db)
+- **API Pattern**: Use `/api/v1/raw-trades/` endpoints only - clean Coinbase data
 
 ### Signal Scoring System
 - **Range**: -1.0 (BUY signal) to +1.0 (SELL signal)
@@ -258,9 +259,16 @@ curl -s "http://localhost:8000/api/v1/bots/status/enhanced" | jq
 curl "http://localhost:8000/api/v1/bots/status/enhanced" | jq
 curl "http://localhost:8000/api/v1/diagnosis/trading-diagnosis" | jq
 
-# Performance data (CURRENT - use these)
+# Performance data (CURRENT - use these clean endpoints)
 curl "http://localhost:8000/api/v1/raw-trades/pnl-by-product" | jq
+curl "http://localhost:8000/api/v1/raw-trades/stats" | jq
 curl "http://localhost:8000/api/v1/cache/stats" | jq  # Should show 80%+ hit rates
+
+# ❌ REMOVED ENDPOINTS (October 5, 2025)
+# /api/v1/trades/ - DELETED (was deprecated due to data corruption)
+# /api/v1/trades/stats - DELETED (was deprecated due to data corruption)  
+# /api/v1/trades/performance/by-product - DELETED (was deprecated due to data corruption)
+# Use /api/v1/raw-trades/ endpoints instead for clean Coinbase data
 ```
 
 ## Key Architecture Constraints
@@ -596,11 +604,11 @@ This is **fundamentally different** from temperature-based grouping.
 
 **NOTE**: UI Intelligence Framework is complete. Current focus is **Phase 8: Profit-Focused Learning System**.
 
-## 🎯 CURRENT DEVELOPMENT PHASE: Learning System UI Integration (October 5, 2025)
+## 🎯 CURRENT DEVELOPMENT PHASE: Universal Learning System (October 5, 2025)
 
-**Status**: ✅ COMPLETED - Successfully enhanced UI to show learning system activity to users
-**Goal**: Make profit-focused learning system visible and transparent through enhanced UI components
-**Achievement**: All learning system activity now visible through Intelligence Framework Panel, LearningPerformanceDashboard, and learning-enhanced bot cards
+**Status**: ✅ LEARNING DEPLOYED, ⚠️ UI PERFORMANCE ISSUE
+**Goal**: Apply profit-focused learning to all 45 bots instead of just 8 hardcoded pairs
+**Achievement**: Successfully deployed learning to all 45 bots with performance-based strategies, but API performance issue prevents UI visualization
 
 ### ✅ **Phase 8 BREAKTHROUGH COMPLETE (October 4, 2025)**
 - ✅ **Learning System Activated**: Successfully deployed profit-focused learning to all 8 eligible bots
@@ -622,6 +630,13 @@ This is **fundamentally different** from temperature-based grouping.
 - **LearningPerformanceDashboard**: Integrated into Intelligence tab showing before/after P&L comparisons
 - **Learning-Enhanced Bot Cards**: 8 learning bots display with signal weight visualizations and learning status badges
 - **Real-Time Visibility**: Users can now monitor learning system progress through multiple UI components
+
+### 🚀 **Universal Learning Results (October 5, 2025)**
+- **Complete Deployment**: All 45 bots now have learning-optimized signal weights based on individual P&L performance
+- **Performance-Based Strategies**: 2 major losers (aggressive rebalance), 8 minor losers (moderate adjustments), 32 neutral (gentle optimization), 3 winners (enhancement/fine-tuning)
+- **Dynamic Detection**: UI components updated to detect any bot with modified signal weights (no hardcoded lists)
+- **Verified Learning**: BTC-USD example shows RSI: 22.8% (vs default 40%), MA: 31.6% (vs default 35%)
+- **⚠️ Current Issue**: API performance degradation - /api/v1/bots/ endpoint too slow, preventing UI from displaying changes
 
 ### 🎯 **Expected Impact**
 - **Portfolio P&L**: Target improvement from -$24.70 toward positive
@@ -742,6 +757,7 @@ curl -s --max-time 5 "http://localhost:8000/api/v1/bots/" | jq 'length'
 - **Frontend shows "missing bots"**: Check if backend is running and bot count with `curl -s "http://localhost:8000/api/v1/bots/" | jq 'length'`
 - **Temperature display "undefined"**: Bot evaluation hasn't run yet - wait for Celery task cycle
 - **Signal configuration errors**: Ensure JSON structure matches `SignalConfigurationSchema` in schemas.py
+- **❌ Trade endpoint errors**: Use `/api/v1/raw-trades/` endpoints only - old `/api/v1/trades/` removed October 5, 2025
 
 **Common Causes of Slow APIs:**
 - Celery task backlog processing (normal during error cleanup)
@@ -790,6 +806,7 @@ For current system errors: `curl -s --max-time 10 "http://localhost:8000/api/v1/
 - `/backend/app/tasks/trading_tasks.py` - Celery evaluation tasks (FIXED: current_combined_score updates)
 - `/backend/app/models/models.py` - Database models (Bot, Trade, RawTrade)
 - `/backend/app/services/market_data_service.py` - **Phase 7**: Centralized Redis-based market data with batch API calls
+- `/universal_learning_system.py` - **Universal Learning**: Performance-based learning deployment for all 45 bots
 - `/backend/app/services/market_data_cache.py` - Thread-safe LRU cache (Phase 1 implementation, 90s TTL)
 - `/backend/app/services/sync_coordinated_coinbase_service.py` - **Phase 6.4**: Synchronous API coordination wrapper
 - `/backend/app/services/sync_api_coordinator.py` - Thread-safe request queuing with priority handling

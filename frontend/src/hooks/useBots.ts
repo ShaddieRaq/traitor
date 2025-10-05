@@ -23,6 +23,8 @@ export const useBots = () => {
       const response = await api.get('/bots');
       return response.data as Bot[];
     },
+    refetchInterval: 5000, // Refresh every 5 seconds for learning updates
+    staleTime: 0, // Always fetch fresh data for learning changes
   });
 };
 

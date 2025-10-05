@@ -19,49 +19,8 @@ from ..utils.trade_utils import get_trade_usd_value, calculate_portfolio_pnl, va
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-
-@router.get("/", response_model=List[TradeResponse])
-def get_trades(
-    product_id: str = None,
-    limit: int = 100,
-    db: Session = Depends(get_db)
-):
-    """
-    ⚠️ DEPRECATED: This endpoint uses corrupted data from the trades table.
-    Use /api/v1/raw-trades/ instead for clean Coinbase data.
-    """
-    logger.warning("⚠️ DEPRECATED ENDPOINT USED: /api/v1/trades/ - Use /api/v1/raw-trades/ instead")
-    
-    # Return a deprecation message
-    from fastapi import HTTPException
-    raise HTTPException(
-        status_code=410, 
-        detail={
-            "error": "Endpoint deprecated due to data corruption",
-            "message": "This endpoint uses corrupted trade data. Use /api/v1/raw-trades/ instead.",
-            "replacement": "/api/v1/raw-trades/",
-            "documentation": "/api/docs"
-        }
-    )
-
-
-@router.get("/stats")
-def get_trade_stats(db: Session = Depends(get_db)):
-    """
-    ⚠️ DEPRECATED: This endpoint uses corrupted trade data.
-    Use /api/v1/raw-trades/stats instead for accurate statistics.
-    """
-    logger.warning("⚠️ DEPRECATED ENDPOINT USED: /api/v1/trades/stats - Use /api/v1/raw-trades/stats instead")
-    
-    raise HTTPException(
-        status_code=410, 
-        detail={
-            "error": "Endpoint deprecated due to data corruption",
-            "message": "This endpoint uses corrupted trade statistics. Use clean endpoint instead.",
-            "replacement": "/api/v1/raw-trades/stats",
-            "documentation": "/api/docs"
-        }
-    )
+# NOTE: Deprecated endpoints /stats and /performance/by-product removed
+# Use /api/v1/raw-trades/ endpoints instead
 
 
 def calculate_profitability_data(db: Session):
@@ -327,27 +286,7 @@ def get_profitability_analysis(db: Session = Depends(get_db)):
     """Get comprehensive profitability and P&L analysis."""
     return calculate_profitability_data(db)
 
-
-@router.get("/performance/by-product")
-def get_performance_by_product(db: Session = Depends(get_db)):
-    """
-    ⚠️ DEPRECATED: This endpoint uses corrupted data showing $45.55 DOGE loss vs actual $37.42.
-    Use /api/v1/raw-trades/pnl-by-product instead for accurate data.
-    """
-    logger.warning("⚠️ CORRUPTED ENDPOINT USED: /api/v1/trades/performance/by-product - Use /api/v1/raw-trades/pnl-by-product instead")
-    
-    # Return a deprecation message
-    raise HTTPException(
-        status_code=410, 
-        detail={
-            "error": "Endpoint deprecated due to massive data corruption",
-            "message": "This endpoint shows corrupted P&L data (e.g. DOGE -$45.55 vs actual -$37.42). Use clean endpoint instead.",
-            "replacement": "/api/v1/raw-trades/pnl-by-product",
-            "corruption_example": "DOGE shows 112 fake trades instead of 6 real ones",
-            "data_inflation": "Spending inflated by 344%, receipts by 4,106%",
-            "documentation": "/api/docs"
-        }
-    )
+# NOTE: /performance/by-product endpoint removed - use /api/v1/raw-trades/pnl-by-product instead
     try:
         # SESSION FILTER: Include all real trades with order IDs (remove restrictive date/status filters)
         
