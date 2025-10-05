@@ -6,8 +6,6 @@ import { useTradeExecutionToasts } from '../hooks/useTradeExecutionToasts';
 import NotificationBell from '../components/Notifications/NotificationBell';
 import NotificationPanel from '../components/Notifications/NotificationPanel';
 import CleanIntelligenceAnalytics from '../components/CleanIntelligenceAnalytics';
-import LearningPerformanceDashboard from '../components/Dashboard/LearningPerformanceDashboard';
-import { SimpleLearningStatus } from '../components/SimpleLearningStatus';
 
 const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -27,15 +25,7 @@ const Dashboard: React.FC = () => {
       case 'analysis':
         return <MarketAnalysis />;
       case 'intelligence':
-        return (
-          <div className="space-y-6">
-            <CleanIntelligenceAnalytics />
-            {/* Phase 8 Learning Performance Dashboard */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <LearningPerformanceDashboard />
-            </div>
-          </div>
-        );
+        return <CleanIntelligenceAnalytics />;
       case 'notifications':
         return <NotificationPanel />;
       case 'overview':
