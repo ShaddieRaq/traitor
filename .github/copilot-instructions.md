@@ -6,7 +6,7 @@
 
 **MANDATORY VERIFICATION WORKFLOW:**
 1. Check health: `./scripts/status.sh`
-2. Verify bots: `curl -s "http://localhost:8000/api/v1/bots/" | jq 'length'` (should be 43)
+2. Verify bots: `curl -s "http://localhost:8000/api/v1/bots/" | jq 'length'` (should be 45)
 3. Check errors: `curl -s "http://localhost:8000/api/v1/system-errors/errors" | jq 'length'`
 4. Always use actual API responses to confirm changes worked
 
@@ -16,7 +16,7 @@
 
 **Production-ready cryptocurrency trading system** with **45 active bots** managing live funds across major trading pairs. Features sophisticated learning system with 141,587+ signal predictions.
 
-**✅ CURRENT STATUS (October 5, 2025)**: ✅ **UNIVERSAL LEARNING DEPLOYED** - Learning system successfully applied to all 45 bots based on individual P&L performance! Major achievement: Complete transition from 8 hardcoded bots to dynamic, performance-based learning for entire portfolio. **⚠️ Known Issue**: API performance degradation affecting UI display - learning is active but frontend cannot load updated bot data due to slow /api/v1/bots/ endpoint.
+**✅ CURRENT STATUS (October 5, 2025)**: ✅ **UNIVERSAL LEARNING DEPLOYED** - Learning system successfully applied to all 45 bots based on individual P&L performance! Major achievement: Complete transition from 8 hardcoded bots to dynamic, performance-based learning for entire portfolio. System operational with 0 errors, all services running properly.
 
 ### Core Architecture
 - **Backend**: FastAPI + SQLAlchemy + Celery/Redis + MarketDataService
@@ -56,10 +56,11 @@
 ./scripts/status.sh
 
 # 2. CRITICAL: Verify WebSocket streaming is running (prevents rate limiting)
-curl -s "http://localhost:8000/api/v1/websocket-prices/status" | jq '.streaming'  # Should be true
+# Note: WebSocket endpoints may not be exposed via REST API - check logs instead
+grep "💰.*USD:" logs/backend.log | tail -3  # Should show recent price updates
 
-# 3. If WebSocket not running, START IT IMMEDIATELY
-curl -X POST "http://localhost:8000/api/v1/websocket-prices/start-price-streaming" | jq
+# 3. If WebSocket not running, check backend logs and restart if needed
+# WebSocket streaming is handled internally by the backend service
 
 # 4. Configure Python environment (REQUIRED before Python operations)  
 # Use configure_python_environment tool
@@ -67,8 +68,8 @@ curl -X POST "http://localhost:8000/api/v1/websocket-prices/start-price-streamin
 # 5. Start services if needed
 ./scripts/start.sh
 
-# 6. Verify all 43 bots are operational
-curl -s "http://localhost:8000/api/v1/bots/" | jq 'length'  # Should return 43
+# 6. Verify all 45 bots are operational
+curl -s "http://localhost:8000/api/v1/bots/" | jq 'length'  # Should return 45
 
 # 7. Check for system errors before making any changes
 curl -s "http://localhost:8000/api/v1/system-errors/errors" | jq 'length'  # Should be 0 or low
@@ -110,10 +111,13 @@ curl -X POST "http://localhost:8000/api/v1/websocket-prices/start-price-streamin
 
 **WebSocket Troubleshooting:**
 ```bash
-# Check for WebSocket cache misses (indicates WebSocket not working)
-grep "WebSocket cache miss" logs/backend.log | tail -5
+# Check for real-time price updates in logs (indicates WebSocket working)
+grep "💰.*USD:" logs/backend.log | tail -5
 
-# If you see these warnings, WebSocket is NOT running - start it immediately!
+# Check for price streaming activity
+tail -f logs/backend.log | grep -E "💰|price|streaming"
+
+# If no price updates, WebSocket may need internal restart via backend service
 ```
 
 ## 🚨 RATE LIMITING TROUBLESHOOTING
@@ -635,8 +639,8 @@ This is **fundamentally different** from temperature-based grouping.
 - **Complete Deployment**: All 45 bots now have learning-optimized signal weights based on individual P&L performance
 - **Performance-Based Strategies**: 2 major losers (aggressive rebalance), 8 minor losers (moderate adjustments), 32 neutral (gentle optimization), 3 winners (enhancement/fine-tuning)
 - **Dynamic Detection**: UI components updated to detect any bot with modified signal weights (no hardcoded lists)
-- **Verified Learning**: BTC-USD example shows RSI: 22.8% (vs default 40%), MA: 31.6% (vs default 35%)
-- **⚠️ Current Issue**: API performance degradation - /api/v1/bots/ endpoint too slow, preventing UI from displaying changes
+- **Verified Learning**: Individual bot queries show learning-modified weights (e.g., RSI: 22.8% vs default 40%)
+- **System Status**: All services operational, 0 system errors, learning system active and trading with optimized weights
 
 ### 🎯 **Expected Impact**
 - **Portfolio P&L**: Target improvement from -$24.70 toward positive
@@ -844,10 +848,11 @@ For current system errors: `curl -s --max-time 10 "http://localhost:8000/api/v1/
 ## 📚 OCTOBER 2025 LESSONS LEARNED SUMMARY
 
 **Major Achievements**:
+- ✅ Universal Learning System deployed - All 45 bots optimized with profit-focused learning
 - ✅ Phase 7 Market Data Service completed - 95%+ cache hit rate, 0 rate limiting
 - ✅ Threshold configuration corruption incident resolved
 - ✅ API schema understanding documented  
-- ✅ All 43 bots operational with proven ±0.05 thresholds
+- ✅ All 45 bots operational with proven ±0.05 thresholds
 
 **Critical Lessons for Future Agents**:
 1. **API First**: Always check OpenAPI schema before making calls
@@ -856,4 +861,4 @@ For current system errors: `curl -s --max-time 10 "http://localhost:8000/api/v1/
 4. **No Default Changes**: Never modify system defaults during debugging
 5. **Document Everything**: Track all temporary changes with reversion plan
 
-**System Status**: Production-ready with 43 bots operational, excellent system health with 0 current errors.
+**System Status**: Production-ready with 45 bots operational, universal learning system active, excellent system health with 0 current errors.
