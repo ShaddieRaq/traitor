@@ -277,6 +277,9 @@ class EnhancedBotStatusResponse(BaseModel):
     temperature: str
     distance_to_signal: float
     
+    # Signal confidence for transparency
+    signal_confidence: Optional[float] = None
+    
     # Enhanced trading visibility fields
     trading_intent: TradingIntent
     confirmation: ConfirmationStatus

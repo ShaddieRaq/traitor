@@ -1,6 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import EnhancedSystemHealthPanel from '../Trading/EnhancedSystemHealthPanel';
+import SystemDiagnosticsCard from './SystemDiagnosticsCard';
 
 interface SystemDiagnosticsModalProps {
   isOpen: boolean;
@@ -20,7 +21,7 @@ export const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <div>
             <h2 className="text-xl font-bold text-gray-900">System Diagnostics</h2>
-            <p className="text-sm text-gray-600">Comprehensive system health and performance monitoring</p>
+            <p className="text-sm text-gray-600">Trading parameters, system health, and performance monitoring</p>
           </div>
           <button
             onClick={onClose}
@@ -32,7 +33,11 @@ export const SystemDiagnosticsModal: React.FC<SystemDiagnosticsModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)] space-y-6">
+          {/* Trading Parameters and Blocking Analysis */}
+          <SystemDiagnosticsCard />
+          
+          {/* System Health Monitoring */}
           <EnhancedSystemHealthPanel />
         </div>
 

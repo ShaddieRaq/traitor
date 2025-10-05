@@ -37,6 +37,7 @@ class AdaptiveSignalWeightingService:
         self.max_weight_change_percent = 15  # Maximum 15% change per update  
         self.min_predictions_required = 1   # Minimum 1 for initial testing (will increase over time)
         self.cooldown_hours = 12  # 12-hour cooldown between updates
+        self.min_hours_between_updates = self.cooldown_hours  # Fix: use consistent naming
         self.min_weight_threshold = 0.05  # Minimum weight to prevent signal elimination
         self.max_weight_threshold = 0.8   # Maximum weight for any single signal
         

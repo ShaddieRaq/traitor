@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .api import bots, market, trades, bot_evaluation, websocket, bot_temperatures, coinbase_sync, trading_diagnosis, validation, market_analysis, raw_trades, positions, system_errors, websocket_prices, health_monitoring, market_data_cache, notifications, new_pairs, trends, intelligence_analytics, cache_monitoring, market_data, market_selection
+from .api.endpoints import system_diagnostics
 from .core.config import settings
 from .core.database import engine, Base
 import logging
@@ -159,6 +160,9 @@ app.include_router(signal_performance.router, prefix="/api/v1/signal-performance
 
 # Phase 5D: Intelligence Framework Analytics API
 app.include_router(intelligence_analytics.router, prefix="/api/v1/intelligence", tags=["intelligence-analytics"])
+
+# System Diagnostics - exposes critical trading parameters for user understanding
+app.include_router(system_diagnostics.router, prefix="/api/v1", tags=["system-diagnostics"])
 
 
 @app.get("/")

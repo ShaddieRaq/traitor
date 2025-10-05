@@ -217,6 +217,7 @@ export interface PnLData {
 }
 
 export interface EnhancedBotStatus extends BotStatus {
+  signal_confidence?: number;
   trading_intent: TradingIntent;
   confirmation: ConfirmationStatus;
   trade_readiness: TradeReadiness;

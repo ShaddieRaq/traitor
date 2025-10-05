@@ -625,6 +625,7 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                 position_size_usd=actual_position_usd,  # Provide both fields for compatibility
                 temperature=temperature,
                 distance_to_signal=distance_to_signal,
+                signal_confidence=confidence,
                 trading_intent=trading_intent,
                 confirmation=confirmation,
                 trade_readiness=trade_readiness,
@@ -648,6 +649,7 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                 position_size_usd=bot.current_position_size,  # Provide both fields for compatibility
                 temperature=calculate_bot_temperature(bot.current_combined_score),
                 distance_to_signal=1.0,
+                signal_confidence=0.0,
                 trading_intent=TradingIntent(next_action="hold", signal_strength=0.0, confidence=0.0, distance_to_threshold=1.0),
                 confirmation=ConfirmationStatus(is_active=False),
                 trade_readiness=TradeReadiness(status="no_signal", can_trade=False),

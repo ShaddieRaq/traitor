@@ -507,6 +507,44 @@ class MarketDataService:
         
         return health
 
+    def get_candles(self, product_id: str, granularity: str = 'ONE_HOUR', limit: int = 100) -> pd.DataFrame:
+        """
+        COMPATIBILITY METHOD for Phase 7 refactoring gaps.
+        
+        This method provides backward compatibility for trading_tasks.py and other
+        consumers that still use the old get_candles() API with string granularity.
+        
+        Args:
+            product_id: Trading pair (e.g., "BTC-USD")
+            granularity: String granularity ('ONE_HOUR', 'ONE_DAY', etc.)
+            limit: Number of candles to fetch
+            
+        Returns:
+            DataFrame with OHLCV data
+            
+        Note: This method converts string granularity to integer seconds and
+              delegates to get_historical_data() for actual implementation.
+        """
+        # Convert string granularity to integer seconds
+        granularity_map = {
+            'ONE_MINUTE': 60,
+            'FIVE_MINUTE': 300,
+            'FIFTEEN_MINUTE': 900,
+            'ONE_HOUR': 3600,
+            'SIX_HOUR': 21600,
+            'ONE_DAY': 86400
+        }
+        
+        granularity_seconds = granularity_map.get(granularity, 3600)  # Default to 1 hour
+        
+        if granularity not in granularity_map:
+            logger.warning(f"Unknown granularity '{granularity}', defaulting to ONE_HOUR (3600s)")
+        
+        logger.info(f"🔄 COMPATIBILITY: get_candles({product_id}, {granularity}) → get_historical_data({product_id}, {granularity_seconds}, {limit})")
+        
+        # Delegate to the actual implementation
+        return self.get_historical_data(product_id, granularity_seconds, limit)
+
 
 # Global instance - Industry pattern for service singletons
 _market_data_service = None

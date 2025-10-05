@@ -58,6 +58,86 @@ export const CompactPerformanceCard: React.FC<{ bot: any, pnlData?: any }> = ({ 
           </div>
         </div>
 
+        {/* Confidence Meter with 20% Threshold Line */}
+        <div className="mb-3">
+          <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+            <span>Signal Confidence</span>
+            <div className="flex items-center space-x-2">
+              <span className="font-mono">{((bot.signal_confidence || 0) * 100).toFixed(1)}%</span>
+              {(bot.signal_confidence || 0) < 0.2 && (
+                <span className="text-red-600 font-medium">{'< 20% req'}</span>
+              )}
+            </div>
+          </div>
+          <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden">
+            {/* Confidence Bar */}
+            <div 
+              className={`h-full transition-all duration-300 ${
+                (bot.signal_confidence || 0) >= 0.2 ? 'bg-green-500' : 'bg-red-500'
+              }`}
+              style={{ width: `${Math.min((bot.signal_confidence || 0) * 100, 100)}%` }}
+            ></div>
+            {/* 20% Threshold Line */}
+            <div 
+              className="absolute top-0 w-0.5 h-full bg-gray-800 opacity-75"
+              style={{ left: '20%' }}
+              title="20% minimum required"
+            ></div>
+          </div>
+        </div>
+
+        {/* Balance Requirements Info - Only show when actually blocked */}
+        {bot.trade_readiness?.status === 'blocked' && bot.trade_readiness?.blocking_reason?.includes('insufficient_balance') && (
+          <div className="mb-3 p-2 bg-red-50 rounded-lg border border-red-200">
+            <div className="flex items-center space-x-1 mb-1">
+              <span className="text-xs font-medium text-red-700">💰 {bot.trade_readiness.blocking_reason.includes('USD') ? 'Need USD' : 'Need Crypto'}</span>
+            </div>
+            <div className="text-xs text-red-600">
+              {bot.trade_readiness.blocking_reason.includes('USD') ? (
+                <span>${bot.position_size_usd || 25} USD required</span>
+              ) : (
+                <span>Insufficient crypto holdings</span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Risk Multiplier Info - Show position sizing adjustments */}
+        {bot.position_sizing && bot.use_position_sizing && (
+          <div className="mb-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-medium text-blue-700 flex items-center">
+                <Shield className="h-3 w-3 mr-1" />
+                Position Sizing
+              </span>
+              <span className="text-xs font-bold text-blue-800">
+                {(bot.position_sizing.total_multiplier * 100).toFixed(0)}% of base
+              </span>
+            </div>
+            <div className="text-xs text-blue-600">
+              <div className="flex justify-between">
+                <span>Base: ${bot.position_sizing.base_position_size}</span>
+                <span>→ Actual: ${bot.position_sizing.final_position_size}</span>
+              </div>
+              <div className="text-xs text-blue-500 mt-1 truncate" title={bot.position_sizing.sizing_rationale}>
+                {bot.position_sizing.regime_analysis?.regime || 'Dynamic'} market adjustment
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Coinbase Minimum Trade Warning */}
+        {(bot.position_sizing?.final_position_size || bot.position_size_usd || 0) < 10 && (
+          <div className="mb-3 p-2 bg-yellow-50 rounded-lg border border-yellow-200">
+            <div className="flex items-center space-x-1 mb-1">
+              <span className="text-xs font-medium text-yellow-700">⚠️ Coinbase Minimum</span>
+            </div>
+            <div className="text-xs text-yellow-600">
+              ${(bot.position_sizing?.final_position_size || bot.position_size_usd || 0).toFixed(0)} position below $10 minimum - trades may fail
+            </div>
+          </div>
+        )}
+
         {/* Quick Stats Grid */}
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="bg-gray-50 rounded-lg p-2">
@@ -158,20 +238,68 @@ export const AdvancedAnalyticsCard: React.FC<{ bot: any, pnlData?: any }> = ({ b
             </div>
           </div>
           
-          {/* Confidence Meter */}
+          {/* Signal Confidence Meter with 20% Threshold Line */}
           <div className="mb-2">
-            <div className="flex justify-between text-xs text-gray-600 mb-1">
-              <span>Confidence</span>
-              <span>{Math.round((bot.trading_intent?.confidence || 0) * 100)}%</span>
+            <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+              <span>Signal Confidence</span>
+              <div className="flex items-center space-x-2">
+                <span className="font-mono">{((bot.signal_confidence || 0) * 100).toFixed(1)}%</span>
+                {(bot.signal_confidence || 0) < 0.2 && (
+                  <span className="text-red-600 font-medium">{'< 20% req'}</span>
+                )}
+              </div>
             </div>
-            <div className="h-1.5 bg-gray-200 rounded-full">
+            <div className="relative h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              {/* Confidence Bar */}
               <div 
-                className="h-full bg-blue-500 rounded-full transition-all duration-300"
-                style={{ width: `${(bot.trading_intent?.confidence || 0) * 100}%` }}
+                className={`h-full transition-all duration-300 ${
+                  (bot.signal_confidence || 0) >= 0.2 ? 'bg-green-500' : 'bg-red-500'
+                }`}
+                style={{ width: `${Math.min((bot.signal_confidence || 0) * 100, 100)}%` }}
+              ></div>
+              {/* 20% Threshold Line */}
+              <div 
+                className="absolute top-0 w-0.5 h-full bg-gray-800 opacity-75"
+                style={{ left: '20%' }}
+                title="20% minimum required"
               ></div>
             </div>
           </div>
+
+          {/* Active Trading Thresholds */}
+          {bot.trading_thresholds && (
+            <div className="mb-2">
+              <div className="flex justify-between text-xs text-gray-600 mb-1">
+                <span>Active Thresholds</span>
+                <span className="font-mono">
+                  {bot.trading_thresholds.buy_threshold?.toFixed(3)} / {bot.trading_thresholds.sell_threshold?.toFixed(3)}
+                </span>
+              </div>
+              <div className="text-xs text-gray-500">
+                {bot.trend_analysis?.regime && (
+                  <span className="capitalize">{bot.trend_analysis.regime.toLowerCase()} market</span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Balance Requirements Info - Show for ALL buy signals when USD insufficient */}
+        {(bot.trading_intent?.next_action === 'buy' || 
+          (bot.trade_readiness?.status === 'blocked' && bot.trade_readiness?.blocking_reason?.includes('insufficient_balance'))) && (
+          <div className="mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
+            <div className="flex items-center space-x-1 mb-2">
+              <span className="text-sm font-medium text-red-700">💰 Balance Required</span>
+            </div>
+            <div className="text-xs text-red-600">
+              {bot.trading_intent?.next_action === 'buy' || bot.trade_readiness?.blocking_reason?.includes('USD') ? (
+                <span>Need ${bot.position_size_usd || 25} USD minimum for buy orders</span>
+              ) : (
+                <span>Insufficient crypto holdings for sell orders</span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Market Intelligence */}
         {trend && (
@@ -249,8 +377,79 @@ export const AdvancedAnalyticsCard: React.FC<{ bot: any, pnlData?: any }> = ({ b
               }
             </div>
             <div className="text-xs text-purple-600">of base</div>
+            {position && position.total_multiplier < 1.0 && (
+              <div className="text-xs text-purple-500 mt-1">
+                ${position.base_position_size} → ${position.final_position_size}
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Risk Multiplier Breakdown - Show detailed position sizing logic */}
+        {position && bot.use_position_sizing && position.total_multiplier < 1.0 && (
+          <div className="mb-4 p-3 bg-orange-50 rounded-lg border border-orange-200">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-orange-700 flex items-center">
+                <Zap className="h-4 w-4 mr-1" />
+                Position Adjustment
+              </span>
+              <span className="text-xs text-orange-600">
+                {position.regime_analysis?.regime || 'DYNAMIC'}
+              </span>
+            </div>
+            <div className="text-xs text-orange-600 mb-2">
+              {position.sizing_rationale || 'Position size adjusted based on market conditions'}
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="text-center">
+                <div className="text-orange-500">Regime</div>
+                <div className="font-medium text-orange-800">
+                  {position.multiplier_breakdown?.regime_multiplier ? 
+                    `${(position.multiplier_breakdown.regime_multiplier * 100).toFixed(0)}%` : 
+                    'N/A'
+                  }
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-orange-500">Volatility</div>
+                <div className="font-medium text-orange-800">
+                  {position.multiplier_breakdown?.volatility_multiplier ? 
+                    `${(position.multiplier_breakdown.volatility_multiplier * 100).toFixed(0)}%` : 
+                    'N/A'
+                  }
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-orange-500">Confidence</div>
+                <div className="font-medium text-orange-800">
+                  {position.multiplier_breakdown?.confidence_multiplier ? 
+                    `${(position.multiplier_breakdown.confidence_multiplier * 100).toFixed(0)}%` : 
+                    'N/A'
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Coinbase Minimum Trade Warning */}
+        {(bot.position_sizing?.final_position_size || bot.position_size_usd || 0) < 10 && (
+          <div className="mb-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-yellow-700 flex items-center">
+                <Target className="h-4 w-4 mr-1" />
+                Trade Size Warning
+              </span>
+              <span className="text-xs text-yellow-600">Coinbase Limit</span>
+            </div>
+            <div className="text-sm text-yellow-600 mb-2">
+              Current position size: ${(bot.position_sizing?.final_position_size || bot.position_size_usd || 0).toFixed(2)}
+            </div>
+            <div className="text-xs text-yellow-600">
+              ⚠️ Coinbase requires minimum $10.00 per trade. This bot may experience failed orders until position size increases or market conditions change.
+            </div>
+          </div>
+        )}
 
         {/* Balance Details - Only show if we have P&L data */}
         {botPnL && botPnL.current_holdings > 0 && (

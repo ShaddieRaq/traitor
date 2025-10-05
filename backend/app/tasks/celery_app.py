@@ -35,18 +35,19 @@ celery_app.conf.update(
             "task": "app.tasks.market_data_tasks.cache_stats_logger",
             "schedule": 60.0,  # Every minute - monitor cache performance
         },
-        # Existing tasks - TEMPORARILY DISABLED to prevent rate limiting
-        # "fetch-market-data": {
-        #     "task": "app.tasks.data_tasks.fetch_market_data_task",
-        #     "schedule": 300.0,  # Every 5 minutes - DISABLED
-        # },
-        # "fast-trading-loop": {
-        #     "task": "app.tasks.trading_tasks.fast_trading_evaluation", 
-        #     "schedule": 600.0,  # Every 10 minutes - DISABLED
-        # },
+        # Trading tasks - RE-ENABLED with WebSocket streaming (no more rate limiting)
+        "fast-trading-loop": {
+            "task": "app.tasks.trading_tasks.fast_trading_evaluation", 
+            "schedule": 600.0,  # Every 10 minutes - RE-ENABLED with WebSocket protection
+        },
         "update-trade-statuses": {
             "task": "app.tasks.trading_tasks.update_trade_statuses",
             "schedule": 120.0,  # Every 2 minutes - reduced from 30s to prevent rate limiting
+        },
+        # Phase 8: Adaptive Signal Weighting (ACTIVATED)
+        "adaptive-weight-updates": {
+            "task": "adaptive_weighting.update_all_eligible_bots",
+            "schedule": 3600.0,  # Every hour - check for adaptive weight updates
         },
         # Auto bot scanner disabled - user prefers Market Analysis tab
         # "periodic-market-scan": {
