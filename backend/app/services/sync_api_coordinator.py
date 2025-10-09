@@ -225,7 +225,8 @@ class SyncAPICoordinator:
         self.stats['queued_requests'] += 1
         
         # Process queue with retry logic for trading requests
-        max_attempts = 10 if priority == RequestPriority.CRITICAL else 3
+        # Increased timeouts for better resilience during high load
+        max_attempts = 15 if priority == RequestPriority.CRITICAL else 8
         attempt = 0
         
         while attempt < max_attempts:
@@ -233,8 +234,8 @@ class SyncAPICoordinator:
             if result is not None:
                 return result
             
-            # Wait before retry (shorter wait for critical requests)
-            wait_time = 0.5 if priority == RequestPriority.CRITICAL else 1.0
+            # Wait before retry (adaptive wait times)
+            wait_time = 0.3 if priority == RequestPriority.CRITICAL else 0.8
             time.sleep(wait_time)
             attempt += 1
         

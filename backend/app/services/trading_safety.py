@@ -286,16 +286,27 @@ class TradingSafetyService:
         
         return is_cooled_down
     
-    def _check_price_step(self, bot: Bot, side: str, size_usd: float) -> bool:
+    def _check_price_step(self, bot: Bot, side: str, size_usd: float) -> tuple[bool, dict]:
         """Check if price has moved enough since last trade (trade_step_pct).
+        
+        Returns: (is_step_met, step_info)
+        where step_info contains current_change_pct, required_step_pct, last_price, current_price
         
         Note: Price step requirement only applies to BUY orders to prevent over-buying
         at similar prices. SELL orders should always be allowed for profit-taking or loss-cutting.
         """
+        step_info = {
+            'current_change_pct': 0,
+            'required_step_pct': bot.trade_step_pct or 2.0,
+            'last_price': None,
+            'current_price': None,
+            'applies_to_sell': False
+        }
+        
         # Price step requirement only applies to BUY orders
         if side.upper() == "SELL":
             logger.info(f"💰 Bot {bot.id} price step: SELL order always allowed (no price step requirement)")
-            return True
+            return True, step_info
         
         # Get the most recent completed trade for this bot
         last_trade = self.db.query(Trade).filter(
@@ -307,7 +318,7 @@ class TradingSafetyService:
         ).order_by(Trade.created_at.desc()).first()
         
         if not last_trade or not last_trade.price:
-            return True  # No previous trades, price step not applicable
+            return True, step_info  # No previous trades, price step not applicable
         
         # Get current market price using cached data
         try:
@@ -318,7 +329,7 @@ class TradingSafetyService:
             
             if current_price <= 0:
                 logger.warning(f"Invalid current price for {bot.pair}, allowing trade")
-                return True
+                return True, step_info
             
             # Calculate price change percentage
             last_price = float(last_trade.price)
@@ -326,16 +337,24 @@ class TradingSafetyService:
             
             required_step = bot.trade_step_pct or 2.0  # Default 2% if not set
             
+            # Update step_info with actual values
+            step_info.update({
+                'current_change_pct': price_change_pct,
+                'required_step_pct': required_step,
+                'last_price': last_price,
+                'current_price': current_price
+            })
+            
             is_step_met = price_change_pct >= required_step
             
             if not is_step_met:
                 logger.info(f"💰 Bot {bot.id} price step: {price_change_pct:.2f}% < {required_step}%")
             
-            return is_step_met
+            return is_step_met, step_info
             
         except Exception as e:
             logger.warning(f"Error checking price step for bot {bot.id}: {e}, allowing trade")
-            return True  # Allow trade if price check fails
+            return True, step_info  # Allow trade if price check fails
     
     def get_safety_status(self) -> Dict[str, Any]:
         """Get current safety status and limits."""

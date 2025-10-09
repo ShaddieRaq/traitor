@@ -3,6 +3,7 @@ import { CompactPerformanceCard, AdvancedAnalyticsCard } from './BotCardSamples'
 import { useEnhancedBotsStatus, usePnLData, useStartBot, useStopBot, useDeleteBot } from '../../hooks/useBots';
 import { Edit3, Play, Pause, Trash2, LayoutGrid, List, ChevronDown, ChevronUp, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { DeleteBotModal } from './DeleteBotModal';
 
 interface DualViewBotsDisplayProps {
   className?: string;
@@ -29,6 +30,7 @@ export const DualViewBotsDisplay: React.FC<DualViewBotsDisplayProps> = ({
     COOL: false,
     FROZEN: true  // Start with FROZEN collapsed since they're usually inactive
   });
+  const [deletingBot, setDeletingBot] = useState<{ id: number; name: string } | null>(null);
   
   // Scroll position preservation refs
   const scrollRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
@@ -242,14 +244,7 @@ export const DualViewBotsDisplay: React.FC<DualViewBotsDisplayProps> = ({
                         )}
                         
                         <button
-                          onClick={() => {
-                            if (confirm(`Are you sure you want to delete bot "${bot.pair}"?`)) {
-                              deleteBot.mutate(bot.id, {
-                                onSuccess: () => toast.success(`Bot "${bot.pair}" deleted`),
-                                onError: () => toast.error(`Failed to delete bot "${bot.pair}"`)
-                              });
-                            }
-                          }}
+                          onClick={() => setDeletingBot({ id: bot.id, name: bot.pair })}
                           className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
                           title="Delete Bot"
                         >
@@ -268,16 +263,39 @@ export const DualViewBotsDisplay: React.FC<DualViewBotsDisplayProps> = ({
   };
 
   return (
-    <div className={`space-y-4 ${className}`}>
-      {/* Integrated Bot Management Header */}
-      <div className="flex items-center justify-between bg-white rounded-lg border p-4">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">Trading Bots</h2>
-          <p className="text-sm text-gray-600">
-            {viewMode === 'smart' 
-              ? 'Smart view: Advanced analytics for active bots (🔥HOT/🌡️WARM), compact performance cards for inactive bots (❄️COOL/🧊FROZEN)'
-              : viewMode === 'compact' 
-                ? 'Compact performance-focused cards optimized for space efficiency'
+    <>
+      <DeleteBotModal
+        isOpen={deletingBot !== null}
+        onCancel={() => setDeletingBot(null)}
+        onConfirm={(liquidate) => {
+          if (deletingBot) {
+            deleteBot.mutate(
+              { botId: deletingBot.id, liquidate },
+              {
+                onSuccess: () => {
+                  toast.success(`Bot "${deletingBot.name}" deleted${liquidate ? ' and liquidated' : ''}`);
+                  setDeletingBot(null);
+                },
+                onError: () => {
+                  toast.error(`Failed to delete bot "${deletingBot.name}"`);
+                  setDeletingBot(null);
+                }
+              }
+            );
+          }
+        }}
+        botName={deletingBot?.name || ''}
+      />
+      <div className={`space-y-4 ${className}`}>
+        {/* Integrated Bot Management Header */}
+        <div className="flex items-center justify-between bg-white rounded-lg border p-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Trading Bots</h2>
+            <p className="text-sm text-gray-600">
+              {viewMode === 'smart' 
+                ? 'Smart view: Advanced analytics for active bots (🔥HOT/🌡️WARM), compact performance cards for inactive bots (❄️COOL/🧊FROZEN)'
+                : viewMode === 'compact' 
+                  ? 'Compact performance-focused cards optimized for space efficiency'
                 : 'Advanced analytics cards with detailed market intelligence and signal analysis'
             }
           </p>
@@ -365,7 +383,8 @@ export const DualViewBotsDisplay: React.FC<DualViewBotsDisplayProps> = ({
         bgColor="bg-gradient-to-r from-gray-50 to-slate-50" 
         groupKey="FROZEN"
       />
-    </div>
+      </div>
+    </>
   );
 };
 

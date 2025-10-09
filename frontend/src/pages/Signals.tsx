@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { useBots, useBotsStatus, useDeleteBot, useStartBot, useStopBot, useCreateBot, useUpdateBot } from '../hooks/useBots';
 import { Bot, BotCreate, BotUpdate } from '../types';
 import BotForm from '../components/BotForm';
+import { DeleteBotModal } from '../components/Dashboard/DeleteBotModal';
 
 const Signals: React.FC = () => {
   const { data: bots, isLoading, error } = useBots();
@@ -30,6 +31,7 @@ const Signals: React.FC = () => {
   // Modal state
   const [showForm, setShowForm] = useState(false);
   const [editingBot, setEditingBot] = useState<Bot | null>(null);
+  const [deletingBot, setDeletingBot] = useState<{ id: number; name: string } | null>(null);
 
   const handleStart = (id: number) => {
     const botToStart = bots?.find(bot => bot.id === id);
@@ -62,18 +64,7 @@ const Signals: React.FC = () => {
   const handleDelete = (id: number) => {
     const botToDelete = bots?.find(bot => bot.id === id);
     const botName = botToDelete?.name || `Bot ${id}`;
-    
-    if (confirm(`Are you sure you want to delete "${botName}"?`)) {
-      deleteBot.mutate(id, {
-        onSuccess: () => {
-          toast.success(`Bot "${botName}" deleted successfully`);
-        },
-        onError: (error) => {
-          console.error('Failed to delete bot:', error);
-          toast.error(`Failed to delete bot "${botName}". Please try again.`);
-        }
-      });
-    }
+    setDeletingBot({ id, name: botName });
   };
 
   const handleCreateBot = () => {
@@ -143,15 +134,39 @@ const Signals: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="md:flex md:items-center md:justify-between">
-        <div className="flex-1 min-w-0">
-          <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-            Trading Bots
-          </h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Manage your trading bots and their configurations
-          </p>
+    <>
+      <DeleteBotModal
+        isOpen={deletingBot !== null}
+        onCancel={() => setDeletingBot(null)}
+        onConfirm={(liquidate) => {
+          if (deletingBot) {
+            deleteBot.mutate(
+              { botId: deletingBot.id, liquidate },
+              {
+                onSuccess: () => {
+                  toast.success(`Bot "${deletingBot.name}" deleted${liquidate ? ' and liquidated' : ''}`);
+                  setDeletingBot(null);
+                },
+                onError: (error) => {
+                  console.error('Failed to delete bot:', error);
+                  toast.error(`Failed to delete bot "${deletingBot.name}". Please try again.`);
+                  setDeletingBot(null);
+                }
+              }
+            );
+          }
+        }}
+        botName={deletingBot?.name || ''}
+      />
+      <div className="space-y-6">
+        <div className="md:flex md:items-center md:justify-between">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+              Trading Bots
+            </h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Manage your trading bots and their configurations
+            </p>
         </div>
         <div className="mt-4 flex md:mt-0 md:ml-4">
           <button
@@ -268,7 +283,8 @@ const Signals: React.FC = () => {
           isLoading={createBot.isPending || updateBot.isPending}
         />
       )}
-    </div>
+      </div>
+    </>
   );
 };
 

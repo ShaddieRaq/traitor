@@ -223,4 +223,5 @@ export interface EnhancedBotStatus extends BotStatus {
   trade_readiness: TradeReadiness;
   last_trade?: LastTradeInfo;
   pnl_data?: PnLData;
+  cooldown_minutes: number; // Real cooldown duration from bot configuration
 }

@@ -47,7 +47,10 @@ def evaluate_bot_signals(
         }
         granularity = timeframe_map.get(timeframe, 3600)
         
-        market_data = coinbase_service.get_historical_data(
+        # Use cached market data service instead of direct coinbase API calls
+        from ..services.market_data_service import get_market_data_service
+        market_service = get_market_data_service()
+        market_data = market_service.get_historical_data(
             product_id=bot.pair,
             granularity=granularity,
             limit=limit
@@ -91,14 +94,14 @@ async def test_bot_evaluation(bot_id: int, db: Session = Depends(get_db)):
     if not bot:
         raise HTTPException(status_code=404, detail="Bot not found")
     
-    # Get market data from Coinbase
+    # Get market data from cached service
     try:
-        from ..services.sync_coordinated_coinbase_service import get_coordinated_coinbase_service
-        coinbase = get_coordinated_coinbase_service()
+        from ..services.market_data_service import get_market_data_service
+        market_service = get_market_data_service()
         
         # Convert time interval to seconds for Coinbase API
         granularity_seconds = 60  # 1 minute intervals
-        market_data = coinbase.get_historical_data(bot.pair, granularity_seconds, 50)
+        market_data = market_service.get_historical_data(bot.pair, granularity_seconds, 50)
         
         if market_data.empty:
             raise HTTPException(status_code=503, detail="Unable to fetch market data")

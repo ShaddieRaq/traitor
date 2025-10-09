@@ -89,72 +89,81 @@ def get_bots(db: Session = Depends(get_db)):
 @router.post("/", response_model=BotResponse)
 def create_bot(bot: BotCreate, db: Session = Depends(get_db)):
     """Create a new bot."""
-    # Check if bot name already exists
-    existing_bot = db.query(Bot).filter(Bot.name == bot.name).first()
-    if existing_bot:
-        raise HTTPException(status_code=400, detail="Bot name already exists")
-    
-    # Create default signal configuration if none provided
-    if bot.signal_config:
-        if hasattr(bot.signal_config, 'dict'):
-            signal_config_json = bot.signal_config.model_dump()
+    try:
+        # Check if bot name already exists
+        existing_bot = db.query(Bot).filter(Bot.name == bot.name).first()
+        if existing_bot:
+            raise HTTPException(status_code=400, detail="Bot name already exists")
+        
+        # Create default signal configuration if none provided
+        if bot.signal_config:
+            if hasattr(bot.signal_config, 'dict'):
+                signal_config_json = bot.signal_config.model_dump()
+            else:
+                signal_config_json = bot.signal_config
         else:
-            signal_config_json = bot.signal_config
-    else:
-        # Default signal configuration for new bots (matches working bots)
-        signal_config_json = {
-            "rsi": {
-                "enabled": True,
-                "weight": 0.4,
-                "period": 14,
-                "buy_threshold": 30,
-                "sell_threshold": 70
-            },
-            "moving_average": {
-                "enabled": True,
-                "weight": 0.35,
-                "fast_period": 12,
-                "slow_period": 26
-            },
-            "macd": {
-                "enabled": True,
-                "weight": 0.25,
-                "fast_period": 12,
-                "slow_period": 26,
-                "signal_period": 9
-            },
-            "trading_thresholds": {
-                "buy_threshold": -0.05,
-                "sell_threshold": 0.05
+            # Default signal configuration for new bots (matches working bots)
+            signal_config_json = {
+                "rsi": {
+                    "enabled": True,
+                    "weight": 0.4,
+                    "period": 14,
+                    "buy_threshold": 30,
+                    "sell_threshold": 70
+                },
+                "moving_average": {
+                    "enabled": True,
+                    "weight": 0.35,
+                    "fast_period": 12,
+                    "slow_period": 26
+                },
+                "macd": {
+                    "enabled": True,
+                    "weight": 0.25,
+                    "fast_period": 12,
+                    "slow_period": 26,
+                    "signal_period": 9
+                },
+                "trading_thresholds": {
+                    "buy_threshold": -0.05,
+                    "sell_threshold": 0.05
+                }
             }
-        }
 
-    # Create new bot with intelligence features enabled by default
-    db_bot = Bot(
-        name=bot.name,
-        description=bot.description,
-        pair=bot.pair,
-        position_size_usd=bot.position_size_usd,
-        max_positions=bot.max_positions,
-        stop_loss_pct=bot.stop_loss_pct,
-        take_profit_pct=bot.take_profit_pct,
-        confirmation_minutes=bot.confirmation_minutes,
-        trade_step_pct=bot.trade_step_pct,
-        cooldown_minutes=bot.cooldown_minutes,
-        signal_config=json.dumps(signal_config_json),
-        # Enable 4-phase intelligence framework by default
-        use_trend_detection=True,  # Phase 1: Market Regime Intelligence
-        use_position_sizing=True   # Phase 2: Dynamic Position Sizing
-    )
-    
-    db.add(db_bot)
-    db.commit()
-    db.refresh(db_bot)
-    
-    # Convert signal_config back to dict for response
-    db_bot.signal_config = json.loads(db_bot.signal_config) if db_bot.signal_config else {}
-    
-    return db_bot
+        # Create new bot with intelligence features enabled by default
+        db_bot = Bot(
+            name=bot.name,
+            description=bot.description,
+            pair=bot.pair,
+            position_size_usd=bot.position_size_usd,
+            max_positions=bot.max_positions,
+            stop_loss_pct=bot.stop_loss_pct,
+            take_profit_pct=bot.take_profit_pct,
+            confirmation_minutes=bot.confirmation_minutes,
+            trade_step_pct=bot.trade_step_pct,
+            cooldown_minutes=bot.cooldown_minutes,
+            signal_config=json.dumps(signal_config_json),
+            # Enable 4-phase intelligence framework by default
+            use_trend_detection=True,  # Phase 1: Market Regime Intelligence
+            use_position_sizing=True   # Phase 2: Dynamic Position Sizing
+        )
+        
+        db.add(db_bot)
+        db.commit()
+        db.refresh(db_bot)
+        
+        # Use prepare_bot_response to add computed fields like trading_thresholds
+        return prepare_bot_response(db_bot)
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 400 Bad Request) without wrapping
+        raise
+    except Exception as e:
+        logger.error(f"❌ CRITICAL ERROR in create_bot: {type(e).__name__}: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        db.rollback()  # Rollback the transaction
+        raise HTTPException(status_code=500, detail=f"Failed to create bot: {type(e).__name__}: {str(e)}")
 
 
 @router.get("/{bot_id}", response_model=BotResponse)
@@ -185,23 +194,139 @@ def update_bot(bot_id: int, bot_update: BotUpdate, db: Session = Depends(get_db)
     db.commit()
     db.refresh(bot)
     
-    # Convert signal_config back to dict for response
-    bot.signal_config = json.loads(bot.signal_config) if bot.signal_config else {}
-    
-    return bot
+    # Use prepare_bot_response to add computed fields
+    return prepare_bot_response(bot)
 
 
 @router.delete("/{bot_id}")
-def delete_bot(bot_id: int, db: Session = Depends(get_db)):
-    """Delete a bot."""
-    bot = db.query(Bot).filter(Bot.id == bot_id).first()
-    if not bot:
-        raise HTTPException(status_code=404, detail="Bot not found")
+def delete_bot(bot_id: int, liquidate: bool = False, db: Session = Depends(get_db)):
+    """
+    Delete a bot. 
     
-    db.delete(bot)
-    db.commit()
+    Args:
+        bot_id: ID of the bot to delete
+        liquidate: If True, sells all holdings before deleting. If False, just deletes the bot.
+    """
+    logger.info(f"🗑️ DELETE REQUEST RECEIVED for bot {bot_id}, liquidate={liquidate}")
+    try:
+        from ..services.coinbase_service import coinbase_service
+        from ..services.raw_trade_service import RawTradeService
+        
+        bot = db.query(Bot).filter(Bot.id == bot_id).first()
+        if not bot:
+            raise HTTPException(status_code=404, detail="Bot not found")
+        
+        liquidation_result = None
+        
+        # Liquidate holdings if requested
+        if liquidate:
+            raw_trade_service = RawTradeService(db)
+            
+            try:
+                # Get current holdings for this product
+                accounts = coinbase_service.get_accounts()
+                product_id = bot.pair
+                base_currency = product_id.split('-')[0]
+                
+                # Find account with holdings
+                holdings = 0.0
+                for account in accounts:
+                    if account.get('currency') == base_currency:
+                        available_balance = account.get('available_balance', 0)
+                        # Handle both dict format {"value": x} and direct float format
+                        if isinstance(available_balance, dict):
+                            holdings = float(available_balance.get('value', 0))
+                        else:
+                            holdings = float(available_balance)
+                        break
+                
+                liquidation_result = {
+                    "product_id": product_id,
+                    "holdings_liquidated": holdings,
+                    "trade_executed": False,
+                    "error": None
+                }
+                
+                # Only execute sell if there are holdings
+                if holdings > 0:
+                    try:
+                        # Place market sell order to liquidate
+                        order_result = coinbase_service.place_market_order(
+                            product_id=product_id,
+                            side='SELL',
+                            size=holdings
+                        )
+                        
+                        # Check if order was placed (order_result returns dict with order_id, not 'success' key)
+                        if order_result and order_result.get('order_id'):
+                            liquidation_result['trade_executed'] = True
+                            liquidation_result['order_id'] = order_result.get('order_id')
+                            
+                            # Note: Sync will happen automatically via scheduled Celery task
+                            # No need to sync immediately - avoid blocking the delete request
+                            
+                            logger.info(f"✅ Liquidated {holdings} {base_currency} for bot {bot.name}")
+                        else:
+                            liquidation_result['error'] = "Order placement failed - no order ID returned"
+                            logger.warning(f"⚠️ Failed to liquidate holdings for {product_id}: {order_result}")
+                            
+                    except Exception as e:
+                        liquidation_result['error'] = str(e)
+                        logger.error(f"❌ Error liquidating {product_id}: {e}")
+                else:
+                    logger.info(f"ℹ️ No holdings to liquidate for {product_id}")
+                    
+            except Exception as e:
+                logger.error(f"❌ Error during liquidation: {e}")
+                liquidation_result = {
+                    "error": str(e),
+                    "trade_executed": False
+                }
+        
+        # Delete the bot and related records
+        # Delete related records first to avoid foreign key constraints
+        from ..models.models import Trade, SignalPredictionRecord, BotSignalHistory, AdaptiveSignalWeights
+        
+        # Delete all records with foreign keys to this bot
+        trades_deleted = db.query(Trade).filter(Trade.bot_id == bot_id).delete()
+        logger.info(f"🗑️ Deleted {trades_deleted} Trade records for bot {bot_id}")
+        
+        history_deleted = db.query(BotSignalHistory).filter(BotSignalHistory.bot_id == bot_id).delete()
+        logger.info(f"🗑️ Deleted {history_deleted} BotSignalHistory records for bot {bot_id}")
+        
+        weights_deleted = db.query(AdaptiveSignalWeights).filter(AdaptiveSignalWeights.bot_id == bot_id).delete()
+        logger.info(f"🗑️ Deleted {weights_deleted} AdaptiveSignalWeights records for bot {bot_id}")
+        
+        # Delete signal predictions (stored by pair, not bot_id)
+        predictions_deleted = db.query(SignalPredictionRecord).filter(SignalPredictionRecord.pair == bot.pair).delete()
+        logger.info(f"🗑️ Deleted {predictions_deleted} SignalPredictionRecord records for pair {bot.pair}")
+        
+        # CRITICAL: Flush deletions to database BEFORE deleting bot
+        # This ensures foreign key constraints are satisfied
+        db.flush()
+        logger.info(f"🗑️ Flushed child record deletions to database")
+        
+        # Now delete the bot
+        logger.info(f"🗑️ Now deleting bot {bot_id} ({bot.name})")
+        db.delete(bot)
+        db.commit()
+        logger.info(f"✅ Bot {bot_id} deleted successfully")
+        
+        response = {"message": f"Bot deleted successfully"}
+        if liquidation_result:
+            response["liquidation"] = liquidation_result
+        
+        return response
     
-    return {"message": "Bot deleted successfully"}
+    except HTTPException:
+        # Re-raise HTTP exceptions without wrapping
+        raise
+    except Exception as e:
+        logger.error(f"❌ CRITICAL ERROR in delete_bot: {type(e).__name__}: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        db.rollback()  # Rollback any partial changes
+        raise HTTPException(status_code=500, detail=f"Failed to delete bot: {type(e).__name__}: {str(e)}")
 
 
 @router.post("/{bot_id}/start")
@@ -283,28 +408,10 @@ def get_bots_status_summary(db: Session = Depends(get_db)):
                 temperature = calculate_bot_temperature(bot.current_combined_score)
                 distance_to_signal = calculate_distance_to_signal(bot.current_combined_score)
                 
-            # Check balance status for UI display
+            # Balance validation removed from enhanced status to prevent rate limiting
+            # This endpoint is polled every 5 seconds - balance checks are too expensive
+            # Balance is validated when actual trades are executed
             balance_status = {"valid": True, "message": ""}
-            try:
-                # Get current market price for balance validation
-                ticker = coinbase_service.get_product_ticker(bot.pair)
-                if ticker and 'price' in ticker:
-                    current_price = float(ticker['price'])
-                    # Check both buy and sell scenarios
-                    buy_balance = coinbase_service.validate_trade_balance(bot.pair, "BUY", bot.position_size_usd, current_price)
-                    sell_balance = coinbase_service.validate_trade_balance(bot.pair, "SELL", bot.position_size_usd, current_price)
-                    
-                    if not buy_balance["valid"] and not sell_balance["valid"]:
-                        balance_status = {"valid": False, "message": f"⚠️ Cannot buy or sell: {buy_balance['message']}"}
-                    elif not buy_balance["valid"]:
-                        balance_status = {"valid": False, "message": f"⚠️ Cannot buy: {buy_balance['message']}"}
-                    elif not sell_balance["valid"]:
-                        balance_status = {"valid": False, "message": f"⚠️ Cannot sell: {sell_balance['message']}"}
-                    else:
-                        balance_status = {"valid": True, "message": "✅ Sufficient balance for trading"}
-            except Exception as balance_error:
-                logger.warning(f"Balance check failed for bot {bot.id}: {balance_error}")
-                balance_status = {"valid": False, "message": "⚠️ Unable to verify balance"}
                 
             status_list.append({
                 "id": bot.id,
@@ -495,13 +602,14 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
             # Check price step requirement using safety service
             price_step_ok = True
             price_step_blocking_reason = None
+            price_step_info = {}
             if next_action != "hold" and bot.status == 'RUNNING':
                 try:
                     from ..services.trading_safety import TradingSafetyService
                     safety_service = TradingSafetyService(db)
-                    price_step_ok = safety_service._check_price_step(bot, next_action.upper(), bot.position_size_usd)
+                    price_step_ok, price_step_info = safety_service._check_price_step(bot, next_action.upper(), bot.position_size_usd)
                     if not price_step_ok:
-                        price_step_blocking_reason = f"Price step requirement not met ({bot.trade_step_pct or 2.0}%)"
+                        price_step_blocking_reason = f"Price step requirement not met ({price_step_info['current_change_pct']:.2f}% < {price_step_info['required_step_pct']:.1f}%)"
                 except Exception as e:
                     logger.warning(f"Price step check failed for bot {bot.id}: {e}")
                     price_step_ok = True  # Allow trade if check fails
@@ -622,7 +730,7 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                 status=bot.status,
                 current_combined_score=fresh_score,
                 current_position_size=actual_position_usd,
-                position_size_usd=actual_position_usd,  # Provide both fields for compatibility
+                position_size_usd=bot.position_size_usd,  # Use configured max position size, not current position value
                 temperature=temperature,
                 distance_to_signal=distance_to_signal,
                 signal_confidence=confidence,
@@ -630,6 +738,7 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                 confirmation=confirmation,
                 trade_readiness=trade_readiness,
                 last_trade=last_trade,
+                cooldown_minutes=bot.cooldown_minutes,
                 trend_analysis=trend_analysis,
                 use_trend_detection=getattr(bot, 'use_trend_detection', False),
                 position_sizing=position_sizing,
@@ -654,6 +763,7 @@ def get_enhanced_bots_status(db: Session = Depends(get_db)):
                 confirmation=ConfirmationStatus(is_active=False),
                 trade_readiness=TradeReadiness(status="no_signal", can_trade=False),
                 last_trade=None,
+                cooldown_minutes=bot.cooldown_minutes,
                 trend_analysis=None,
                 use_trend_detection=getattr(bot, 'use_trend_detection', False),
                 position_sizing=None,

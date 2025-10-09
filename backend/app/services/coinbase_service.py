@@ -511,10 +511,12 @@ class CoinbaseService:
             
             # Extract order ID from response - debug the structure
             logger.info(f"🔍 Coinbase API Response Type: {type(response)}")
+            logger.info(f"🔍 Response dir(): {dir(response)}")
             logger.info(f"🔍 Response success: {getattr(response, 'success', None)}")
             logger.info(f"🔍 Response success_response: {getattr(response, 'success_response', None)}")
+            logger.info(f"🔍 Response error_response: {getattr(response, 'error_response', None)}")
             
-            # Check for Coinbase API errors and make them OBVIOUS
+            # Check for explicit Coinbase API errors
             if hasattr(response, 'success') and not response.success:
                 error_response = getattr(response, 'error_response', None)
                 logger.error(f"🚨 COINBASE REJECTED ORDER: {product_id} {side} {rounded_size}")
@@ -535,23 +537,39 @@ class CoinbaseService:
                 # Return None to indicate failure
                 return None
             
+            # Try to extract order_id from various response formats
             order_id = None
-            if hasattr(response, 'success') and response.success and hasattr(response, 'success_response'):
+            
+            # Format 1: response.success_response (most common)
+            if hasattr(response, 'success_response'):
                 success_resp = response.success_response
-                logger.info(f"✅ Trade successful! Response type: {type(success_resp)}")
+                logger.info(f"✅ Has success_response! Type: {type(success_resp)}")
                 logger.info(f"✅ Success response content: {success_resp}")
                 
-                # The response is a dictionary, so access order_id as a key
                 if isinstance(success_resp, dict) and 'order_id' in success_resp:
                     order_id = success_resp['order_id']
+                    logger.info(f"✅ Found order_id in dict: {order_id}")
                 elif hasattr(success_resp, 'order_id'):
                     order_id = success_resp.order_id
+                    logger.info(f"✅ Found order_id as attribute: {order_id}")
                 elif hasattr(success_resp, 'id'):
                     order_id = success_resp.id
+                    logger.info(f"✅ Found id as attribute: {order_id}")
                 elif hasattr(success_resp, 'order') and hasattr(success_resp.order, 'order_id'):
                     order_id = success_resp.order.order_id
+                    logger.info(f"✅ Found order_id in nested order: {order_id}")
             
-            logger.info(f"✅ Extracted order_id: {order_id}")
+            # Format 2: Direct response attributes
+            elif hasattr(response, 'order_id'):
+                order_id = response.order_id
+                logger.info(f"✅ Found order_id directly on response: {order_id}")
+            
+            # Format 3: Response as dict
+            elif isinstance(response, dict) and 'order_id' in response:
+                order_id = response['order_id']
+                logger.info(f"✅ Found order_id in response dict: {order_id}")
+            
+            logger.info(f"✅ Final extracted order_id: {order_id}")
             
             return {
                 "order_id": order_id,
@@ -614,16 +632,20 @@ class CoinbaseService:
             logger.warning("Coinbase client not initialized")
             return []
         
-        # Check if we have fresh cached data (within 60 seconds to reduce rate limiting)
+        # Check if we have fresh cached data (extended to 5 minutes to prevent rate limiting)
         from datetime import datetime
         if (self.cached_accounts and self.cached_accounts_timestamp and 
-            (datetime.utcnow() - self.cached_accounts_timestamp).total_seconds() < 60):
+            (datetime.utcnow() - self.cached_accounts_timestamp).total_seconds() < 300):  # 5 minutes
             cache_age = (datetime.utcnow() - self.cached_accounts_timestamp).total_seconds()
-            logger.info(f"💾 Using cached account data (age: {cache_age:.1f}s) - avoiding REST API call")
+            logger.debug(f"💾 Using cached account data (age: {cache_age:.1f}s) - avoiding REST API call")
             return self.cached_accounts
         
         # Make REST API call (with rate limiting risk)
-        logger.warning("⚠️ Making REST API call for account data - potential rate limiting risk")
+        if self.cached_accounts_timestamp:
+            cache_age = (datetime.utcnow() - self.cached_accounts_timestamp).total_seconds()
+            logger.info(f"⚠️ Account cache expired ({cache_age:.1f}s old) - making REST API call")
+        else:
+            logger.info("⚠️ No cached account data - making initial REST API call")
         
         try:
             # Use the same approach as the working application

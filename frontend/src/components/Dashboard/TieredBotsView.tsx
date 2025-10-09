@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useEnhancedBotsStatus, usePnLData, useStartBot, useStopBot, useDeleteBot } from '../../hooks/useBots';
 import { Edit3, Play, Pause, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { LearningEnhancedCard } from './BotCardSamples';
+import { DeleteBotModal } from './DeleteBotModal';
 
 interface TieredBotsViewProps {
   className?: string;
@@ -21,6 +22,7 @@ export const TieredBotsView: React.FC<TieredBotsViewProps> = ({
   const startBot = useStartBot();
   const stopBot = useStopBot();
   const deleteBot = useDeleteBot();
+  const [deletingBot, setDeletingBot] = useState<{ id: number; name: string } | null>(null);
   
   const botsData = propBotsData || hookBotsData;
 
@@ -113,12 +115,7 @@ export const TieredBotsView: React.FC<TieredBotsViewProps> = ({
                   });
                 }}
                 onDelete={(id: number) => {
-                  if (confirm(`Are you sure you want to delete bot "${bot.pair}"?`)) {
-                    deleteBot.mutate(id, {
-                      onSuccess: () => toast.success(`Bot "${bot.pair}" deleted`),
-                      onError: () => toast.error(`Failed to delete bot "${bot.pair}"`)
-                    });
-                  }
+                  setDeletingBot({ id, name: bot.pair });
                 }}
               />
             )
@@ -129,13 +126,40 @@ export const TieredBotsView: React.FC<TieredBotsViewProps> = ({
   };
 
   return (
-    <div className={`space-y-4 ${className}`}>
-      <SignalGroup 
-        title="BUY SIGNALS" 
-        icon="�" 
-        bots={groupedBots.BUY} 
-        bgColor="bg-gradient-to-r from-green-50 to-emerald-50" 
+    <>
+      <DeleteBotModal
+        isOpen={deletingBot !== null}
+        onCancel={() => setDeletingBot(null)}
+        onConfirm={(liquidate) => {
+          console.log('🎯 DELETE CONFIRM CALLED:', { deletingBot, liquidate });
+          if (deletingBot) {
+            console.log('🚀 CALLING MUTATION:', deletingBot.id, liquidate);
+            deleteBot.mutate(
+              { botId: deletingBot.id, liquidate },
+              {
+                onSuccess: () => {
+                  console.log('✅ MUTATION SUCCESS CALLBACK');
+                  toast.success(`Bot "${deletingBot.name}" deleted${liquidate ? ' and liquidated' : ''}`);
+                  setDeletingBot(null);
+                },
+                onError: (error) => {
+                  console.error('❌ MUTATION ERROR CALLBACK:', error);
+                  toast.error(`Failed to delete bot "${deletingBot.name}"`);
+                  setDeletingBot(null);
+                }
+              }
+            );
+          }
+        }}
+        botName={deletingBot?.name || ''}
       />
+      <div className={`space-y-4 ${className}`}>
+        <SignalGroup 
+          title="BUY SIGNALS" 
+          icon="�" 
+          bots={groupedBots.BUY} 
+          bgColor="bg-gradient-to-r from-green-50 to-emerald-50" 
+        />
       <SignalGroup 
         title="SELL SIGNALS" 
         icon="🔴" 
@@ -148,7 +172,8 @@ export const TieredBotsView: React.FC<TieredBotsViewProps> = ({
         bots={groupedBots.HOLD} 
         bgColor="bg-gradient-to-r from-yellow-50 to-amber-50" 
       />
-    </div>
+      </div>
+    </>
   );
 };
 

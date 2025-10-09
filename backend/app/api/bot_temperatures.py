@@ -86,10 +86,11 @@ def get_bot_temperature(bot_id: int, db: Session = Depends(get_db)):
     
     evaluator = get_bot_evaluator(db)
     
-    # Get real market data from Coinbase
+    # Get cached market data to avoid rate limits
     try:
-        from ..services.coinbase_service import coinbase_service
-        market_data = coinbase_service.get_historical_data(bot.pair, granularity=3600, limit=100)
+        from ..services.market_data_service import get_market_data_service
+        market_service = get_market_data_service()
+        market_data = market_service.get_historical_data(bot.pair, granularity=3600, limit=100)
         
         if market_data.empty:
             # Use fallback data if API returns empty result

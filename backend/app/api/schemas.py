@@ -286,6 +286,9 @@ class EnhancedBotStatusResponse(BaseModel):
     trade_readiness: TradeReadiness
     last_trade: Optional[LastTradeInfo] = None
     
+    # Cooldown configuration for accurate UI progress calculation
+    cooldown_minutes: int = 15
+    
     # Phase 1: Market Regime Intelligence - Trend Detection
     trend_analysis: Optional[TrendAnalysisResponse] = None
     use_trend_detection: bool = False

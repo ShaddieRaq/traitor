@@ -400,9 +400,11 @@ class TradingService:
         """Get current bot temperature from evaluator using fresh market data."""
         logger.info(f"🔍 Getting temperature for bot {bot.id} ({bot.name})")
         try:
-            # Use fresh market data evaluation like status API does
-            logger.info(f"🔍 Fetching market data for {bot.pair}")
-            market_data = self.coinbase_service.get_historical_data(bot.pair)
+            # Use cached market data service instead of direct API calls
+            from .market_data_service import get_market_data_service
+            market_service = get_market_data_service()
+            logger.info(f"🔍 Fetching cached market data for {bot.pair}")
+            market_data = market_service.get_historical_data(bot.pair)
             logger.info(f"🔍 Market data fetched, calculating temperature...")
             temp_data = self.bot_evaluator.calculate_bot_temperature(bot, market_data)
             temperature = temp_data.get('temperature', 'FROZEN')

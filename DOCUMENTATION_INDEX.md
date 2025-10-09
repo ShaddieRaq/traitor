@@ -1,12 +1,11 @@
 # 📚 Trading System Documentation Index
-*Last Updated: October 3, 2025*
+*Last Updated: October 9, 2025*
 
 ## 🎯 **Current System Status**
-- **State**: Operational but requires major refactoring
-- **Architecture**: Monolithic FastAPI application 
-- **Bot Count**: 39 active trading bots
-- **Performance**: Only 3 profitable bots out of 39
-- **Major Issues**: No regime awareness, naive execution, weak risk management
+- **State**: Production-ready trading system with universal learning deployment
+- **Architecture**: Monolithic FastAPI application with Phase 8 learning system
+- **Performance**: Learning system active, profit-focused optimization in progress
+- **Latest Feature**: Bot deletion with automatic liquidation ✅
 
 ---
 
@@ -18,17 +17,22 @@
 - [`SERVICE_COMMUNICATION_ARCHITECTURE.md`](./SERVICE_COMMUNICATION_ARCHITECTURE.md) - Service interaction patterns
 - [`SERVICE_TESTING_STRATEGY.md`](./SERVICE_TESTING_STRATEGY.md) - Testing framework and parameters
 
-### **2. Research & Analysis**
+### **2. Feature Documentation**
+- [`docs/current/BOT_DELETION_WITH_LIQUIDATION.md`](./docs/current/BOT_DELETION_WITH_LIQUIDATION.md) - **NEW** Bot deletion with automatic liquidation ✅
+- [`PHASE_8_LEARNING_SYSTEM_SUCCESS.md`](./PHASE_8_LEARNING_SYSTEM_SUCCESS.md) - Universal learning system deployment
+- [`PHASE_8_UI_ENHANCEMENT_COMPLETE.md`](./PHASE_8_UI_ENHANCEMENT_COMPLETE.md) - Learning system UI integration
+
+### **3. Research & Analysis**
 - [`INSTITUTIONAL_FRAMEWORK_BUILD_PROMPT.md`](./INSTITUTIONAL_FRAMEWORK_BUILD_PROMPT.md) - 8-week implementation framework
 - [`MICROSERVICES_ARCHITECTURE_PLAN.md`](./MICROSERVICES_ARCHITECTURE_PLAN.md) - 7-service architecture plan
 - [`CODEBASE_ANALYSIS_OCTOBER_2025.md`](./CODEBASE_ANALYSIS_OCTOBER_2025.md) - Technical debt analysis
 
-### **3. Implementation Guides**
+### **4. Implementation Guides**
 - [`REFACTORING_ROADMAP.md`](./REFACTORING_ROADMAP.md) - Step-by-step refactoring plan
 - [`TRADING_STRATEGY_PATTERNS.md`](./TRADING_STRATEGY_PATTERNS.md) - Strategy interface patterns
 - [`EXECUTION_OPTIMIZATION_GUIDE.md`](./EXECUTION_OPTIMIZATION_GUIDE.md) - Smart execution implementation
 
-### **4. Operational Documentation**
+### **5. Operational Documentation**
 - [`DEPLOYMENT_GUIDE.md`](./DEPLOYMENT_GUIDE.md) - Service deployment procedures
 - [`MONITORING_SETUP.md`](./MONITORING_SETUP.md) - Observability and alerting
 - [`TROUBLESHOOTING_GUIDE.md`](./TROUBLESHOOTING_GUIDE.md) - Common issues and solutions

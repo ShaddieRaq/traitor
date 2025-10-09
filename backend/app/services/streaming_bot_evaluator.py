@@ -105,9 +105,11 @@ class StreamingBotEvaluator:
                 logger.debug(f"Using cached market data for {product_id}")
                 return self._market_data_cache[cache_key]['data']
             
-            # Fetch fresh market data
-            logger.debug(f"Fetching fresh market data for {product_id}")
-            market_data = coinbase_service.get_historical_data(
+            # Fetch market data using cached service
+            from .market_data_service import get_market_data_service
+            market_service = get_market_data_service()
+            logger.debug(f"Fetching cached market data for {product_id}")
+            market_data = market_service.get_historical_data(
                 product_id=product_id,
                 granularity=3600,  # 1-hour candles
                 limit=100

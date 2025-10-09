@@ -100,11 +100,19 @@ export const useDeleteBot = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (id: number) => {
-      const response = await api.delete(`/bots/${id}`);
-      return response.data;
+    mutationFn: async ({ botId, liquidate }: { botId: number; liquidate: boolean }) => {
+      console.log('🗑️ DELETE MUTATION CALLED:', { botId, liquidate });
+      try {
+        const response = await api.delete(`/bots/${botId}?liquidate=${liquidate}`);
+        console.log('✅ DELETE RESPONSE:', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('❌ DELETE ERROR:', error);
+        throw error;
+      }
     },
-    onMutate: async (id: number) => {
+    onMutate: async ({ botId }: { botId: number; liquidate: boolean }) => {
+      console.log('🔄 DELETE MUTATE:', botId);
       // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
       await queryClient.cancelQueries({ queryKey: ['bots'] });
 
@@ -113,19 +121,21 @@ export const useDeleteBot = () => {
 
       // Optimistically update to remove the bot
       queryClient.setQueryData(['bots'], (old: Bot[] | undefined) => {
-        return old ? old.filter(bot => bot.id !== id) : [];
+        return old ? old.filter(bot => bot.id !== botId) : [];
       });
 
       // Return a context object with the snapshotted value
       return { previousBots };
     },
-    onError: (_err, _id, context) => {
+    onError: (err, _vars, context) => {
+      console.error('❌ DELETE MUTATION ERROR:', err);
       // If the mutation fails, use the context to roll back
       if (context?.previousBots) {
         queryClient.setQueryData(['bots'], context.previousBots);
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('✅ DELETE MUTATION SUCCESS:', data);
       // Invalidate and refetch to ensure consistency
       queryClient.invalidateQueries({ queryKey: ['bots'] });
       queryClient.invalidateQueries({ queryKey: ['bots', 'status'] });

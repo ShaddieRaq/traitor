@@ -284,19 +284,116 @@ export const AdvancedAnalyticsCard: React.FC<{ bot: any, pnlData?: any }> = ({ b
           )}
         </div>
 
-        {/* Balance Requirements Info - Show for ALL buy signals when USD insufficient */}
-        {(bot.trading_intent?.next_action === 'buy' || 
-          (bot.trade_readiness?.status === 'blocked' && bot.trade_readiness?.blocking_reason?.includes('insufficient_balance'))) && (
+        {/* Balance Requirements Info - Show ONLY when insufficient balance is blocking trading */}
+        {(bot.trade_readiness?.status === 'blocked' && bot.trade_readiness?.blocking_reason?.includes('insufficient_balance')) && (
           <div className="mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
             <div className="flex items-center space-x-1 mb-2">
               <span className="text-sm font-medium text-red-700">💰 Balance Required</span>
             </div>
             <div className="text-xs text-red-600">
-              {bot.trading_intent?.next_action === 'buy' || bot.trade_readiness?.blocking_reason?.includes('USD') ? (
-                <span>Need ${bot.position_size_usd || 25} USD minimum for buy orders</span>
-              ) : (
-                <span>Insufficient crypto holdings for sell orders</span>
-              )}
+              {(() => {
+                // Parse specific amounts from blocking reason if available
+                const blockingReason = bot.trade_readiness?.blocking_reason || '';
+                
+                if (bot.trading_intent?.next_action === 'buy') {
+                  return <span>Need ${bot.position_size_usd || 25} USD minimum for buy orders</span>;
+                } else if (bot.trading_intent?.next_action === 'sell') {
+                  // Extract required amount from blocking reason like "Insufficient SUI balance: 5.50000000 available, 7.02760443 required ($25.00 USD)"
+                  const requiredMatch = blockingReason.match(/(\d+\.?\d*)\s+required/);
+                  const availableMatch = blockingReason.match(/(\d+\.?\d*)\s+available/);
+                  const tokenName = bot.pair.split('-')[0];
+                  
+                  if (requiredMatch && availableMatch) {
+                    const required = parseFloat(requiredMatch[1]);
+                    const available = parseFloat(availableMatch[1]);
+                    const needed = required - available;
+                    return <span>Need {needed.toFixed(2)} more {tokenName} (have {available.toFixed(2)}, need {required.toFixed(2)})</span>;
+                  } else {
+                    return <span>Insufficient {tokenName} holdings for sell orders</span>;
+                  }
+                } else if (blockingReason.includes('USD')) {
+                  return <span>Need ${bot.position_size_usd || 25} USD minimum for buy orders</span>;
+                } else {
+                  return <span>Insufficient crypto holdings for sell orders</span>;
+                }
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* Price Step Indicator - Show when blocked by price step requirement */}
+        {(bot.trade_readiness?.status === 'blocked' && bot.trade_readiness?.blocking_reason?.includes('Price step requirement')) && (
+          <div className="mb-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
+            <div className="flex items-center space-x-1 mb-2">
+              <span className="text-sm font-medium text-amber-700">📊 Price Step Required</span>
+            </div>
+            <div className="text-xs text-amber-600 mb-2">
+              {(() => {
+                const blockingReason = bot.trade_readiness?.blocking_reason || '';
+                // Extract current and required percentages from "Price step requirement not met (0.69% < 0.8%)"
+                const stepMatch = blockingReason.match(/\((\d+\.?\d*)%\s*<\s*(\d+\.?\d*)%\)/);
+                
+                if (stepMatch) {
+                  const currentStep = parseFloat(stepMatch[1]);
+                  const requiredStep = parseFloat(stepMatch[2]);
+                  const progress = Math.min((currentStep / requiredStep) * 100, 100);
+                  
+                  return (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span>Price change: {currentStep.toFixed(2)}%</span>
+                        <span>Required: {requiredStep.toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full bg-amber-200 rounded-full h-2">
+                        <div 
+                          className="bg-amber-500 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${progress}%` }}
+                        ></div>
+                      </div>
+                      <div className="mt-1 text-xs">
+                        Waiting for {(requiredStep - currentStep).toFixed(2)}% more price movement to trade
+                      </div>
+                    </div>
+                  );
+                } else {
+                  // Fallback for older format
+                  return <span>Waiting for sufficient price movement before next trade</span>;
+                }
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* Cooldown Indicator - Show when bot is in post-trade cooldown */}
+        {(bot.trade_readiness?.cooldown_remaining_minutes > 0) && (
+          <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex items-center space-x-1 mb-2">
+              <span className="text-sm font-medium text-blue-700">⏰ Post-Trade Cooldown</span>
+            </div>
+            <div className="text-xs text-blue-600">
+              {(() => {
+                const cooldownMinutes = bot.trade_readiness.cooldown_remaining_minutes;
+                const totalCooldown = bot.cooldown_minutes || 15; // Use real cooldown with fallback
+                const progress = Math.max(0, ((totalCooldown - cooldownMinutes) / totalCooldown) * 100);
+                
+                return (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span>Cooldown: {cooldownMinutes} minutes remaining</span>
+                      <span>{Math.round(progress)}% complete</span>
+                    </div>
+                    <div className="w-full bg-blue-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${progress}%` }}
+                      ></div>
+                    </div>
+                    <div className="mt-1 text-xs">
+                      Recent trade completed - waiting before next signal evaluation
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}
@@ -713,7 +810,7 @@ export const MetricDenseCard: React.FC<{ bot: any, pnlData?: any }> = ({ bot, pn
   );
 };
 
-// NEW: Learning-Enhanced Bot Card - Shows Phase 8 profit-focused learning activity
+// NEW: Learning-Enhanced Bot Card - Shows universal learning system activity for all 45 bots
 export const LearningEnhancedCard: React.FC<{ bot: any, pnlData?: any }> = ({ bot, pnlData }) => {
   const botPnL = pnlData?.find((p: any) => p.product_id === bot.pair);
   const isProfit = (botPnL?.net_pnl_usd || 0) >= 0;
@@ -725,9 +822,17 @@ export const LearningEnhancedCard: React.FC<{ bot: any, pnlData?: any }> = ({ bo
   const maWeight = signalConfig?.moving_average?.weight || 0;
   const macdWeight = signalConfig?.macd?.weight || 0;
   
-  // Determine learning status based on signal weights (our 8 learning bots have specific patterns)
-  const isLearningBot = [4, 6, 7, 8, 12, 13, 14, 15].includes(bot.id);
-  const learningStatus = getLearningStatus(bot.id, rsiWeight, maWeight, macdWeight);
+  // System defaults for comparison (Phase 8 discovery: ALL bots modified)
+  const DEFAULT_RSI = 0.40;
+  const DEFAULT_MA = 0.35; 
+  const DEFAULT_MACD = 0.25;
+  
+  // Detect learning modifications (universal coverage)
+  const hasLearningMods = Math.abs(rsiWeight - DEFAULT_RSI) > 0.01 || 
+                         Math.abs(maWeight - DEFAULT_MA) > 0.01 || 
+                         Math.abs(macdWeight - DEFAULT_MACD) > 0.01;
+                         
+  const learningStatus = getUniversalLearningStatus(bot, rsiWeight, maWeight, macdWeight, botPnL);
   
   const getTemperatureColor = () => {
     switch (bot.temperature) {
@@ -745,7 +850,7 @@ export const LearningEnhancedCard: React.FC<{ bot: any, pnlData?: any }> = ({ bo
       <div className={`h-2 bg-gradient-to-r ${getTemperatureColor()}`}></div>
       
       {/* Learning Status Indicator */}
-      {isLearningBot && (
+      {hasLearningMods && (
         <div className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-medium ${learningStatus.bgColor} ${learningStatus.textColor} border border-opacity-30`}>
           <div className="flex items-center space-x-1">
             <Brain className="h-3 w-3" />
@@ -760,7 +865,7 @@ export const LearningEnhancedCard: React.FC<{ bot: any, pnlData?: any }> = ({ bo
           <div className="flex items-center space-x-2">
             <div className="text-lg font-bold text-gray-900">{bot.pair}</div>
             <span className="text-xl">{bot.temperature === 'HOT' ? '🔥' : bot.temperature === 'WARM' ? '🌡️' : bot.temperature === 'COOL' ? '❄️' : '🧊'}</span>
-            {isLearningBot && <span className="text-sm">🧠</span>}
+            {hasLearningMods && <span className="text-sm">🧠</span>}
           </div>
           <div className={`text-right ${isProfit ? 'text-green-600' : 'text-red-600'}`}>
             <div className="text-lg font-bold">
@@ -771,7 +876,7 @@ export const LearningEnhancedCard: React.FC<{ bot: any, pnlData?: any }> = ({ bo
         </div>
 
         {/* Learning Activity Section */}
-        {isLearningBot && (
+        {hasLearningMods && (
           <div className="mb-3 p-3 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-medium text-purple-700 flex items-center">
@@ -781,7 +886,7 @@ export const LearningEnhancedCard: React.FC<{ bot: any, pnlData?: any }> = ({ bo
               <span className="text-xs text-purple-600">{learningStatus.strategy}</span>
             </div>
             
-            {/* Signal Weight Visualization */}
+            {/* Signal Weight Changes from Defaults */}
             <div className="space-y-1">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-gray-600">RSI</span>
@@ -793,6 +898,9 @@ export const LearningEnhancedCard: React.FC<{ bot: any, pnlData?: any }> = ({ bo
                     ></div>
                   </div>
                   <span className="font-mono text-xs w-8">{(rsiWeight * 100).toFixed(0)}%</span>
+                  <span className={`text-xs font-medium ${Math.abs(rsiWeight - DEFAULT_RSI) > 0.01 ? 'text-blue-600' : 'text-gray-400'}`}>
+                    {rsiWeight !== DEFAULT_RSI ? `(${rsiWeight > DEFAULT_RSI ? '+' : ''}${((rsiWeight - DEFAULT_RSI) * 100).toFixed(0)}%)` : ''}
+                  </span>
                 </div>
               </div>
               <div className="flex items-center justify-between text-xs">
@@ -805,6 +913,9 @@ export const LearningEnhancedCard: React.FC<{ bot: any, pnlData?: any }> = ({ bo
                     ></div>
                   </div>
                   <span className="font-mono text-xs w-8">{(maWeight * 100).toFixed(0)}%</span>
+                  <span className={`text-xs font-medium ${Math.abs(maWeight - DEFAULT_MA) > 0.01 ? 'text-blue-600' : 'text-gray-400'}`}>
+                    {maWeight !== DEFAULT_MA ? `(${maWeight > DEFAULT_MA ? '+' : ''}${((maWeight - DEFAULT_MA) * 100).toFixed(0)}%)` : ''}
+                  </span>
                 </div>
               </div>
               <div className="flex items-center justify-between text-xs">
@@ -817,6 +928,9 @@ export const LearningEnhancedCard: React.FC<{ bot: any, pnlData?: any }> = ({ bo
                     ></div>
                   </div>
                   <span className="font-mono text-xs w-8">{(macdWeight * 100).toFixed(0)}%</span>
+                  <span className={`text-xs font-medium ${Math.abs(macdWeight - DEFAULT_MACD) > 0.01 ? 'text-blue-600' : 'text-gray-400'}`}>
+                    {macdWeight !== DEFAULT_MACD ? `(${macdWeight > DEFAULT_MACD ? '+' : ''}${((macdWeight - DEFAULT_MACD) * 100).toFixed(0)}%)` : ''}
+                  </span>
                 </div>
               </div>
             </div>
@@ -872,111 +986,73 @@ export const LearningEnhancedCard: React.FC<{ bot: any, pnlData?: any }> = ({ bo
   );
 };
 
-// Helper function to determine learning status based on bot ID and weights
-function getLearningStatus(botId: number, rsiWeight: number, maWeight: number, macdWeight: number) {
-  // Our learning bot mappings
-  const botStrategies: { [key: number]: any } = {
-    13: { // SUI-USD (test case)
-      name: "Test Case",
-      strategy: "Aggressive Rebalance", 
-      expectedRsi: 0.235,
-      expectedMa: 0.412,
-      impact: "Reduced failing RSI, boosted working MA",
-      bgColor: "bg-red-100",
-      textColor: "text-red-700"
-    },
-    14: { // AVAX-USD
-      name: "Major Loser",
-      strategy: "Aggressive Rebalance",
-      expectedRsi: 0.25,
-      expectedMa: 0.55,
-      impact: "Major RSI reduction, MA boost for major loser",
-      bgColor: "bg-red-100", 
-      textColor: "text-red-700"
-    },
-    4: { // ETH-USD
-      name: "Minor Loser",
-      strategy: "Moderate Rebalance",
-      expectedRsi: 0.32,
-      expectedMacd: 0.33,
-      impact: "Gentle RSI reduction, MACD boost",
-      bgColor: "bg-orange-100",
-      textColor: "text-orange-700"
-    },
-    6: { // SOL-USD
-      name: "Minor Loser",
-      strategy: "Moderate Rebalance", 
-      expectedRsi: 0.32,
-      expectedMacd: 0.33,
-      impact: "Gentle RSI reduction, MACD boost",
-      bgColor: "bg-orange-100",
-      textColor: "text-orange-700"
-    },
-    7: { // XRP-USD
-      name: "Minor Loser",
-      strategy: "Moderate Rebalance",
-      expectedRsi: 0.32,
-      expectedMacd: 0.33,
-      impact: "Gentle RSI reduction, MACD boost",
-      bgColor: "bg-orange-100",
-      textColor: "text-orange-700"
-    },
-    8: { // DOGE-USD
-      name: "Minor Loser", 
-      strategy: "Moderate Rebalance",
-      expectedRsi: 0.32,
-      expectedMacd: 0.33,
-      impact: "Gentle RSI reduction, MACD boost",
-      bgColor: "bg-orange-100",
-      textColor: "text-orange-700"
-    },
-    12: { // AERO-USD
-      name: "Winner",
-      strategy: "Winner Optimization",
-      expectedMa: 0.429,
-      impact: "Fine-tuned MA for winner optimization", 
-      bgColor: "bg-green-100",
-      textColor: "text-green-700"
-    },
-    15: { // TOSHI-USD
-      name: "Winner",
-      strategy: "Winner Optimization",
-      expectedMa: 0.429,
-      impact: "Fine-tuned MA for winner optimization",
-      bgColor: "bg-green-100", 
-      textColor: "text-green-700"
-    }
-  };
-
-  const botStrategy = botStrategies[botId];
-  if (!botStrategy) {
-    return {
-      status: "Learning",
-      strategy: "Active",
-      impact: "Profit-focused optimization",
-      bgColor: "bg-purple-100",
-      textColor: "text-purple-700"
-    };
-  }
-
-  // Check if weights match expected learning adjustments (with tolerance)
-  const tolerance = 0.02;
-  let status = "Learning";
+// Helper function to determine universal learning status for any bot
+function getUniversalLearningStatus(_bot: any, rsiWeight: number, maWeight: number, macdWeight: number, botPnL: any) {
+  const DEFAULT_RSI = 0.40;
+  const DEFAULT_MA = 0.35;
+  const DEFAULT_MACD = 0.25;
   
-  if (botStrategy.expectedRsi && Math.abs(rsiWeight - botStrategy.expectedRsi) < tolerance) {
-    status = "Optimized";
-  } else if (botStrategy.expectedMa && Math.abs(maWeight - botStrategy.expectedMa) < tolerance) {
-    status = "Optimized";
-  } else if (botStrategy.expectedMacd && Math.abs(macdWeight - botStrategy.expectedMacd) < tolerance) {
-    status = "Optimized";
+  // Calculate changes from defaults
+  const rsiChange = rsiWeight - DEFAULT_RSI;
+  const maChange = maWeight - DEFAULT_MA;
+  const macdChange = macdWeight - DEFAULT_MACD;
+  
+  // Determine strategy based on actual changes and P&L
+  const netPnL = botPnL?.net_pnl_usd || 0;
+  let strategy = "Pattern-Based";
+  let bgColor = "bg-purple-100";
+  let textColor = "text-purple-700";
+  let impact = "Optimized signal weights";
+  
+  // Aggressive changes (large reductions in RSI or big increases in MA)
+  if (Math.abs(rsiChange) > 0.15 || Math.abs(maChange) > 0.15) {
+    if (netPnL < -5) {
+      strategy = "Aggressive Rebalance";
+      bgColor = "bg-red-100";
+      textColor = "text-red-700"; 
+      impact = rsiChange < -0.1 ? "Major RSI reduction for losses" : "Major rebalancing for recovery";
+    } else {
+      strategy = "Major Moderate";
+      bgColor = "bg-orange-100";
+      textColor = "text-orange-700";
+      impact = "Significant strategy adjustment";
+    }
+  }
+  // Moderate changes
+  else if (Math.abs(rsiChange) > 0.05 || Math.abs(macdChange) > 0.05) {
+    if (netPnL < -2) {
+      strategy = "Moderate Rebalance";
+      bgColor = "bg-orange-100";
+      textColor = "text-orange-700";
+      impact = "Balanced adjustment for improvement";
+    } else if (netPnL > 1) {
+      strategy = "Winner Optimization";
+      bgColor = "bg-green-100";
+      textColor = "text-green-700";
+      impact = "Fine-tuned winning strategy";
+    }
+  }
+  // Minor adjustments
+  else if (Math.abs(rsiChange) > 0.01 || Math.abs(maChange) > 0.01 || Math.abs(macdChange) > 0.01) {
+    if (netPnL > 0.5) {
+      strategy = "Winner Enhancement";
+      bgColor = "bg-emerald-100";
+      textColor = "text-emerald-700";
+      impact = "Polished winning approach";
+    } else {
+      strategy = "Minor Adjustment";
+      bgColor = "bg-blue-100";
+      textColor = "text-blue-700";
+      impact = "Gentle optimization";
+    }
   }
 
   return {
-    status,
-    strategy: botStrategy.strategy,
-    impact: botStrategy.impact,
-    bgColor: botStrategy.bgColor,
-    textColor: botStrategy.textColor
+    status: "Learning",
+    strategy,
+    impact,
+    bgColor,
+    textColor
   };
 }
 

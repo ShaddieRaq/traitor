@@ -27,8 +27,10 @@ def fetch_market_data_task(product_ids: list = None, timeframes: list = None):
                 # Convert timeframe to granularity in seconds
                 granularity = timeframe_to_seconds(timeframe)
                 
-                # Fetch historical data from Coinbase
-                df = coinbase_service.get_historical_data(
+                # Use cached market data service instead of direct API calls
+                from ..services.market_data_service import get_market_data_service
+                market_service = get_market_data_service()
+                df = market_service.get_historical_data(
                     product_id=product_id,
                     granularity=granularity,
                     limit=100
