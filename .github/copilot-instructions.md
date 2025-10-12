@@ -835,8 +835,10 @@ def should_sell(self, bot: Bot, current_price: float, portfolio_value: float) ->
 - **Zero New Database Changes**: Use existing Bot model fields
 
 ### 📚 **Documentation**
-- Complete plan: `/PHASE_9A_EMERGENCY_PROFIT_PROTECTION.md`
+- Complete plan: `/docs/archived/phase_9a_emergency/PHASE_9A_EMERGENCY_PROFIT_PROTECTION.md` (ARCHIVED - Superseded by RiskAdjustmentService)
 - Roadmap update: `/docs/current/ROADMAP_STATUS_OCTOBER_2025.md`
+
+**NOTE**: Phase 9A was superseded by RiskAdjustmentService activation (October 11, 2025). See `RISK_ADJUSTMENT_SERVICE_ACTIVATION_COMPLETE.md` for current implementation.
 
 ## � FUTURE PHASE: Phase 9B - Full Portfolio Management
 
@@ -1047,12 +1049,13 @@ For current system errors: `curl -s --max-time 10 "http://localhost:8000/api/v1/
 5. **User trust requires protection** - Emergency risk management now HIGHEST PRIORITY
 
 **Prevention Strategy**:
-- **Phase 9A (URGENT)**: Activate existing profit protection fields in trading logic
-- **Phase 9B (Planned)**: Add dynamic position scaling for additional risk management
+- **Phase 9A (ARCHIVED)**: Originally planned profit protection - superseded by RiskAdjustmentService
+- **RiskAdjustmentService (ACTIVE)**: Dynamic position scaling 0.2x-3.0x based on performance
 - **Future Rule**: Always implement risk management BEFORE optimizations
 
 **User Quote**: "yesterday was a disaster. we were up in equity and never realized profits and now the entire market crashed and we lost all gains, wasn't the ai system suppose to help us lock in profits while mitigating risks?"
 
-**Action Taken**: Created `/PHASE_9A_EMERGENCY_PROFIT_PROTECTION.md` with 5-day implementation plan
+**Resolution**: Activated RiskAdjustmentService (October 11, 2025) - provides dynamic capital reallocation based on bot performance. See `/RISK_ADJUSTMENT_SERVICE_ACTIVATION_COMPLETE.md` for implementation.
 
-**System Status**: Production-ready, universal learning system active, bot deletion with liquidation feature complete, excellent system health with 0 current errors.
+**System Status**: Production-ready with RiskAdjustmentService active, 30 operational bots, zero errors, dynamic position scaling working correctly.
+
