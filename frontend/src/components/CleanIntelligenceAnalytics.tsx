@@ -1,5 +1,5 @@
 import React from 'react';
-import { Brain, BarChart3, TrendingUp, Zap, Activity, Target, Settings, Clock, AlertCircle, CheckCircle } from 'lucide-react';
+import { Brain, BarChart3, TrendingUp, Zap, Activity, Target, Settings } from 'lucide-react';
 import { DataFreshnessIndicator } from '../components/DataFreshnessIndicators';
 import { useIntelligenceFramework } from '../hooks/useIntelligenceFramework';
 import { useSignalPerformance } from '../hooks/useSignalPerformance';
@@ -434,54 +434,7 @@ export const CleanIntelligenceAnalytics: React.FC<IntelligenceAnalyticsProps> = 
       </div>
 
       {/* Learning System Activity Feed */}
-      <div className="bg-white rounded-lg border p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <Clock className="h-5 w-5 mr-2 text-blue-600" />
-          AI Learning Activity Feed
-        </h3>
-        <div className="space-y-3 max-h-64 overflow-y-auto">
-          <div className="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
-            <CheckCircle className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              <div className="text-sm font-medium text-gray-900">2 minutes ago</div>
-              <div className="text-sm text-gray-700">Applied aggressive rebalance to AVAX-USD: RSI 40% → 19%, MA 35% → 52%</div>
-              <div className="text-xs text-gray-500">Reason: Major losses detected (-$5.10), reducing RSI influence</div>
-            </div>
-          </div>
-          <div className="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
-            <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              <div className="text-sm font-medium text-gray-900">5 minutes ago</div>
-              <div className="text-sm text-gray-700">Optimized winner AERO-USD: MA 35% → 41%, slight MACD reduction</div>
-              <div className="text-xs text-gray-500">Reason: Profitable performance (+$43.20), enhancing working patterns</div>
-            </div>
-          </div>
-          <div className="flex items-start space-x-3 p-3 bg-orange-50 rounded-lg">
-            <CheckCircle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              <div className="text-sm font-medium text-gray-900">8 minutes ago</div>
-              <div className="text-sm text-gray-700">Moderate rebalance on ETH-USD: RSI 40% → 31%, MACD 25% → 32%</div>
-              <div className="text-xs text-gray-500">Reason: Minor losses (-$1.53), conservative adjustment approach</div>
-            </div>
-          </div>
-          <div className="flex items-start space-x-3 p-3 bg-purple-50 rounded-lg">
-            <CheckCircle className="h-4 w-4 text-purple-600 mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              <div className="text-sm font-medium text-gray-900">12 minutes ago</div>
-              <div className="text-sm text-gray-700">Universal learning deployed: 45/45 bots received performance-based weight adjustments</div>
-              <div className="text-xs text-gray-500">Reason: Phase 8 profit-focused learning system activation</div>
-            </div>
-          </div>
-          <div className="flex items-start space-x-3 p-3 bg-red-50 rounded-lg">
-            <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              <div className="text-sm font-medium text-gray-900">15 minutes ago</div>
-              <div className="text-sm text-gray-700">Major rebalance triggered for SQD-USD: RSI weight reduced by 22%</div>
-              <div className="text-xs text-gray-500">Reason: Significant losses (-$26.76), emergency parameter adjustment</div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Removed: Hardcoded activity feed - no real-time data available */}
 
       {/* Signal Effectiveness by Market Conditions */}
       <div className="bg-white rounded-lg border p-6">
@@ -561,48 +514,6 @@ export const CleanIntelligenceAnalytics: React.FC<IntelligenceAnalyticsProps> = 
                 <div className="text-sm font-bold text-orange-600">33%</div>
                 <div className="text-xs text-gray-500">15/45 profitable</div>
               </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Prediction vs Reality Tracking */}
-        <div className="bg-white rounded-lg border p-6">
-          <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <Target className="h-5 w-5 mr-2 text-blue-600" />
-            AI Predictions vs Reality
-          </h4>
-          <div className="space-y-4">
-            <div className="p-3 bg-green-50 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-900">AVNT-USD RSI Reduction</span>
-                <CheckCircle className="h-4 w-4 text-green-600" />
-              </div>
-              <div className="text-xs text-gray-600">Predicted: RSI reduction would improve performance</div>
-              <div className="text-xs text-green-600">Reality: +$43.20 profit, prediction validated</div>
-            </div>
-            <div className="p-3 bg-red-50 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-900">SQD-USD Rebalancing</span>
-                <AlertCircle className="h-4 w-4 text-red-600" />
-              </div>
-              <div className="text-xs text-gray-600">Predicted: Aggressive rebalance would reduce losses</div>
-              <div className="text-xs text-red-600">Reality: Still -$26.76 loss, needs further adjustment</div>
-            </div>
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-900">ETH-USD Moderate Adjustment</span>
-                <CheckCircle className="h-4 w-4 text-blue-600" />
-              </div>
-              <div className="text-xs text-gray-600">Predicted: Conservative changes for minor losses</div>
-              <div className="text-xs text-blue-600">Reality: -$4.49 → -$1.53, $2.96 improvement</div>
-            </div>
-            <div className="p-3 bg-yellow-50 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-900">Portfolio Learning Impact</span>
-                <Clock className="h-4 w-4 text-yellow-600" />
-              </div>
-              <div className="text-xs text-gray-600">Predicted: 24-48h needed for full assessment</div>
-              <div className="text-xs text-yellow-600">Reality: 8h in, early positive signals emerging</div>
             </div>
           </div>
         </div>
@@ -702,29 +613,7 @@ export const CleanIntelligenceAnalytics: React.FC<IntelligenceAnalyticsProps> = 
       </div>
 
       {/* Learning System Status */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <Activity className="h-5 w-5 mr-2 text-indigo-600" />
-          Learning System Status
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          <div className="bg-white bg-opacity-70 rounded p-3">
-            <div className="font-medium text-gray-900">Signal Adaptation</div>
-            <div className="text-indigo-600">Continuous learning from P&L feedback</div>
-            <div className="text-xs text-gray-600 mt-1">Last update: 2 minutes ago</div>
-          </div>
-          <div className="bg-white bg-opacity-70 rounded p-3">
-            <div className="font-medium text-gray-900">Loss Mitigation</div>
-            <div className="text-indigo-600">Auto-adjusting underperforming signals</div>
-            <div className="text-xs text-gray-600 mt-1">Active on {losingBots} markets</div>
-          </div>
-          <div className="bg-white bg-opacity-70 rounded p-3">
-            <div className="font-medium text-gray-900">Performance Optimization</div>
-            <div className="text-indigo-600">Enhancing profitable signal patterns</div>
-            <div className="text-xs text-gray-600 mt-1">Active on {profitableBots} markets</div>
-          </div>
-        </div>
-      </div>
+      {/* Removed: Marketing fluff with static "Last update: 2 minutes ago" text */}
     </div>
   );
 };

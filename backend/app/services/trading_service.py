@@ -42,7 +42,7 @@ class TradingService:
         self.raw_trade_service = RawTradeService(db)  # Clean data tracking
     
     def execute_trade(self, bot_id: int, side: str, size_usd: float = None, 
-                     current_temperature: str = None, auto_size: bool = True) -> Dict[str, Any]:
+                     current_temperature: str = None, auto_size: bool = True, risk_multiplier: float = 1.0) -> Dict[str, Any]:
         """
         PHASE 4.1.3 DAY 3: INTELLIGENT TRADE EXECUTION
         Execute a trade with smart sizing, advanced algorithms, and comprehensive validation.
@@ -80,7 +80,7 @@ class TradingService:
             
             # 3. PHASE 4.1.3: INTELLIGENT TRADE SIZING 🧠
             if auto_size or size_usd is None:
-                smart_sizing = self._calculate_intelligent_trade_size(bot, side, current_temperature, size_usd)
+                smart_sizing = self._calculate_intelligent_trade_size(bot, side, current_temperature, size_usd, risk_multiplier)
                 size_usd = smart_sizing["recommended_size"]
                 logger.info(f"🎯 Smart sizing: ${size_usd:.2f} (reasoning: {smart_sizing['reasoning']})")
             
@@ -1000,10 +1000,10 @@ class TradingService:
     # =================================================================================
     
     def _calculate_intelligent_trade_size(self, bot: Bot, side: str, current_temperature: str, 
-                                        manual_size: float = None) -> Dict[str, Any]:
+                                        manual_size: float = None, risk_multiplier: float = 1.0) -> Dict[str, Any]:
         """
         Calculate intelligent trade size using advanced algorithms from Day 2.
-        Combines temperature-based scaling, optimal tranche sizing, and signal strength.
+        Combines temperature-based scaling, optimal tranche sizing, signal strength, and risk adjustment (0.2x - 3.0x).
         """
         try:
             # Get current position summary
@@ -1047,8 +1047,8 @@ class TradingService:
             else:
                 progression_multiplier = 1.2  # Larger as position develops
             
-            # Calculate final intelligent size
-            intelligent_size = base_size * temp_multiplier * signal_multiplier * progression_multiplier
+            # Calculate final intelligent size WITH RISK MULTIPLIER (0.2x - 3.0x)
+            intelligent_size = base_size * temp_multiplier * signal_multiplier * progression_multiplier * risk_multiplier
             
             # Respect manual override if provided
             if manual_size is not None:
@@ -1056,7 +1056,7 @@ class TradingService:
                 intelligent_size = min(manual_size, intelligent_size * 1.5)
                 reasoning = f"Manual override ${manual_size:.2f}, capped by intelligent limit"
             else:
-                reasoning = f"Temp:{current_temperature}({temp_multiplier:.1f}x) × Signal:{signal_strength:.2f}({signal_multiplier:.1f}x) × Progress:{tranche_count}tx({progression_multiplier:.1f}x)"
+                reasoning = f"Temp:{current_temperature}({temp_multiplier:.1f}x) × Signal:{signal_strength:.2f}({signal_multiplier:.1f}x) × Progress:{tranche_count}tx({progression_multiplier:.1f}x) × Risk:{risk_multiplier:.2f}x"
             
             # Final safety bounds - use bot's configured minimum, not hard-coded $10
             min_size = max(bot.position_size_usd * 0.1, 1.0)  # At least 10% of bot's position size, minimum $1

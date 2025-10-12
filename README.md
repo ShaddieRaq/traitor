@@ -2,14 +2,16 @@
 
 ## ✅ PRODUCTION-READY: Fully Operational Trading System
 
-**Latest Achievement**: **41-bot trading system with completed UI consolidation**. System now manages 41 cryptocurrency pairs with sophisticated 4-phase AI intelligence, clean 3-tab navigation (Dashboard/Trades/Market Analysis), and integrated portfolio management with live P&L display. All bots operational with comprehensive trading capabilities.
+**Latest Achievement**: **RiskAdjustmentService Activated** (October 11, 2025) - Dynamic position scaling now LIVE with 0.2x-3.0x multipliers based on performance. Winners automatically get bigger positions (SOL-USD: 1.96x), losers get smaller (BTC-USD: 0.30x). Capital flows automatically from underperformers to top performers. System manages 30+ cryptocurrency pairs with sophisticated 4-phase AI intelligence, bot deletion with automatic liquidation, and intelligent portfolio management.
 
-**📋 Current Status**: System fully operational with 41 active trading bots, completed UI consolidation project, 4-phase AI intelligence framework, and proven profitable performance with integrated dashboard management.
+**📋 Current Status**: System fully operational with 30 active trading bots, RiskAdjustmentService providing dynamic capital reallocation, 4-phase AI intelligence framework, and proven profitable performance with integrated dashboard management.
 
 ## System Architecture Status
 
 **LATEST ACHIEVEMENTS**: 
-- ✅ **41-Bot Trading Network**: Complete cryptocurrency coverage across major trading pairs
+- ✅ **RiskAdjustmentService ACTIVE** (October 11, 2025): Dynamic position scaling 0.2x-3.0x based on performance, automatic capital reallocation from losers to winners
+- ✅ **30+ Bot Trading Network**: Complete cryptocurrency coverage across major trading pairs
+- ✅ **Bot Deletion with Liquidation** (October 9, 2025): Safe bot removal with automatic position liquidation
 - ✅ **UI Consolidation Complete**: Clean 3-tab navigation with integrated bot management and portfolio display
 - ✅ **Portfolio Enhancement**: Live P&L tracking with 3-column layout (Cash/Crypto/P&L)
 - ✅ **AI Intelligence Framework**: 4-phase intelligence system operational (1M+ predictions, 65% accuracy)
@@ -20,28 +22,30 @@
 
 ## Latest Technical Achievements
 
-- 🚀 **17-Bot Trading Network**: Expanded system managing BTC, ETH, SOL, XRP, DOGE, AVNT, AERO, SUI, AVAX, TOSHI, PENGU, ADA, LINK, MATIC, LTC, DOT, UNI
+- 🎯 **RiskAdjustmentService**: Dynamic position scaling (0.2x-3.0x) based on rolling 50-trade P&L - winners get bigger positions, losers get smaller
+- 🚀 **30+ Bot Trading Network**: Expanded system managing BTC, ETH, SOL, XRP, DOGE, and 25+ additional cryptocurrency pairs
 - 🧠 **AI Intelligence Framework**: 4-phase intelligence system with market regime detection, dynamic position sizing, performance tracking, and adaptive signal weighting
 - 📊 **Signal Performance**: 451,711+ signal predictions generated with 65% accuracy and 139 evaluated outcomes
-- � **Profitable Performance**: +$265.77 total profit with 7.1% ROI over 63 days (~42% annualized return)
+- 💰 **Intelligent Capital Allocation**: Automatic reallocation from underperformers to top performers (e.g., SOL-USD 1.96x vs BTC-USD 0.30x)
 - ⚡ **Rate Limiting Excellence**: 90-second cache TTL + circuit breaker + exponential backoff achieving stable API performance
 - 🎯 **Optimized Trading**: ±0.05 thresholds (2x more sensitive) driving increased trading frequency and profitability
 - 🌡️ **Market Adaptivity**: CHOPPY regime detection with -0.146 strength and 0.75 confidence enabling adaptive strategies
-- 📈 **Active Trading**: 1,000+ total trades with 236 trades in last 24hrs showing consistent system activity
+- 📈 **Active Trading**: 1,000+ total trades with continuous system activity showing consistent performance
 - 🔄 **Real-Time Monitoring**: Live dashboard with 5-second polling, temperature indicators, and comprehensive bot status
-- �️ **Production Stability**: Comprehensive error handling, system health monitoring, and automated recovery systems
+- 🛡️ **Production Stability**: Comprehensive error handling, system health monitoring, and automated recovery systems
 
 ## Core Features
 
-- 🤖 **17-Bot Trading Network**: One bot per trading pair with intelligent signal aggregation across major cryptocurrency pairs
+- 🤖 **30+ Bot Trading Network**: One bot per trading pair with intelligent signal aggregation across major cryptocurrency pairs
+- 🎯 **RiskAdjustmentService**: Dynamic position scaling (0.2x-3.0x) based on performance - automatic capital reallocation from losers to winners
 - 🧠 **AI Intelligence Framework**: 4-phase system with market regime detection, dynamic position sizing, performance tracking, and adaptive weighting
 - ⚡ **Advanced Signal Processing**: RSI, Moving Average, MACD with mathematical precision + ±0.05 optimized thresholds
 - 📊 **Real-Time Dashboard**: React 18 interface with 5-second polling, live portfolio data, and comprehensive bot status
 - 🏦 **Coinbase Integration**: Advanced Trade API with triple-layer rate limiting (90s cache + circuit breaker + backoff)
-- 🛡️ **Production Safety**: Comprehensive safety limits, emergency controls, and automated error recovery
-- 🎯 **Intelligent Risk Management**: Market regime-adaptive position sizing with dynamic threshold adjustments
+- 🛡️ **Production Safety**: Comprehensive safety limits, emergency controls, bot deletion with automatic liquidation, and automated error recovery
+- 💰 **Intelligent Portfolio Management**: Winners automatically get bigger positions, losers get smaller - hands-free optimization
 - 🌡️ **Bot Temperature System**: Hot 🔥/warm 🌡️/cool ❄️/frozen 🧊 indicators based on signal strength proximity
-- � **Performance Tracking**: Real-time P&L monitoring with 451K+ signal predictions and outcome evaluation
+- 📈 **Performance Tracking**: Real-time P&L monitoring with 451K+ signal predictions and outcome evaluation
 - ⚡ **Optimized Performance**: 90s market data caching + balance pre-checking + smart signal processing
 - 💾 **Unified Architecture**: Single SQLite database at `/trader.db` with dual-table trading pattern
 

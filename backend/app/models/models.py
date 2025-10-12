@@ -42,6 +42,7 @@ class Bot(Base):
     current_position_entry_price = Column(Float)
     current_combined_score = Column(Float, default=0.0)
     signal_confirmation_start = Column(DateTime(timezone=True))  # When current signal confirmation started
+    last_trade_reason = Column(String(50))  # Reason for last trade (TAKE_PROFIT, STOP_LOSS, SIGNAL_BUY, SIGNAL_SELL, EXISTING_POSITION)
     
     # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now())

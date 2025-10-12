@@ -12,9 +12,12 @@ from sqlalchemy import desc
 
 from ..models.models import Bot, BotSignalHistory
 from ..services.signals.base import create_signal_instance
+from ..services.risk_adjustment_service import RiskAdjustmentService
 from ..core.database import get_db
 from ..utils.temperature import calculate_bot_temperature, get_temperature_emoji
 from ..utils.error_reporting import report_bot_error, ErrorType
+from ..services.sync_coordinated_coinbase_service import get_coordinated_coinbase_service
+from ..services.sync_api_coordinator import RequestPriority
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +32,7 @@ class BotSignalEvaluator:
     def __init__(self, db: Session, enable_confirmation: bool = True):
         self.db = db
         self.enable_confirmation = enable_confirmation
+        self.risk_service = RiskAdjustmentService(db)  # Initialize risk adjustment service
     
     def evaluate_bot(self, bot: Bot, market_data: pd.DataFrame) -> Dict[str, Any]:
         """
@@ -148,6 +152,20 @@ class BotSignalEvaluator:
         overall_score = weighted_score_sum / total_weight
         overall_confidence = sum(confidence_values) / len(confidence_values) if confidence_values else 0
         
+        # Calculate dynamic risk multiplier for position sizing (0.2x - 3.0x)
+        risk_data = self.risk_service.get_bot_risk_multiplier(
+            bot_id=bot.id,
+            product_id=bot.pair,
+            signal_strength=abs(overall_score),  # Use absolute value (0-1 range)
+            confidence=overall_confidence
+        )
+        risk_multiplier = risk_data['risk_multiplier']
+        
+        logger.info(
+            f"🎲 {bot.pair} Risk Assessment: {risk_multiplier:.2f}x multiplier "
+            f"({risk_data['calculation_reason']})"
+        )
+        
         # Phase 3: Signal Quality Filtering - Reject weak signals below confidence threshold
         min_confidence = 0.2  # TEMPORARILY LOWERED: Allow trades with 20%+ confidence
         if overall_confidence < min_confidence:
@@ -165,6 +183,7 @@ class BotSignalEvaluator:
             'overall_score': overall_score,
             'action': action,
             'confidence': overall_confidence,
+            'risk_multiplier': risk_multiplier,  # Dynamic position scaling (0.2x - 3.0x)
             'signal_results': signal_results,
             'metadata': {
                 'bot_id': bot.id,
@@ -172,7 +191,8 @@ class BotSignalEvaluator:
                 'pair': bot.pair,
                 'total_weight': total_weight,
                 'enabled_signals': len(signal_results),
-                'evaluation_timestamp': pd.Timestamp.now().isoformat()
+                'evaluation_timestamp': pd.Timestamp.now().isoformat(),
+                'risk_assessment': risk_data  # Full risk calculation details
             }
         }
         
@@ -441,11 +461,9 @@ class BotSignalEvaluator:
     
     def _determine_action(self, overall_score: float, bot: Bot) -> str:
         """
-        Determine trading action based on overall score and bot-specific thresholds.
+        Determine trading action based on signal score and bot-specific thresholds.
         
         Phase 1D: Market Regime Intelligence - Dynamic thresholds based on trend regime.
-        Supports per-bot threshold configuration via signal_config.trading_thresholds
-        Falls back to default thresholds if not configured.
         """
         
         # Phase 1D: Check if this bot uses trend-adaptive thresholds
@@ -509,6 +527,7 @@ class BotSignalEvaluator:
                 sell_threshold = 0.05
                 logger.warning(f"Error reading thresholds for {bot.pair}, using defaults: {e}")
         
+        # Determine action based on score vs thresholds
         if overall_score <= buy_threshold:
             return 'buy'
         elif overall_score >= sell_threshold:

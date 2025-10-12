@@ -1,54 +1,113 @@
-# GitHub Copilot Instructions for Auto-Trader System
+# Auto-Trader AI Agent Instructions
 
-## 🚨 CRITICAL AGENT RULES 🚨
+## 🚨 VERIFICATION-FIRST WORKFLOW 🚨
 
-**NEVER MAKE CLAIMS WITHOUT VERIFICATION!** Always verify system state before declaring success.
+**NEVER claim success without verification!** Always check actual system state.
 
-**MANDATORY VERIFICATION WORKFLOW:**
-1. Check health: `./scripts/status.sh`
-2. Verify bots: `curl -s "http://localhost:8000/api/v1/bots/" | jq 'length'`
-3. Check errors: `curl -s "http://localhost:8000/api/v1/system-errors/errors" | jq 'length'`
-4. Always use actual API responses to confirm changes worked
+**Required checks before/after any change:**
+```bash
+./scripts/status.sh                                                  # System health
+curl -s "http://localhost:8000/api/v1/bots/" | jq 'length'          # Bot count (should be ~41)
+curl -s "http://localhost:8000/api/v1/system-errors/errors" | jq    # Error status (should be [])
+curl -s --max-time 5 "http://localhost:8000/api/v1/bots/1" | jq     # Test API responsiveness
+```
 
-**If system is slow/hanging:** Use timeouts (`curl -s --max-time 5`) and diagnose BEFORE restarting services.
+**If system is slow:** Use timeouts and diagnose BEFORE restarting. Check logs first.
 
 ## System Overview
 
-**Production-ready cryptocurrency trading system** managing live funds across major trading pairs. Features sophisticated learning system with 141,587+ signal predictions and bot deletion with automatic liquidation.
+**Production cryptocurrency trading system** managing live funds with:
+- **30+ active trading bots** (one per trading pair)
+- **141K+ signal predictions** with adaptive learning
+- **WebSocket price streaming** (zero REST API rate limiting)
+- **Bot deletion with automatic liquidation** (October 2025)
+- **Phase 7 Market Data Service** with Redis caching (95%+ hit rate)
+- **RiskAdjustmentService** - Dynamic position scaling 0.2x-3.0x (October 11, 2025)
 
-**✅ CURRENT STATUS (October 9, 2025)**: ✅ **BOT DELETION WITH LIQUIDATION** - Complete bot management with automatic position liquidation. Users can delete bots with optional sell-all functionality. System operational with 0 errors, all services running properly.
+**Current Status (October 11, 2025)**: ✅ All systems operational, 0 errors, RiskAdjustmentService ACTIVE with dynamic capital reallocation
 
-### Core Architecture
-- **Backend**: FastAPI + SQLAlchemy + Celery/Redis + MarketDataService
-- **Frontend**: React 18 + TypeScript + TanStack Query with clean 3-tab navigation (Dashboard/Trades/Market Analysis)
-- **Database**: Single SQLite file at `/trader.db` (NOT backend/trader.db)
-- **Real-Time Data**: 🚀 **WebSocket streaming** for all price data (eliminates rate limiting)
-- **Caching**: Phase 7 MarketDataService with Redis (1-hour TTL) + WebSocket price cache
-- **Bot Design**: One bot per trading pair, JSON signal configs, ±0.05 default thresholds
-- **Learning System**: Sophisticated SignalPredictionRecord + AdaptiveSignalWeighting (141K+ predictions)
-- **UI Architecture**: Consolidated dashboard with integrated bot management, comprehensive Portfolio card with P&L tracking, learning system UI components
-- **Learning UI Components**: LearningPerformanceDashboard, LearningEnhancedCard, updated Intelligence Framework Panel with Phase 8 status
-- **UI Scrolling**: Fixed large dataset display with proper viewport-based scrolling (max-h-[70vh] overflow-y-auto)
-- **Bot Deletion**: Complete delete functionality with optional automatic liquidation (default enabled), cascade deletion of all child records
+## Architecture Quick Reference
 
-### Key Architectural Principles
-- **Dual-Table Pattern**: `Trade` (operational) + `RawTrade` (Coinbase truth)
-- **Signal Factory Pattern**: Dynamic signal creation via `create_signal_instance()` in `/backend/app/services/signals/base.py`
-  - Maps: `'rsi'` → `RSISignal`, `'moving_average'` → `MovingAverageSignal`, `'macd'` → `MACDSignal`
-  - Parameters extracted from Bot.signal_config JSON, excluding 'enabled' and 'weight'
-- **🚀 WebSocket-First Data**: Real-time price streaming eliminates REST API rate limiting
-- **🧠 Learning Infrastructure**: SignalPerformanceTracker + AdaptiveSignalWeightingService with 141K+ predictions
-- **❌ Learning Problem**: Optimizes for signal accuracy (63%) instead of profit (-$24.70 portfolio)
-- **Real-Time Frontend**: 5-second polling more reliable than WebSocket
-- **Service Coordination**: Global service instances with dependency injection pattern
-- **Phase 7 Caching**: Disabled scheduled tasks to prevent rate limiting
+### Stack
+- **Backend**: FastAPI + SQLAlchemy + Celery/Redis + MarketDataService  
+- **Frontend**: React 18 + TypeScript + TanStack Query (5s polling)
+- **Database**: SQLite at `/trader.db` (NOT `backend/trader.db`)
+- **Real-Time**: WebSocket streaming for prices + 5s REST polling for UI
+- **Cache**: Redis (60s TTL) + WebSocket price cache
+
+### Critical Patterns
+
+**Dual-Table Trading Pattern:**
+- `Trade` table - DEPRECATED (corrupted data, endpoints removed Oct 5, 2025)
+- `RawTrade` table - Source of truth (exact Coinbase fills) - **USE THIS**
+- Always use `/api/v1/raw-trades/*` endpoints
+
+**Signal Factory Pattern:**
+```python
+# Dynamic signal creation via /backend/app/services/signals/base.py
+from backend.app.services.signals.base import create_signal_instance
+
+# Bot.signal_config JSON structure:
+{
+  "rsi": {"enabled": true, "weight": 0.4, "period": 14},
+  "moving_average": {"enabled": true, "weight": 0.35},
+  "macd": {"enabled": true, "weight": 0.25}
+}
+
+# Factory maps: 'rsi' → RSISignal, 'moving_average' → MovingAverageSignal
+# Parameters extracted excluding 'enabled' and 'weight'
+```
+
+**Global Service Pattern:**
+```python
+# Industry-standard singleton pattern with dependency injection
+from backend.app.services.market_data_service import get_market_data_service
+from backend.app.services.sync_coordinated_coinbase_service import get_coordinated_coinbase_service
+
+market_service = get_market_data_service()  # Global instance
+coinbase_service = get_coordinated_coinbase_service()  # With request coordination
+```
+
+**Signal Scoring System:**
+- Range: -1.0 (strong BUY) to +1.0 (strong SELL)
+- Thresholds: **±0.05** (system-wide, NEVER change without docs)
+- Temperature: 🔥HOT/🌡️WARM/❄️COOL/🧊FROZEN based on abs(score)
+- Aggregation: Weighted combination (RSI + MA + MACD)
+
+**RiskAdjustmentService Pattern (October 11, 2025):**
+```python
+# Dynamic position scaling based on performance + signals
+from backend.app.services.risk_adjustment_service import RiskAdjustmentService
+
+risk_data = risk_service.get_bot_risk_multiplier(
+    bot_id=bot.id,
+    product_id=bot.pair,
+    signal_strength=abs(overall_score),
+    confidence=overall_confidence
+)
+
+# Formula: (signal*2.0 + confidence*0.5) * (1.0 + avg_pnl*10.0)
+# Range: 0.2x (defensive) to 3.0x (aggressive)
+# Applied to final position size automatically
+```
+
+**API Response Pattern:**
+```python
+# Bot API returns computed fields NOT stored in DB
+{
+  "current_combined_score": -0.087,  # Computed by bot_evaluator
+  "temperature": "🔥HOT",             # From temperature utils
+  "risk_multiplier": 1.96,            # From RiskAdjustmentService (NEW)
+  "trading_thresholds": {...},       # Computed, NOT in signal_config
+  "signal_config": {...}             # Parsed from JSON
+}
+```
 
 ### Critical UI Patterns (October 2025)
-- **Collapsible Temperature Groups**: Smart collapse/expand with `max-h-0` (collapsed) and `max-h-none` (expanded)
-- **Responsive Scrolling**: Use `max-h-[70vh] overflow-y-auto` for large datasets to prevent content cutoff
-- **Grid Responsiveness**: `grid-cols-1 lg:grid-cols-2 xl:grid-cols-3` for advanced cards, `grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4` for compact cards
-- **Dual-View System**: Smart/Compact/Advanced modes with temperature-based card selection
-- **Smooth Animations**: `transition-all duration-300 ease-in-out` for collapse/expand with proper overflow handling
+- **Collapsible Groups**: `max-h-0` (collapsed) ↔ `max-h-none` (expanded)
+- **Viewport Scrolling**: `max-h-[70vh] overflow-y-auto` for large datasets
+- **Grid Responsive**: `grid-cols-1 lg:grid-cols-2 xl:grid-cols-3` (advanced), `md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4` (compact)
+- **Smooth Animations**: `transition-all duration-300 ease-in-out`
 
 ## 🚨 CRITICAL FIRST STEPS FOR AI AGENTS
 
@@ -56,107 +115,81 @@
 # 1. ALWAYS check system health first (before any changes)
 ./scripts/status.sh
 
-# 2. CRITICAL: Verify WebSocket streaming is running (prevents rate limiting)
-# Note: WebSocket endpoints may not be exposed via REST API - check logs instead
-grep "💰.*USD:" logs/backend.log | tail -3  # Should show recent price updates
+# 2. Configure Python environment (REQUIRED before Python operations)  
+# Use configure_python_environment tool in VS Code
 
-# 3. If WebSocket not running, check backend logs and restart if needed
-# WebSocket streaming is handled internally by the backend service
-
-# 4. Configure Python environment (REQUIRED before Python operations)  
-# Use configure_python_environment tool
-
-# 5. Start services if needed
+# 3. Start services if needed
 ./scripts/start.sh
 
-# 6. Verify bot count
-curl -s "http://localhost:8000/api/v1/bots/" | jq 'length'
+# 4. Verify bot count and system state
+curl -s "http://localhost:8000/api/v1/bots/" | jq 'length'  # Should show ~41
+curl -s "http://localhost:8000/api/v1/system-errors/errors" | jq 'length'  # Should be 0
 
-# 7. Check for system errors before making any changes
-curl -s "http://localhost:8000/api/v1/system-errors/errors" | jq 'length'  # Should be 0 or low
-
-# 8. Understand API schema before making API calls
+# 5. Understand API schema before making calls
 curl -s "http://localhost:8000/openapi.json" | jq '.components.schemas.BotUpdate'
+
+# 6. CRITICAL: Verify WebSocket streaming (prevents rate limiting)
+grep "💰.*USD:" logs/backend.log | tail -3  # Should show recent price updates
 ```
 
-## 🚨 WEBSOCKET STREAMING - CRITICAL FOR RATE LIMITING
+## 🚨 WEBSOCKET STREAMING - PREVENTS RATE LIMITING
 
-**MANDATORY**: WebSocket streaming MUST be running to prevent rate limiting!
+**MANDATORY**: WebSocket streaming MUST be running to prevent Coinbase API rate limiting!
 
-**Check WebSocket Status:**
+**Check Status:**
 ```bash
-# Check if WebSocket is running
 curl -s "http://localhost:8000/api/v1/websocket-prices/status" | jq
-
-# Expected response:
-{
-  "streaming": true,
-  "products_count": 41,
-  "active_bots_count": 41
-}
+# Expected: {"streaming": true, "products_count": 41, "active_bots_count": 41}
 ```
 
-**Start WebSocket if needed:**
+**Start if Needed:**
 ```bash
-# Start real-time price streaming for all active bots
 curl -X POST "http://localhost:8000/api/v1/websocket-prices/start-price-streaming" | jq
-
-# Should return: "WebSocket price streaming started for 41 products"
 ```
 
-**WebSocket Benefits:**
-- ✅ **Zero REST API calls** for price data (eliminates rate limiting)
-- ✅ **Real-time price updates** (sub-second latency)
-- ✅ **Unlimited throughput** (no Coinbase API rate limits)
-- ✅ **Automatic reconnection** and error handling
+**Benefits:**
+- ✅ Zero REST API calls for price data (eliminates rate limiting)
+- ✅ Real-time updates (sub-second latency)
+- ✅ Automatic reconnection and error handling
 
-**WebSocket Troubleshooting:**
+**Troubleshoot:**
 ```bash
-# Check for real-time price updates in logs (indicates WebSocket working)
+# Check for price updates in logs
 grep "💰.*USD:" logs/backend.log | tail -5
-
-# Check for price streaming activity
 tail -f logs/backend.log | grep -E "💰|price|streaming"
-
-# If no price updates, WebSocket may need internal restart via backend service
 ```
 
 ## 🚨 RATE LIMITING TROUBLESHOOTING
 
-**If experiencing rate limit errors:**
+**Primary cause is WebSocket not running** - every price request hits REST API when streaming is down.
 
+**Diagnostic Sequence:**
 ```bash
-# 1. FIRST: Check if WebSocket is running (PRIMARY CAUSE of rate limiting)
+# 1. Check if WebSocket is streaming (PRIMARY CHECK)
 curl -s "http://localhost:8000/api/v1/websocket-prices/status" | jq '.streaming'
 
-# 2. If WebSocket not running, start immediately
+# 2. Start WebSocket immediately if not running
 curl -X POST "http://localhost:8000/api/v1/websocket-prices/start-price-streaming" | jq
 
-# 3. Check for WebSocket cache misses in logs (indicates WebSocket failure)
+# 3. Check for WebSocket cache misses (indicates failure)
 grep "WebSocket cache miss" logs/backend.log | tail -10
 
-# 4. Check current error status
+# 4. Verify error count
 curl -s "http://localhost:8000/api/v1/system-errors/errors" | jq 'length'
 
-# 5. Monitor cache performance 
+# 5. Monitor cache and market data
 curl -s "http://localhost:8000/api/v1/cache/stats" | jq
-
-# 6. Check market data service status
 curl -s "http://localhost:8000/api/v1/market-data/stats" | jq
 
-# 7. If persistent, restart services
+# 6. Last resort: restart services
 ./scripts/restart.sh
-
-# 8. Monitor logs for rate limit patterns
-tail -f logs/backend.log | grep -i "rate\|limit\|429"
 ```
 
-**Common Rate Limit Scenarios:**
-- **WebSocket not running** (MOST COMMON - every price request hits REST API)
-- High bot activity during market volatility
-- Coinbase API maintenance periods  
-- Cache misses during system restarts
-- Multiple concurrent bot evaluations
+**Common Scenarios:**
+- WebSocket not running (MOST COMMON - 99% of rate limit issues)
+- High bot activity during volatility
+- Coinbase API maintenance
+- Cache misses during restarts
 
 ## Essential Project Startup
 
@@ -190,197 +223,169 @@ cd frontend && npm run dev
 
 ## Essential Development Patterns
 
-### Phase 7 Market Data Service (Current Production)
+### Service Architecture
 ```python
-# Global service instance pattern (industry standard)
+# Global service instances with dependency injection
 from backend.app.services.market_data_service import get_market_data_service
-market_service = get_market_data_service()
+from backend.app.services.sync_coordinated_coinbase_service import get_coordinated_coinbase_service
 
-# Centralized batch fetching every 30 seconds via Celery
-# Redis cache with 60-second TTL achieving 95%+ hit rates
-# API endpoints: /api/v1/market-data/stats, /api/v1/market-data/refresh
+market_service = get_market_data_service()
+coinbase_service = get_coordinated_coinbase_service()
+
+# Phase 7: Centralized batch fetching (30s Celery) + Redis cache (60s TTL)
+# Achieves 95%+ hit rates, minimal API calls
 ```
 
-### Bot Configuration Pattern
+### Bot Configuration
 ```python
-# Each Bot.signal_config contains JSON like:
+# Bot.signal_config JSON (stored in database):
 {
   "rsi": {"enabled": true, "weight": 0.4, "period": 14},
   "moving_average": {"enabled": true, "weight": 0.35},
-  "macd": {"enabled": true, "weight": 0.25},
-  "trading_thresholds": {"buy_threshold": -0.05, "sell_threshold": 0.05}
+  "macd": {"enabled": true, "weight": 0.25}
 }
 
-# Signals created via factory pattern in /backend/app/services/signals/base.py
-```
-
-### Dual-Table Data Pattern (CRITICAL)
-- **Trade Table**: DEPRECATED - Contains corrupted data (removed endpoints October 5, 2025)
-- **RawTrade Table**: Financial truth (exact Coinbase fills) - USE THIS
-- **Database Location**: `/trader.db` at project root (NOT backend/trader.db)
-- **API Pattern**: Use `/api/v1/raw-trades/` endpoints only - clean Coinbase data
-
-### Signal Scoring System
-- **Range**: -1.0 (BUY signal) to +1.0 (SELL signal)
-- **Thresholds**: ±0.05 system-wide (optimized for sensitivity) 
-- **Temperature**: 🔥HOT/🌡️WARM/❄️COOL/🧊FROZEN based on signal scores
-- **Aggregation**: Weighted combination of RSI, Moving Average, and MACD
-
-### API Response Pattern
-```python
-# Bot API returns computed fields not stored in DB
-{
-  "current_combined_score": -0.087,  # From bot_evaluator calculation
-  "temperature": "🔥HOT",            # From temperature utils
-  "trading_thresholds": {...},       # Extracted from signal_config JSON
-  "signal_config": {...}             # Parsed from JSON string
-}
-```
-
-## Development Workflows
-
-### Essential Scripts
-```bash
-# Full validation after changes (REQUIRED)
-./scripts/test-workflow.sh  # Restart → Health → API → Signal → Frontend tests
-
-# Rapid iteration testing  
-./scripts/quick-test.sh
-
-# Real-time debugging
-./scripts/logs.sh  # Tails all service logs simultaneously
-
-# Signal testing by category
-python backend/tests/test_runner.py [rsi|ma|macd|aggregation|all]
-
-# Core service health checks
-./scripts/status.sh  # Port checks, PID files, service status
-curl -s "http://localhost:8000/api/v1/bots/status/enhanced" | jq
-```
-
-### Critical API Endpoints
-```bash
-# System health & bot status
-curl "http://localhost:8000/api/v1/bots/status/enhanced" | jq
-curl "http://localhost:8000/api/v1/diagnosis/trading-diagnosis" | jq
-
-# Performance data (CURRENT - use these clean endpoints)
-curl "http://localhost:8000/api/v1/raw-trades/pnl-by-product" | jq
-curl "http://localhost:8000/api/v1/raw-trades/stats" | jq
-curl "http://localhost:8000/api/v1/cache/stats" | jq  # Should show 80%+ hit rates
-
-# ❌ REMOVED ENDPOINTS (October 5, 2025)
-# /api/v1/trades/ - DELETED (was deprecated due to data corruption)
-# /api/v1/trades/stats - DELETED (was deprecated due to data corruption)  
-# /api/v1/trades/performance/by-product - DELETED (was deprecated due to data corruption)
-# Use /api/v1/raw-trades/ endpoints instead for clean Coinbase data
-```
-
-## Key Architecture Constraints
-
-### Database Rules
-- **CRITICAL PATH**: `/trader.db` at project root (NEVER `backend/trader.db`)
-  - Config: `DATABASE_URL="sqlite:////Users/lazy_genius/Projects/trader/trader.db"` (absolute path)
-  - Engine: `from ..core.database import engine, Base` in main.py
-  - Session: `SessionLocal` factory with dependency injection via `get_db()`
-- **Manual Migrations**: SQLAlchemy schema changes only, no automatic migrations
-- **Auto-Sync**: Both Trade and RawTrade tables update automatically
-- **Service Architecture**: Global instances (MarketDataService, CoinbaseService) with session injection
-
-### Performance Patterns  
-- **Market Data Cache**: 90s TTL achieving ~78% hit rates via `MarketDataCache` but still experiencing rate limits
-- **Balance Pre-Check**: Bots skip signal processing when insufficient funds (~60% API reduction)
-- **Frontend Polling**: Aggressive 5-second TanStack Query with `staleTime: 0`
-
-### Configuration Details
-- **Backend Entry Point**: `backend/app/main.py` with FastAPI app initialization
-- **Frontend Dev Server**: Vite config with proxy to port 8000 for `/api` routes
-- **Environment File**: `.env` at project root (not in backend/) - requires COINBASE_API_KEY/SECRET
-- **Celery Configuration**: `backend/app/tasks/celery_app.py` with Redis broker
-- **Python Environment**: Virtual environment required in `backend/venv/`
-
-### Trading Constraints & Error Patterns
-- **Market vs Limit Orders**: System uses `place_market_order()` only - some pairs require limit orders
-- **Limit-Only Pairs**: ZEC-USD returns "Orderbook is in limit only mode" - replace with MATIC-USD  
-- **Size Validation**: All trades $10+ USD minimum, precision handled by `base_increment` from Coinbase
-- **Rate Limiting**: ⚠️ ONGOING ISSUE - Despite Phase 7 Market Data Service, still experiencing Coinbase API rate limits
-  - Monitor with: `curl -s "http://localhost:8000/api/v1/cache/stats" | jq`
-  - Check error logs: `curl -s "http://localhost:8000/api/v1/system-errors/errors" | jq`
-  - Restart services if persistent: `./scripts/restart.sh`
-- **Balance Checking**: Bots skip evaluation when insufficient funds to reduce API calls
-
-### Critical Threshold Management (October 2025 Incident)
-- **System Default**: ±0.05 (optimized for 2x sensitivity, proven profitable)
-- **NEVER modify**: Default thresholds in `bot_evaluator.py` lines 490-491 or `bots.py` lines 21-32
-- **Storage Pattern**: Thresholds NOT stored in signal_config, computed by bot_evaluator with fallbacks
-- **API Response**: `trading_thresholds` field computed by `extract_trading_thresholds()` in bots.py
-- **Testing Pattern**: Always verify threshold changes with `curl -s "http://localhost:8000/api/v1/bots/X" | jq '.trading_thresholds'`
-
-### Recovery Procedures
-```bash
-# NEVER restart blindly - diagnose first
-./scripts/status.sh  
-
-# Verify Docker dependency (required for Redis)
-docker --version && docker-compose --version
-
-# Safe restart sequence
-./scripts/stop.sh && ./scripts/start.sh
-```
-
-## Critical Code Patterns
-
-### Trading Threshold Management Pattern (CRITICAL - October 2025)
-```python
-# CORRECT: bot_evaluator.py lines 490-491
-buy_threshold = thresholds.get('buy_threshold', -0.05)  # ✅ Must be -0.05
-sell_threshold = thresholds.get('sell_threshold', 0.05)   # ✅ Must be 0.05
-
-# CORRECT: bots.py extract_trading_thresholds() lines 21-32  
-return TradingThresholds(
-    buy_threshold=-0.05,  # ✅ Must be -0.05
-    sell_threshold=0.05   # ✅ Must be 0.05
-)
-
-# ❌ NEVER CHANGE these defaults without explicit documentation
-# ❌ These are system-wide optimized values (2x sensitivity)
-```
-
-### Signal Factory Pattern
-```python
-# Located: /backend/app/services/signals/base.py
+# Signals created via factory pattern
 from backend.app.services.signals.base import create_signal_instance
-
-# Bot.signal_config JSON structure:
-{
-  "rsi": {"enabled": true, "weight": 0.4, "period": 14, "buy_threshold": 30, "sell_threshold": 70},
-  "moving_average": {"enabled": true, "weight": 0.35, "fast_period": 10, "slow_period": 20},
-  "macd": {"enabled": true, "weight": 0.25, "fast_period": 12, "slow_period": 26, "signal_period": 9}
-}
-
-# Factory usage in BotSignalEvaluator._create_signal_instance():
-signal_type_map = {'rsi': 'RSI', 'moving_average': 'MA_Crossover', 'macd': 'MACD'}
-parameters = {k: v for k, v in config.items() if k not in ['enabled', 'weight']}
-signal_instance = create_signal_instance(signal_type_map[signal_name], parameters)
+signal_instance = create_signal_instance('RSI', {'period': 14, 'buy_threshold': 30})
 ```
 
-### Frontend Real-time Data Pattern
+### Dual-Table Pattern (CRITICAL)
+- **Trade** - DEPRECATED (corrupted, endpoints removed Oct 5, 2025)
+- **RawTrade** - Source of truth (exact Coinbase fills)
+- **Database**: `/trader.db` at project root (NOT `backend/trader.db`)
+- **Always use**: `/api/v1/raw-trades/*` endpoints
+
+### Frontend Real-Time Pattern
 ```typescript
-// All hooks use aggressive polling for real-time updates
+// TanStack Query with aggressive 5s polling
 export const useBotsStatus = () => {
   return useQuery({
     queryKey: ['bots', 'status'],
     queryFn: fetchBotsStatus,
     refetchInterval: 5000,
     refetchIntervalInBackground: true,
-    staleTime: 0  // Always fetch fresh data
+    staleTime: 0  // Always fetch fresh
   });
 };
 ```
 
-### Temperature System Pattern
+## Development Workflows
+
+### Essential Scripts
+```bash
+# Full validation after changes
+./scripts/test-workflow.sh
+
+# System health checks
+./scripts/status.sh
+curl -s "http://localhost:8000/api/v1/bots/status/enhanced" | jq
+
+# Real-time debugging
+./scripts/logs.sh  # Tails all service logs
+
+# Signal testing
+python backend/tests/test_runner.py [rsi|ma|macd|all]
+```
+
+### Critical API Endpoints
+```bash
+# System health
+GET /api/v1/bots/status/enhanced
+GET /api/v1/diagnosis/trading-diagnosis
+
+# Trading data (USE THESE - raw-trades only)
+GET /api/v1/raw-trades/pnl-by-product
+GET /api/v1/raw-trades/stats
+
+# Performance monitoring
+GET /api/v1/cache/stats  # Should show 80%+ hit rate
+GET /api/v1/market-data/stats
+
+# Bot management
+GET /api/v1/bots/
+POST /api/v1/bots/
+DELETE /api/v1/bots/{id}?liquidate=true
+
+# ❌ REMOVED (Oct 5, 2025): /api/v1/trades/* - Use raw-trades instead
+```
+
+### Project Startup
+```bash
+# Automated (recommended)
+./scripts/start.sh && ./scripts/status.sh
+
+# Manual debugging
+docker-compose up redis  # Terminal 1
+cd backend && source venv/bin/activate && uvicorn app.main:app --reload  # Terminal 2
+cd backend && celery -A app.tasks.celery_app worker --loglevel=info     # Terminal 3
+cd backend && celery -A app.tasks.celery_app beat --loglevel=info       # Terminal 4
+cd frontend && npm run dev                                                # Terminal 5
+```
+
+## Key Architecture Constraints
+
+### Database Rules
+- **Path**: `/trader.db` at project root (NEVER `backend/trader.db`)
+- **Config**: `DATABASE_URL="sqlite:////Users/lazy_genius/Projects/trader/trader.db"` (absolute)
+- **Migrations**: Manual SQLAlchemy schema changes only
+- **Sessions**: `SessionLocal` factory with dependency injection via `get_db()`
+
+### Trading Constraints
+- **Order Type**: Market orders only (some pairs require limit orders - replace if needed)
+- **Size**: $10+ USD minimum per trade
+- **Thresholds**: ±0.05 system-wide (NEVER change - optimized value)
+- **Balance Check**: Bots skip evaluation when insufficient funds
+
+### Critical Threshold Management
 ```python
-# Single source calculation
+# bot_evaluator.py - NEVER MODIFY
+buy_threshold = thresholds.get('buy_threshold', -0.05)   # ✅ Must be -0.05
+sell_threshold = thresholds.get('sell_threshold', 0.05)  # ✅ Must be 0.05
+```
+
+### Configuration
+- **Backend**: `backend/app/main.py` (FastAPI entry point)
+- **Frontend**: Vite dev server proxies `/api` to port 8000
+- **Environment**: `.env` at project root (requires COINBASE_API_KEY/SECRET)
+- **Python**: Virtual env at `backend/venv/` required
+
+## Critical Code Patterns
+
+### Signal Factory
+```python
+# /backend/app/services/signals/base.py
+from backend.app.services.signals.base import create_signal_instance
+
+# Bot.signal_config structure:
+{
+  "rsi": {"enabled": true, "weight": 0.4, "period": 14},
+  "moving_average": {"enabled": true, "weight": 0.35, "fast_period": 10},
+  "macd": {"enabled": true, "weight": 0.25, "fast_period": 12}
+}
+
+# Factory maps signal names to classes
+signal_type_map = {'rsi': 'RSI', 'moving_average': 'MA_Crossover', 'macd': 'MACD'}
+parameters = {k: v for k, v in config.items() if k not in ['enabled', 'weight']}
+signal_instance = create_signal_instance(signal_type_map[signal_name], parameters)
+```
+
+### Frontend Real-Time
+```typescript
+// TanStack Query with 5s polling
+export const useBotsStatus = () => {
+  return useQuery({
+    queryKey: ['bots', 'status'],
+    queryFn: fetchBotsStatus,
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
+    staleTime: 0
+  });
+};
+```
+
+### Temperature Calculation
+```python
 from ..utils.temperature import calculate_bot_temperature, get_temperature_emoji
 temperature = calculate_bot_temperature(abs(combined_score))  
 emoji = get_temperature_emoji(temperature)  # 🔥🌡️❄️🧊
@@ -707,21 +712,147 @@ DELETE /api/v1/bots/{bot_id}?liquidate=true
 - **Learning Effectiveness**: Profit per signal trending positive
 - **Architecture Preservation**: Keep existing 141K prediction database and infrastructure
 
-## 🚀 NEXT DEVELOPMENT PHASE: Intelligent Portfolio Management (Phase 9)
+## 🎯 CURRENT DEVELOPMENT PHASE: Bot Management Features (October 9, 2025)
 
-**Status**: 📋 PLANNED - Hybrid Learning + Scaling System  
-**Goal**: Combine profit-focused learning with dynamic position scaling for intelligent portfolio management
-**Foundation**: Build on Phase 8 learning system + add position scaling risk management
+**Status**: ✅ COMPLETE - Bot Deletion with Automatic Liquidation
+**Goal**: Complete bot lifecycle management with safe deletion and position liquidation
+**Achievement**: Production-ready bot deletion feature with optional automatic sell-off of holdings
 
-### 🧠 **Phase 9 Vision: Intelligent Hybrid Approach**
-**Key Insight**: Parameter adjustment (learning) and position scaling are **complementary, not competitive**
+### ✅ **Bot Deletion Feature (October 9, 2025)**
+- ✅ **User Interface**: Confirmation modal with pre-checked "Liquidate holdings" checkbox (default enabled)
+- ✅ **Liquidation Logic**: Automatic market sell orders for all holdings before bot deletion
+- ✅ **Cascade Deletion**: Complete cleanup of all related database records (Trade, BotSignalHistory, AdaptiveSignalWeights, SignalPredictionRecord)
+- ✅ **Optimistic UI Updates**: Immediate feedback with React Query - modal closes and bot disappears instantly
+- ✅ **Zero Hangs**: Sub-second response times (removed blocking sync call that caused 30s+ delays)
+- ✅ **Production Tested**: End-to-end verification with real Coinbase trades
 
-- **Learning System**: Optimizes signal weights, thresholds, timing for each bot
-- **Position Scaling**: Dynamically adjusts capital allocation based on performance  
-- **Combined Power**: Learn while protecting capital, scale up winners, scale down losers
-- **Real-World Example**: SQD-USD (-$26) gets parameter tuning + position scaling rather than crude liquidation
+### 🔧 **Critical Fixes Applied**
+1. **BotResponse Schema Fix**: `create_bot()` and `update_bot()` now use `prepare_bot_response()` to add computed fields
+2. **Order Result Validation**: Check `order_result.get('order_id')` instead of non-existent `'success'` key
+3. **Complete Cascade Deletion**: Delete all child tables (Trade, BotSignalHistory, AdaptiveSignalWeights, SignalPredictionRecord)
+4. **Transaction Flush**: Add `db.flush()` after child deletions to satisfy SQLite foreign key constraints
+5. **Remove Blocking Sync**: Eliminated `raw_trade_service.sync_trades_for_product()` call that hung for 30+ seconds
 
-### 🎯 **Phase 9 Hybrid Decision Framework**
+### 📋 **API Endpoint**
+```bash
+DELETE /api/v1/bots/{bot_id}?liquidate=true
+
+# Response:
+{
+  "message": "Bot deleted successfully",
+  "liquidation": {
+    "product_id": "XLM-USD",
+    "holdings_liquidated": 123.45,
+    "trade_executed": true,
+    "order_id": "abc-123",
+    "error": null
+  }
+}
+```
+
+### 🎯 **User Experience Flow**
+1. Click delete button on any bot card
+2. Modal appears with "Liquidate holdings" checkbox (pre-checked)
+3. Click "Liquidate & Delete" or "Delete Bot"
+4. Trade executes on Coinbase (if holdings exist)
+5. Modal closes immediately (<1 second response)
+6. Bot disappears from UI (optimistic update)
+7. Toast notification confirms success
+
+### 📚 **Documentation**
+- Complete guide: `/docs/current/BOT_DELETION_WITH_LIQUIDATION.md`
+- Quick reference: `/docs/current/BOT_DELETION_QUICK_REFERENCE.md`
+- Implementation summary: `/docs/current/BOT_DELETION_IMPLEMENTATION_SUMMARY.md`
+
+## 🚨 URGENT: PHASE 9A - Emergency Profit Protection (October 11, 2025)
+
+**Status**: 📋 PLANNED - **HIGHEST PRIORITY** 🔥🔥🔥  
+**Trigger Event**: Market crash on October 10, 2025 - lost all unrealized gains  
+**Root Cause**: Bot model has `stop_loss_pct` and `take_profit_pct` fields but trading logic **completely ignores them**
+
+### 💔 **The Critical Gap Discovered**
+
+**What Happened**: Yesterday's cryptocurrency market crash wiped out all portfolio gains because the system has **zero profit-taking or stop-loss logic**.
+
+```python
+# Bot model DEFINES profit protection fields (backend/app/models/models.py)
+class Bot(Base):
+    stop_loss_pct = Column(Float, default=5.0)      # ✅ EXISTS but UNUSED
+    take_profit_pct = Column(Float, default=10.0)   # ✅ EXISTS but UNUSED
+
+# But bot_evaluator.py IGNORES these fields completely
+def should_sell(self, bot, current_price, portfolio_value):
+    # ❌ NO CHECK: if profit >= bot.take_profit_pct
+    # ❌ NO CHECK: if loss >= bot.stop_loss_pct
+    # ✅ ONLY CHECK: if combined_score >= 0.05
+    return combined_score >= sell_threshold
+
+# RESULT: Bots hold positions indefinitely waiting for signal reversals
+# IMPACT: Unrealized gains evaporate during market crashes
+```
+
+### 🎯 **Phase 9A Objectives (5-Day Implementation)**
+
+1. **Activate take_profit_pct**: Sell when position profit hits 10% target
+2. **Activate stop_loss_pct**: Sell when position loss hits 5% limit  
+3. **Add P&L calculation**: Real-time position P&L percentage tracking
+4. **Prevent double positions**: Don't buy if already holding asset
+5. **Track trade reasons**: Log why each trade executed (TAKE_PROFIT, STOP_LOSS, SIGNAL_BUY, SIGNAL_SELL)
+
+### 🔧 **Implementation Approach**
+
+**Update bot_evaluator.py:**
+```python
+def should_sell(self, bot: Bot, current_price: float, portfolio_value: float) -> Tuple[bool, str]:
+    """
+    Priority order:
+    1. Take profit target hit (PRIORITY 1)
+    2. Stop loss limit breached (PRIORITY 2)
+    3. Signal score exceeds sell threshold (PRIORITY 3)
+    """
+    pnl_percent = self.calculate_position_pnl_percent(bot)
+    
+    # Priority 1: Take profit
+    if pnl_percent >= bot.take_profit_pct:
+        return (True, f"TAKE_PROFIT:{pnl_percent:.2f}%")
+    
+    # Priority 2: Stop loss
+    if pnl_percent <= -bot.stop_loss_pct:
+        return (True, f"STOP_LOSS:{pnl_percent:.2f}%")
+    
+    # Priority 3: Signal-based sell
+    if combined_score >= sell_threshold:
+        return (True, f"SIGNAL_SELL:{combined_score:.3f}")
+    
+    return (False, "HOLD")
+```
+
+### 📊 **Expected Impact**
+
+- **Profit Realization**: Winners like AVNT-USD (+$47) would have locked gains at +10%
+- **Loss Limitation**: Losers like SQD-USD (-$25) would have been stopped at -$1 (5% of $20)
+- **Portfolio Protection**: Market crashes can't wipe out unrealized gains anymore
+- **Zero New Database Changes**: Use existing Bot model fields
+
+### 📚 **Documentation**
+- Complete plan: `/PHASE_9A_EMERGENCY_PROFIT_PROTECTION.md`
+- Roadmap update: `/docs/current/ROADMAP_STATUS_OCTOBER_2025.md`
+
+## � FUTURE PHASE: Phase 9B - Full Portfolio Management
+
+**Status**: 📋 PLANNED - Awaiting Phase 9A completion  
+**Goal**: Dynamic position scaling + momentum detection + capital reallocation
+**Foundation**: Build on Phase 8 learning + Phase 9A profit protection
+
+### 🧠 **Phase 9B Vision: Intelligent Hybrid Approach**
+**Key Insight**: Parameter adjustment (learning) + position scaling + profit protection are **complementary, not competitive**
+
+- **Phase 8 (Learning)**: Optimizes signal weights based on performance
+- **Phase 9A (Protection)**: Locks profits at 10%, cuts losses at 5%
+- **Phase 9B (Scaling)**: Dynamically adjusts position sizes (1x → 3x for winners, 1x → 0.2x for losers)
+- **Combined Power**: Learn + protect + scale = institutional-grade risk management
+
+### 🎯 **Phase 9B Hybrid Decision Framework**
 ```
 For Each Position:
 ├─ Loss > $40? → LIQUIDATE (emergency stop)
@@ -736,35 +867,13 @@ For Each Position:
 └─ Profit $10+? → Scale up with momentum detection + optimize winning signals
 ```
 
-### 🛠️ **Phase 9 Hybrid Architecture**
-```python
-class HybridPortfolioDecisionEngine:
-    """
-    Combines AdaptiveSignalWeightingService with PositionScalingService
-    Makes intelligent decisions: when to learn vs when to scale
-    """
-    def evaluate_bot_action(self, bot: Bot) -> Dict[str, Any]:
-        # Emergency liquidation: Loss > $40
-        # Momentum scaling: Profit > $15 (scale up + optimize signals)  
-        # Risk management: Loss $10-40 (scale down + learn)
-        # Stable optimization: -$10 to +$15 (maintain + learn)
-        
-# Extend existing Bot model (preserve all existing fields)
-class Bot(Base):
-    # ... ALL existing fields preserved ...
-    current_portfolio_multiplier = Column(Float, default=1.0)  # 0.2x-3.0x scaling
-    last_portfolio_adjustment = Column(DateTime)
-    portfolio_tier = Column(String(20), default="NEUTRAL")  # WINNER/SCALING/LEARNING/LIQUIDATED
-```
+### 📋 **Phase 9B Key Benefits**
+- **AVNT-USD Example**: Scale from $20 → $60 during breakout (3x multiplier)
+- **SQD-USD Example**: Scale from $20 → $5 to limit damage (0.25x multiplier)
+- **Capital Reallocation**: Move capital from scaled-down losers to scaled-up winners
+- **Momentum Detection**: Automatically detect breakouts and trend acceleration
 
-### 📋 **Phase 9 Key Benefits Over Simple Liquidation**
-- **SQD-USD Example**: Instead of liquidating -$26 loss, scale to $10 + retune RSI weights
-- **AVNT-USD Example**: Instead of static $20, scale to $40+ while optimizing winning signals  
-- **Capital Protection**: Reduce risk immediately while strategies learn and adapt
-- **Intelligent Growth**: Scale up verified winners with optimized parameters
-- **Data Preservation**: Keep learning from scaled-down positions instead of losing data from liquidations
-
-**See `/PHASE_9_AUTOMATED_PORTFOLIO_MANAGEMENT_PLAN.md` for complete implementation roadmap.**
+**See `/PHASE_9_AUTOMATED_PORTFOLIO_MANAGEMENT_PLAN.md` for complete Phase 9B roadmap.**
 
 ## 🛠️ API DEBUGGING BEST PRACTICES - MANDATORY 🛠️
 
@@ -918,35 +1027,32 @@ For current system errors: `curl -s --max-time 10 "http://localhost:8000/api/v1/
 7. **Test the UI, Not Just the API**: curl tests that work don't mean the UI works - integration is what matters
 8. **Transaction Order Matters**: For SQLite foreign keys - delete children → flush → delete parent → commit
 9. **Avoid Blocking I/O**: Background tasks for slow operations, not request handlers
+10. **Database Fields ≠ Active Logic**: Always verify database fields are actually used by trading logic (October 11 discovery)
 
-## 🧠 **CRITICAL REASONING METHODOLOGY (October 2025)**
+### 🚨 **CRITICAL DISCOVERY: October 11, 2025 - Profit Protection Gap**
 
-**When users request UI/feature changes, apply this proven reasoning pattern:**
+**What Happened**: Market crash on October 10, 2025 wiped out all unrealized portfolio gains
 
-### **1. Listen to the ACTUAL Problem**
-- Extract exact complaints from user words
-- Don't assume what they want - parse what they said
-- Example: "cluttered" = remove visual noise, not add features
+**Root Cause Analysis**:
+- Bot model DEFINES `stop_loss_pct` (5%) and `take_profit_pct` (10%) fields ✅
+- Trading logic in `bot_evaluator.py` and `trading_tasks.py` IGNORES these fields completely ❌
+- Bots only trade on signal scores (±0.05 thresholds), never lock profits or cut losses ❌
+- Result: Positions held indefinitely waiting for signal reversals, gains evaporated during crash 💔
 
-### **2. Understand the DEEPER Intent**  
-- Look beyond surface requests to underlying needs
-- Distinguish between "what they asked for" vs "what they actually want"
-- Example: "AI metrics" = insight into AI behavior, not manual controls
+**Key Insights**:
+1. **Database fields don't equal active logic** - grep searches revealed fields existed but zero usage
+2. **Signal optimization ≠ Risk management** - 141K+ predictions optimize weights, not exit timing
+3. **Unrealized gains are not safe** - Without profit-taking, even sophisticated AI can't prevent losses
+4. **Stop losses are mandatory** - Can't rely on signal reversals for position exits
+5. **User trust requires protection** - Emergency risk management now HIGHEST PRIORITY
 
-### **3. Design Philosophy: Autonomous Intelligence**
-- Show "what the AI IS doing" not "what YOU should do"
-- Respect user expertise - provide tools, not tutorials
-- Data-first presentation with minimal explanatory fluff
+**Prevention Strategy**:
+- **Phase 9A (URGENT)**: Activate existing profit protection fields in trading logic
+- **Phase 9B (Planned)**: Add dynamic position scaling for additional risk management
+- **Future Rule**: Always implement risk management BEFORE optimizations
 
-### **4. Remove All Noise**
-- Strip assumptions, marketing language, beginner explanations
-- Focus on clean data tables with real numbers
-- Professional interface for sophisticated users
+**User Quote**: "yesterday was a disaster. we were up in equity and never realized profits and now the entire market crashed and we lost all gains, wasn't the ai system suppose to help us lock in profits while mitigating risks?"
 
-### **5. Validate Understanding**
-- Before implementing, confirm the reasoning approach
-- This prevents building the wrong solution efficiently
-
-**This pattern creates tools for smart people rather than tutorials for beginners.**
+**Action Taken**: Created `/PHASE_9A_EMERGENCY_PROFIT_PROTECTION.md` with 5-day implementation plan
 
 **System Status**: Production-ready, universal learning system active, bot deletion with liquidation feature complete, excellent system health with 0 current errors.
