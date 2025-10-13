@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 from ..core.config import settings
 
 celery_app = Celery(
@@ -10,7 +11,8 @@ celery_app = Celery(
         "app.tasks.data_tasks", 
         "app.tasks.market_analysis_tasks", 
         "app.tasks.new_pair_tasks",
-        "app.tasks.market_data_tasks"  # NEW: Phase 7 Market Data Service
+        "app.tasks.market_data_tasks",  # Phase 7 Market Data Service
+        "app.tasks.lifecycle_tasks"  # NEW: Bot Lifecycle Management (October 12, 2025)
     ]
 )
 
@@ -61,6 +63,27 @@ celery_app.conf.update(
         "scan-for-new-pairs": {
             "task": "app.tasks.new_pair_tasks.scan_for_new_pairs_task",
             "schedule": 7200.0,  # Every 2 hours - detect newly listed pairs
+        },
+        # Bot Lifecycle Management (October 12, 2025)
+        "breakout-scanner": {
+            "task": "app.tasks.trading_tasks.scan_for_breakouts",
+            "schedule": 7200.0,  # Every 2 hours - controlled scanning
+            "kwargs": {
+                "create_bots": True,  # Auto-create enabled
+                "min_confidence": "MEDIUM"  # Only MEDIUM+ opportunities
+            }
+        },
+        "check-pnl-triggers": {
+            "task": "lifecycle.check_pnl_triggers",
+            "schedule": 600.0,  # Every 10 minutes - catch exits quickly
+        },
+        "check-closing-bots": {
+            "task": "lifecycle.check_closing_bots",
+            "schedule": 3600.0,  # Every hour - transition CLOSING → CLOSED
+        },
+        "daily-bot-cleanup": {
+            "task": "lifecycle.daily_cleanup",
+            "schedule": crontab(hour=2, minute=0),  # Daily at 2 AM UTC - archive + reallocate
         },
     },
 )

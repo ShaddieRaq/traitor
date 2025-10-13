@@ -1,6 +1,7 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, Activity, Clock, Target, Shield, Zap, Brain, BarChart3 } from 'lucide-react';
 import { useTrendAnalysis, getTrendDirection, getRegimeDisplay } from '../../hooks/useTrends';
+import { LifecycleBadge } from './LifecycleBadge';
 
 // Sample 1: Compact Performance-Focused Card
 export const CompactPerformanceCard: React.FC<{ bot: any, pnlData?: any }> = ({ bot, pnlData }) => {
@@ -29,6 +30,7 @@ export const CompactPerformanceCard: React.FC<{ bot: any, pnlData?: any }> = ({ 
           <div className="flex items-center space-x-2">
             <div className="text-lg font-bold text-gray-900">{bot.pair}</div>
             <span className="text-xl">{bot.temperature === 'HOT' ? '🔥' : bot.temperature === 'WARM' ? '🌡️' : bot.temperature === 'COOL' ? '❄️' : '🧊'}</span>
+            <LifecycleBadge stage={bot.lifecycle_stage} archivedAt={bot.archived_at} />
           </div>
           <div className={`text-right ${isProfit ? 'text-green-600' : 'text-red-600'}`}>
             <div className="text-lg font-bold">
@@ -202,9 +204,12 @@ export const AdvancedAnalyticsCard: React.FC<{ bot: any, pnlData?: any }> = ({ b
       {/* Header with Gradient */}
       <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-4">
         <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-bold">{bot.pair}</h3>
-            <p className="text-indigo-100 text-sm">{bot.name}</p>
+          <div className="flex items-center space-x-2">
+            <div>
+              <h3 className="text-lg font-bold">{bot.pair}</h3>
+              <p className="text-indigo-100 text-sm">{bot.name}</p>
+            </div>
+            <LifecycleBadge stage={bot.lifecycle_stage} archivedAt={bot.archived_at} />
           </div>
           <div className="text-right">
             <div className="text-lg font-bold">
@@ -866,6 +871,10 @@ export const LearningEnhancedCard: React.FC<{ bot: any, pnlData?: any }> = ({ bo
             <div className="text-lg font-bold text-gray-900">{bot.pair}</div>
             <span className="text-xl">{bot.temperature === 'HOT' ? '🔥' : bot.temperature === 'WARM' ? '🌡️' : bot.temperature === 'COOL' ? '❄️' : '🧊'}</span>
             {hasLearningMods && <span className="text-sm">🧠</span>}
+            <LifecycleBadge 
+              stage={bot.lifecycle_stage || 'ACTIVE'} 
+              archivedAt={bot.archived_at}
+            />
           </div>
           <div className={`text-right ${isProfit ? 'text-green-600' : 'text-red-600'}`}>
             <div className="text-lg font-bold">

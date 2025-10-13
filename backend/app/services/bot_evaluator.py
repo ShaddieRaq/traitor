@@ -166,6 +166,48 @@ class BotSignalEvaluator:
             f"({risk_data['calculation_reason']})"
         )
         
+        # CRITICAL: Check P/L protection rules FIRST (Priority 1 - overrides signals)
+        # This fixes October 10, 2025 market crash where take_profit_pct/stop_loss_pct
+        # were defined but completely ignored by trading logic
+        pnl_exit = self._check_pnl_exit(bot, current_price)
+        if pnl_exit:
+            # P/L rule triggered - force exit regardless of signals
+            action = pnl_exit['action']
+            logger.info(
+                f"🚨 P/L PROTECTION OVERRIDE for {bot.pair}: {pnl_exit['reason']} "
+                f"(Priority {pnl_exit['priority']}) - {pnl_exit['message']}"
+            )
+            # Add P/L info to evaluation result
+            evaluation_result = {
+                'overall_score': overall_score,
+                'action': action,
+                'confidence': overall_confidence,
+                'risk_multiplier': risk_multiplier,
+                'signal_results': signal_results,
+                'pnl_protection': pnl_exit,  # Include P/L exit details
+                'metadata': {
+                    'bot_id': bot.id,
+                    'bot_name': bot.name,
+                    'pair': bot.pair,
+                    'total_weight': total_weight,
+                    'enabled_signals': len(signal_results),
+                    'evaluation_timestamp': pd.Timestamp.now().isoformat(),
+                    'risk_assessment': risk_data,
+                    'exit_reason': pnl_exit['reason']  # TAKE_PROFIT, STOP_LOSS, or TIME_LIMIT
+                }
+            }
+            # Skip signal confirmation - P/L exits are immediate
+            evaluation_result['confirmation_status'] = {
+                'is_confirmed': True,
+                'needs_confirmation': False,
+                'status': 'pnl_protection_override',
+                'action_being_confirmed': None,
+                'confirmation_start': None,
+                'confirmation_progress': 1.0,
+                'time_remaining_minutes': 0
+            }
+            return evaluation_result
+        
         # Phase 3: Signal Quality Filtering - Reject weak signals below confidence threshold
         min_confidence = 0.2  # TEMPORARILY LOWERED: Allow trades with 20%+ confidence
         if overall_confidence < min_confidence:
@@ -458,6 +500,110 @@ class BotSignalEvaluator:
                 'confirmation_progress': progress,
                 'time_remaining_minutes': time_remaining
             }
+    
+    def _check_pnl_exit(self, bot: Bot, current_price: float) -> Optional[Dict[str, Any]]:
+        """
+        Check if bot should exit position based on P/L protection rules.
+        
+        This is PRIORITY 1 - overrides all signal-based decisions.
+        Fixes October 10, 2025 market crash issue where take_profit_pct/stop_loss_pct
+        were defined but completely ignored by trading logic.
+        
+        Exit Priority:
+        1. Take Profit: Lock in gains at target percentage
+        2. Stop Loss: Cut losses at limit percentage  
+        3. Time Limit: Exit BREAKOUT bots after holding period (72h default)
+        4. (Signal-based exits handled separately in _determine_action)
+        
+        Args:
+            bot: Bot instance with position and P/L settings
+            current_price: Current market price
+            
+        Returns:
+            Dict with forced exit action if P/L rule triggered, None otherwise
+        """
+        # Only check P/L exits if bot has an open position
+        if not bot.current_position_size or bot.current_position_size <= 0:
+            return None
+            
+        if not bot.current_position_entry_price or bot.current_position_entry_price <= 0:
+            return None
+        
+        # Calculate current P/L percentage
+        entry_price = bot.current_position_entry_price
+        pnl_pct = ((current_price - entry_price) / entry_price) * 100
+        
+        # Priority 1: Take Profit Check
+        take_profit_pct = bot.take_profit_pct if bot.take_profit_pct else 10.0  # Default 10%
+        if pnl_pct >= take_profit_pct:
+            logger.info(
+                f"🎯 TAKE PROFIT triggered for {bot.pair}: "
+                f"P/L {pnl_pct:.2f}% >= target {take_profit_pct:.2f}% "
+                f"(entry: ${entry_price:.4f}, current: ${current_price:.4f})"
+            )
+            return {
+                'action': 'sell',
+                'reason': 'TAKE_PROFIT',
+                'pnl_pct': pnl_pct,
+                'target_pct': take_profit_pct,
+                'priority': 1,
+                'message': f'Taking profit at +{pnl_pct:.2f}%'
+            }
+        
+        # Priority 2: Stop Loss Check
+        stop_loss_pct = bot.stop_loss_pct if bot.stop_loss_pct else 5.0  # Default 5%
+        if pnl_pct <= -stop_loss_pct:
+            logger.warning(
+                f"🛑 STOP LOSS triggered for {bot.pair}: "
+                f"P/L {pnl_pct:.2f}% <= limit -{stop_loss_pct:.2f}% "
+                f"(entry: ${entry_price:.4f}, current: ${current_price:.4f})"
+            )
+            return {
+                'action': 'sell',
+                'reason': 'STOP_LOSS',
+                'pnl_pct': pnl_pct,
+                'limit_pct': stop_loss_pct,
+                'priority': 2,
+                'message': f'Cutting loss at {pnl_pct:.2f}%'
+            }
+        
+        # Priority 3: Time Limit Check (BREAKOUT bots only)
+        if hasattr(bot, 'trading_mode') and bot.trading_mode == 'BREAKOUT':
+            # BREAKOUT bots are short-term momentum plays - exit after holding period
+            # Query most recent BUY trade to check holding time
+            try:
+                from ..models.models import RawTrade
+                from datetime import datetime, timezone
+                
+                last_buy = self.db.query(RawTrade).filter(
+                    RawTrade.bot_id == bot.id,
+                    RawTrade.side == 'BUY'
+                ).order_by(RawTrade.filled_at.desc()).first()
+                
+                if last_buy and last_buy.filled_at:
+                    holding_hours = (datetime.now(timezone.utc) - last_buy.filled_at).total_seconds() / 3600
+                    max_holding_hours = 72  # 72 hours (3 days) default for BREAKOUT bots
+                    
+                    if holding_hours >= max_holding_hours:
+                        logger.info(
+                            f"⏰ TIME LIMIT triggered for {bot.pair} (BREAKOUT mode): "
+                            f"Held for {holding_hours:.1f}h >= {max_holding_hours}h limit, "
+                            f"P/L: {pnl_pct:.2f}%"
+                        )
+                        return {
+                            'action': 'sell',
+                            'reason': 'TIME_LIMIT',
+                            'pnl_pct': pnl_pct,
+                            'holding_hours': holding_hours,
+                            'priority': 3,
+                            'message': f'Time limit reached ({holding_hours:.1f}h) at {pnl_pct:.2f}%'
+                        }
+            except Exception as e:
+                logger.debug(f"Error checking time limit for {bot.pair}: {e}")
+                pass  # Continue to signal-based logic if time check fails
+        
+        # No P/L exit triggered
+        return None
     
     def _determine_action(self, overall_score: float, bot: Bot) -> str:
         """
@@ -1132,6 +1278,32 @@ class BotSignalEvaluator:
                         f"✅ Automatic {action} trade executed successfully for bot {bot.id}: "
                         f"Trade ID {trade_result.get('trade_id')}"
                     )
+                    
+                    # LIFECYCLE: Handle bot lifecycle transitions after successful P/L exits
+                    # Check if this was a P/L protection exit (TAKE_PROFIT, STOP_LOSS, TIME_LIMIT)
+                    if 'pnl_protection' in evaluation_result:
+                        pnl_exit = evaluation_result['pnl_protection']
+                        exit_reason = pnl_exit.get('reason', '')
+                        
+                        if action.lower() == 'sell' and exit_reason in ['TAKE_PROFIT', 'STOP_LOSS', 'TIME_LIMIT']:
+                            try:
+                                from .bot_lifecycle_service import get_lifecycle_service
+                                lifecycle_service = get_lifecycle_service(self.db)
+                                
+                                # Transition to CLOSING (liquidating position)
+                                lifecycle_service.transition_to_closing(bot, reason=exit_reason)
+                                
+                                # Check if position is now fully closed
+                                self.db.refresh(bot)  # Refresh to get updated position size
+                                if bot.current_position_size == 0:
+                                    # Transition to CLOSED immediately
+                                    lifecycle_service.transition_to_closed(bot)
+                                    logger.info(f"🔄 Bot {bot.id} lifecycle: ACTIVE → CLOSING → CLOSED")
+                                else:
+                                    logger.info(f"🔄 Bot {bot.id} lifecycle: ACTIVE → CLOSING (position: {bot.current_position_size})")
+                                    
+                            except Exception as lifecycle_error:
+                                logger.error(f"Failed to update bot lifecycle for {bot.id}: {lifecycle_error}")
             else:
                 # Actual system errors
                 error_message = trade_result.get('message', 'Unknown error')

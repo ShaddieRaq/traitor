@@ -66,6 +66,10 @@ export interface Bot {
   // Optional fields from BotStatus for unified interface
   temperature?: string;
   distance_to_signal?: number;
+  // Bot Lifecycle Management (October 12, 2025)
+  lifecycle_stage?: string;  // "ACTIVE", "CLOSING", "CLOSED", "ARCHIVED"
+  archived_at?: string;  // ISO datetime when bot was archived
+  can_auto_delete?: boolean;  // Whether bot participates in lifecycle automation
 }
 
 export interface BotCreate {
@@ -222,6 +226,10 @@ export interface EnhancedBotStatus extends BotStatus {
   confirmation: ConfirmationStatus;
   trade_readiness: TradeReadiness;
   last_trade?: LastTradeInfo;
+  position_size_usd?: number;  // For capital calculations
+  lifecycle_stage?: string;  // Bot lifecycle management
+  archived_at?: string;  // When bot was archived
+  can_auto_delete?: boolean;  // Lifecycle participation
   pnl_data?: PnLData;
   cooldown_minutes: number; // Real cooldown duration from bot configuration
 }

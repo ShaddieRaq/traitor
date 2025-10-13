@@ -47,6 +47,13 @@ class CoinbaseService:
         self.cached_accounts = None
         self.cached_accounts_timestamp = None
         
+        # ===== RATE LIMIT TRACKING: Track API call patterns =====
+        self.api_call_tracker = {
+            'get_historical_data': {'count': 0, 'last_reset': time.time()},
+            'get_accounts': {'count': 0, 'last_reset': time.time()}
+        }
+        # ===== END RATE LIMIT TRACKING =====
+        
         # Initialize market data cache (centralized caching)
         self.market_data_cache = get_market_data_cache()
         
@@ -316,6 +323,26 @@ class CoinbaseService:
         if not self.client:
             return pd.DataFrame()
         
+        # ===== ENHANCED LOGGING: Track all calls to this method =====
+        import traceback
+        caller_info = traceback.extract_stack()[-2]  # Get immediate caller
+        
+        # Track call frequency
+        tracker = self.api_call_tracker['get_historical_data']
+        tracker['count'] += 1
+        current_time = time.time()
+        elapsed = current_time - tracker['last_reset']
+        
+        # Reset counter every 60 seconds and log summary
+        if elapsed >= 60:
+            calls_per_minute = tracker['count'] / (elapsed / 60)
+            logger.warning(f"� API CALL RATE: get_historical_data called {tracker['count']} times in {elapsed:.1f}s ({calls_per_minute:.1f}/min)")
+            tracker['count'] = 0
+            tracker['last_reset'] = current_time
+        
+        logger.info(f"🔍 get_historical_data #{tracker['count']}: {product_id} | Caller: {caller_info.filename.split('/')[-1]}:{caller_info.lineno} in {caller_info.name}()")
+        # ===== END ENHANCED LOGGING =====
+        
         # Direct API call without legacy cache
         return self._fetch_historical_data_from_api(product_id, granularity, limit)
     
@@ -414,7 +441,17 @@ class CoinbaseService:
                     cb['circuit_open_until'] = current_time + cb['backoff_seconds']
                     logger.error(f"🚨 Circuit breaker opened for {cb['backoff_seconds']}s after {cb['failure_count']} failures")
                 
-                logger.error(f"🚨 Rate limiting detected for {product_id} (failure #{cb['failure_count']}, next backoff: {cb['backoff_seconds']}s)")
+                # ===== ENHANCED LOGGING: Add stack trace to identify caller =====
+                import traceback
+                call_stack = traceback.format_stack()
+                # Get meaningful caller info (skip last 2 frames which are this error handler)
+                caller_frames = [frame for frame in call_stack[:-2] if 'backend/app' in frame]
+                caller_summary = "\n".join(caller_frames[-3:]) if len(caller_frames) >= 3 else "\n".join(caller_frames)
+                
+                logger.error(f"🚨 RATE LIMIT for {product_id} (failure #{cb['failure_count']}, backoff: {cb['backoff_seconds']}s)")
+                logger.error(f"📍 CALL STACK (last 3 frames):\n{caller_summary}")
+                logger.error(f"🔍 Method: _fetch_historical_data_from_api | Granularity: {granularity}s | Limit: {limit}")
+                # ===== END ENHANCED LOGGING =====
                 
                 # Report to system health monitor
                 try:
@@ -426,7 +463,10 @@ class CoinbaseService:
                             "product_id": product_id, 
                             "error_type": "rate_limit_429",
                             "failure_count": cb['failure_count'],
-                            "backoff_seconds": cb['backoff_seconds']
+                            "backoff_seconds": cb['backoff_seconds'],
+                            "granularity": granularity,
+                            "limit": limit,
+                            "caller_summary": caller_summary[:500]  # Truncate for storage
                         }
                     )
                 except Exception as report_error:
@@ -776,13 +816,27 @@ class CoinbaseService:
                 
                 # Check for rate limiting errors and report to system health
                 if "429" in error_msg or "Too Many Requests" in error_msg or "rate limit" in error_msg.lower():
-                    logger.error(f"🚨 Rate limiting detected in account data fetch: {error_msg}")
+                    # ===== ENHANCED LOGGING: Add stack trace to identify caller =====
+                    import traceback
+                    call_stack = traceback.format_stack()
+                    caller_frames = [frame for frame in call_stack[:-2] if 'backend/app' in frame]
+                    caller_summary = "\n".join(caller_frames[-3:]) if len(caller_frames) >= 3 else "\n".join(caller_frames)
+                    
+                    logger.error(f"🚨 RATE LIMIT in get_accounts() fallback method")
+                    logger.error(f"📍 CALL STACK (last 3 frames):\n{caller_summary}")
+                    logger.error(f"🔍 Operation: get_accounts | Error: {error_msg}")
+                    # ===== END ENHANCED LOGGING =====
+                    
                     try:
                         from ..api.system_errors import report_bot_error, ErrorType
                         report_bot_error(
                             error_type=ErrorType.MARKET_DATA,
                             message=f"Rate limiting error fetching account data: {error_msg}",
-                            details={"error_type": "rate_limit_429", "operation": "get_accounts"}
+                            details={
+                                "error_type": "rate_limit_429", 
+                                "operation": "get_accounts",
+                                "caller_summary": caller_summary[:500]
+                            }
                         )
                     except Exception as report_error:
                         logger.error(f"Failed to report rate limiting error: {report_error}")

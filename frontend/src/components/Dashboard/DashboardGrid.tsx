@@ -9,7 +9,7 @@ interface DashboardGridProps {
  * Responsive grid layout for dashboard components
  * - Mobile: 1 column
  * - Tablet: 2 columns  
- * - Desktop: 4 columns
+ * - Desktop: 3 columns (optimized for portfolio, system health, intelligence)
  */
 export const DashboardGrid: React.FC<DashboardGridProps> = ({ 
   children, 
@@ -20,7 +20,7 @@ export const DashboardGrid: React.FC<DashboardGridProps> = ({
       grid gap-6 
       grid-cols-1 
       md:grid-cols-2 
-      xl:grid-cols-4 
+      xl:grid-cols-3
       auto-rows-min
       ${className}
     `}>
@@ -46,17 +46,17 @@ export const GridArea: React.FC<GridAreaProps> = ({
   const getAreaClasses = () => {
     switch (area) {
       case 'portfolio':
-        return 'col-span-1 md:col-span-2 xl:col-span-2 row-span-2';
+        return 'col-span-1 md:col-span-1 xl:col-span-1 row-span-2';
       case 'systemHealth':
-        return 'col-span-1 md:col-span-2 xl:col-span-2 row-span-2';
+        return 'col-span-1 md:col-span-1 xl:col-span-1 row-span-2';
       case 'intelligence':
-        return 'col-span-1 md:col-span-2 xl:col-span-4 row-span-1';
+        return 'col-span-1 md:col-span-2 xl:col-span-1 row-span-2';
       case 'hotBots':
-        return 'col-span-1 md:col-span-2 xl:col-span-4 row-span-2';
+        return 'col-span-1 md:col-span-2 xl:col-span-3 row-span-2';
       case 'allBots':
-        return 'col-span-1 md:col-span-2 xl:col-span-4 row-span-4';
+        return 'col-span-1 md:col-span-2 xl:col-span-3 row-span-4';
       case 'activity':
-        return 'col-span-1 md:col-span-2 xl:col-span-4 row-span-2';
+        return 'col-span-1 md:col-span-2 xl:col-span-3 row-span-2';
       default:
         return 'col-span-1';
     }

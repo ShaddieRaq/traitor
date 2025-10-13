@@ -12,7 +12,7 @@ class Bot(Base):
     name = Column(String(100), unique=True, index=True)
     description = Column(Text)
     pair = Column(String(20), index=True)  # e.g., "BTC-USD"
-    status = Column(String(20), default="STOPPED")  # RUNNING, STOPPED, ERROR
+    status = Column(String(20), default="RUNNING")  # RUNNING, STOPPED, ERROR - Auto-start enabled
     
     # Position sizing
     position_size_usd = Column(Float, default=100.0)  # Fixed dollar amount per trade
@@ -36,6 +36,14 @@ class Bot(Base):
     
     # Phase 2: Position Sizing Intelligence - Dynamic Position Sizing
     use_position_sizing = Column(Boolean, default=False)  # Enable/disable regime-adaptive position sizing
+    
+    # Trading Mode (October 12, 2025 - Breakout Scanner)
+    trading_mode = Column(String(20), default="CORE")  # CORE (long-term) or BREAKOUT (short-term momentum)
+    
+    # Bot Lifecycle Management (October 12, 2025 - Auto Create/Delete)
+    lifecycle_stage = Column(String(20), default="ACTIVE")  # ACTIVE, CLOSING, CLOSED, ARCHIVED, DELETED
+    archived_at = Column(DateTime(timezone=True))  # When bot was archived
+    can_auto_delete = Column(Boolean, default=True)  # Allow automatic deletion
     
     # Current state
     current_position_size = Column(Float, default=0.0)

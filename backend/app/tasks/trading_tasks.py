@@ -337,3 +337,148 @@ def monitor_order_status(order_id: str, trade_id: int):
     except Exception as e:
         logger.error(f"❌ Order monitoring task failed for {order_id}: {e}")
         return {"status": "error", "error": str(e), "order_id": order_id, "trade_id": trade_id}
+
+
+@celery_app.task(name="app.tasks.trading_tasks.scan_for_breakouts")
+def scan_for_breakouts(create_bots: bool = False, min_confidence: str = "MEDIUM"):
+    """
+    Scan all Coinbase pairs for breakout opportunities.
+    
+    Args:
+        create_bots: If True, automatically create bots for detected breakouts
+        min_confidence: Minimum confidence level (HIGH, MEDIUM, LOW)
+    
+    Returns:
+        Dictionary with scan results and created bots
+    """
+    logger.info(f"🔍 Breakout scanner task triggered (create_bots={create_bots}, min_confidence={min_confidence})")
+    
+    try:
+        db = SessionLocal()
+        try:
+            # Import breakout detector
+            from ..services.breakout_detector import get_breakout_detector
+            
+            detector = get_breakout_detector()
+            
+            # Scan for breakouts
+            breakouts = detector.scan_all_products()
+            
+            if not breakouts:
+                logger.info("No breakouts detected")
+                return {
+                    "status": "success",
+                    "breakouts_detected": 0,
+                    "bots_created": 0,
+                    "opportunities": []
+                }
+            
+            # Filter by confidence
+            confidence_order = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
+            min_level = confidence_order.get(min_confidence, 2)
+            
+            filtered_breakouts = [
+                b for b in breakouts 
+                if confidence_order.get(b.confidence, 0) >= min_level
+            ]
+            
+            logger.info(f"Found {len(filtered_breakouts)} breakouts with {min_confidence}+ confidence")
+            
+            # Filter to USD pairs only (exclude USDC, USDT, etc.)
+            usd_only_breakouts = [
+                b for b in filtered_breakouts
+                if b.product_id.endswith('-USD')
+            ]
+            
+            excluded_count = len(filtered_breakouts) - len(usd_only_breakouts)
+            if excluded_count > 0:
+                logger.info(f"Filtered out {excluded_count} non-USD pairs (USDC, USDT, etc.)")
+            
+            filtered_breakouts = usd_only_breakouts
+            
+            # Get existing bot pairs
+            existing_pairs = detector.get_existing_bot_pairs(db)
+            new_opportunities = detector.filter_new_opportunities(filtered_breakouts, existing_pairs)
+            
+            logger.info(f"Found {len(new_opportunities)} new opportunities (not already trading)")
+            
+            results = {
+                "status": "success",
+                "breakouts_detected": len(breakouts),
+                "filtered_by_confidence": len(filtered_breakouts),
+                "new_opportunities": len(new_opportunities),
+                "bots_created": 0,
+                "bots_resurrected": 0,
+                "opportunities": [b.to_dict() for b in filtered_breakouts[:10]],  # Top 10
+                "created_bots": [],
+                "resurrected_bots": []
+            }
+            
+            # Create/resurrect bots if enabled
+            if create_bots and new_opportunities:
+                from ..services.capital_reallocation_service import get_capital_reallocation_service
+                
+                reallocation_service = get_capital_reallocation_service(db)
+                
+                # Safeguards
+                MAX_BOTS_PER_SCAN = 2  # Limit to 2 bots per scan
+                
+                created_bots = []
+                resurrected_bots = []
+                
+                for opportunity in new_opportunities[:MAX_BOTS_PER_SCAN]:
+                    try:
+                        # Smart decision: resurrect or create new
+                        result = reallocation_service.handle_breakout_opportunity(opportunity)
+                        
+                        if result.get('action') == 'created':
+                            created_bots.append({
+                                "bot_id": result['bot_id'],
+                                "product_id": result['pair'],
+                                "score": opportunity.score,
+                                "confidence": opportunity.confidence,
+                                "capital_allocated": result.get('capital_allocated', 15.0)
+                            })
+                            logger.info(
+                                f"🆕 Created breakout bot {result['bot_id']} for {result['pair']} "
+                                f"(score={opportunity.score})"
+                            )
+                        elif result.get('action') == 'resurrected':
+                            resurrected_bots.append({
+                                "bot_id": result['bot_id'],
+                                "product_id": result['pair'],
+                                "score": opportunity.score,
+                                "confidence": opportunity.confidence,
+                                "learning_preserved": True
+                            })
+                            logger.info(
+                                f"🔄 Resurrected bot {result['bot_id']} for {result['pair']} "
+                                f"(score={opportunity.score})"
+                            )
+                        elif result.get('action') == 'skipped':
+                            logger.info(
+                                f"⏭️  Skipped {opportunity.product_id}: {result.get('reason')}"
+                            )
+                            
+                    except Exception as e:
+                        logger.error(f"Failed to handle opportunity for {opportunity.product_id}: {e}")
+                
+                results["bots_created"] = len(created_bots)
+                results["bots_resurrected"] = len(resurrected_bots)
+                results["created_bots"] = created_bots
+                results["resurrected_bots"] = resurrected_bots
+            
+            db.commit()
+            return results
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"❌ Breakout scanner task failed: {e}", exc_info=True)
+        return {
+            "status": "error",
+            "error": str(e),
+            "breakouts_detected": 0,
+            "bots_created": 0
+        }

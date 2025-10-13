@@ -4,6 +4,7 @@ import { Edit3, Play, Pause, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { LearningEnhancedCard } from './BotCardSamples';
 import { DeleteBotModal } from './DeleteBotModal';
+import { LifecycleBadge } from './LifecycleBadge';
 
 interface TieredBotsViewProps {
   className?: string;
@@ -24,7 +25,9 @@ export const TieredBotsView: React.FC<TieredBotsViewProps> = ({
   const deleteBot = useDeleteBot();
   const [deletingBot, setDeletingBot] = useState<{ id: number; name: string } | null>(null);
   
-  const botsData = propBotsData || hookBotsData;
+  // Filter out archived bots from main view (they have their own tab)
+  const allBotsData = propBotsData || hookBotsData;
+  const botsData = allBotsData?.filter(bot => bot.lifecycle_stage !== 'ARCHIVED');
 
   if (!botsData) {
     return <div className={`animate-pulse bg-gray-100 rounded-lg h-64 ${className}`}></div>;
@@ -237,11 +240,15 @@ const BotCard: React.FC<BotCardProps> = ({ bot, pnlData, onEdit, onStart, onStop
 
   return (
     <div className="bg-white rounded-lg p-4 border hover:shadow-md transition-shadow">
-      {/* Header: Pair + P&L */}
+      {/* Header: Pair + Lifecycle Badge + P&L */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-2">
           <span className="text-lg">{getTemperatureIcon()}</span>
           <div className="font-bold text-lg text-gray-900">{bot.pair}</div>
+          <LifecycleBadge 
+            stage={bot.lifecycle_stage || 'ACTIVE'} 
+            archivedAt={bot.archived_at}
+          />
         </div>
         <div className="text-right">
           <div className={`font-bold text-sm ${pnlFormatted.color}`}>

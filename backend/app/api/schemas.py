@@ -163,6 +163,9 @@ class BotResponse(BaseModel):
     updated_at: Optional[datetime]
     use_trend_detection: Optional[bool] = None  # Phase 1: Market Regime Intelligence
     use_position_sizing: Optional[bool] = None  # Phase 2: Position Sizing Intelligence
+    lifecycle_stage: Optional[str] = "ACTIVE"  # Bot lifecycle management
+    archived_at: Optional[datetime] = None  # When bot was archived
+    can_auto_delete: Optional[bool] = True  # Whether bot can be auto-archived
     
     model_config = ConfigDict(from_attributes=True)
 

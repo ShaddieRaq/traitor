@@ -120,10 +120,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             <SystemHealthCard onViewDetails={() => setShowDiagnostics(true)} />
           </GridArea>
           
-          {/* AI Intelligence Framework - Integrated in Grid */}
+          {/* AI Intelligence Framework */}
           <GridArea area="intelligence">
             <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200 p-4 h-full">
-              <div className="flex items-center justify-between h-full">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="p-2 bg-purple-100 rounded-lg">
                     <Brain className="h-5 w-5 text-purple-600" />
