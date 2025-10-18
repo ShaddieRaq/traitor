@@ -2,97 +2,109 @@
 
 ## ✅ PRODUCTION-READY: Fully Operational Trading System
 
-**Latest Achievement**: **RiskAdjustmentService Activated** (October 11, 2025) - Dynamic position scaling now LIVE with 0.2x-3.0x multipliers based on performance. Winners automatically get bigger positions (SOL-USD: 1.96x), losers get smaller (BTC-USD: 0.30x). Capital flows automatically from underperformers to top performers. System manages 30+ cryptocurrency pairs with sophisticated 4-phase AI intelligence, bot deletion with automatic liquidation, and intelligent portfolio management.
+**Latest Achievement**: **Real Capital System + Multi-Account Fix + Auto-Start** (October 18, 2025) - System now uses actual Coinbase USD balance with multi-account liquidation fix, hourly breakout scans, and auto-start for new bots. All systems operational with ~13 active bots trading USD-only pairs with sophisticated 4-phase AI intelligence and intelligent portfolio management.
 
-**📋 Current Status**: System fully operational with 30 active trading bots, RiskAdjustmentService providing dynamic capital reallocation, 4-phase AI intelligence framework, and proven profitable performance with integrated dashboard management.
+**📋 Current Status** (October 18, 2025): System fully operational with ~13 active trading bots, real capital integration, USD-only trading filter, hourly breakout scans, auto-start for new bots, and proven performance with integrated dashboard management.
+
+## Recent Updates (October 14-18, 2025)
+
+### Critical Fixes & Enhancements
+- ✅ **Multi-Account Liquidation Fix** (Oct 14): Bot deletion now aggregates holdings across all Coinbase accounts per currency (discovered XTZ had 2 accounts with 295.26 total holdings)
+- ✅ **Hourly Breakout Scans** (Oct 14): Reduced scan frequency from 2 hours to 1 hour for faster opportunity detection
+- ✅ **Auto-Start Bots** (Oct 16): New breakout bots now start in RUNNING status instead of requiring manual activation
+- ✅ **Balance Sync Enhancement** (Oct 14): Added `current_holdings` field to Bot model for actual crypto holdings tracking
+- ✅ **UI Balance Warning Fix** (Oct 14): Buy signals no longer show misleading "Need X crypto" errors
+- ✅ **Scan Script Improvements** (Oct 17): Enhanced error handling with graceful failure messages
+
+### Known Limitations
+- ⚠️ **Coinbase Multi-Account**: API cannot liquidate from multiple accounts atomically - requires manual consolidation
+- ⚠️ **Backend Stability**: Occasional deadlocks under load requiring force restart (root cause under investigation)
 
 ## System Architecture Status
 
 **LATEST ACHIEVEMENTS**: 
-- ✅ **RiskAdjustmentService ACTIVE** (October 11, 2025): Dynamic position scaling 0.2x-3.0x based on performance, automatic capital reallocation from losers to winners
-- ✅ **30+ Bot Trading Network**: Complete cryptocurrency coverage across major trading pairs
+- ✅ **Multi-Account Liquidation** (October 14, 2025): Bot deletion sums holdings across all Coinbase accounts per currency (includes hold balance)
+- ✅ **Hourly Breakout Scans** (October 14, 2025): Changed from 2-hour to 1-hour intervals for faster opportunity detection
+- ✅ **Auto-Start Bots** (October 16, 2025): New breakout bots automatically start trading (no manual activation needed)
+- ✅ **Real Capital System** (October 13, 2025): Uses actual Coinbase USD balance - removed fake $500 allocation
+- ✅ **USD-Only Trading Filter** (October 13, 2025): Breakout scanner only creates bots for -USD pairs (excludes USDC/USDT)
+- ✅ **P&L Monitoring Active**: 10-minute checks for stop loss (-5%) / take profit (+10%) / time limit (72h)
+- ✅ **RiskAdjustmentService ACTIVE** (October 11, 2025): Dynamic position scaling 0.2x-3.0x based on performance
+- ✅ **~13 Bot Trading Network**: User-managed portfolio across selected cryptocurrency pairs
 - ✅ **Bot Deletion with Liquidation** (October 9, 2025): Safe bot removal with automatic position liquidation
 - ✅ **UI Consolidation Complete**: Clean 3-tab navigation with integrated bot management and portfolio display
-- ✅ **Portfolio Enhancement**: Live P&L tracking with 3-column layout (Cash/Crypto/P&L)
-- ✅ **AI Intelligence Framework**: 4-phase intelligence system operational (1M+ predictions, 65% accuracy)
+- ✅ **AI Intelligence Framework**: 4-phase intelligence system operational (141K+ predictions)
 - ✅ **Market Analysis Integration**: Create Bot functionality directly from trading pairs analysis
 - ✅ **System Health Optimization**: Compacted displays with comprehensive monitoring
-- ✅ **Performance Optimization**: Trading thresholds optimized for increased sensitivity
-- ✅ **Comprehensive Testing**: 185+ tests maintaining system stability
 
 ## Latest Technical Achievements
 
+- � **Multi-Account Liquidation** (Oct 14, 2025): Bot deletion now aggregates holdings across ALL Coinbase accounts per currency (discovered rare edge case with XTZ having 2 accounts: 0.058 + 295.2)
+- ⏰ **Hourly Breakout Scans** (Oct 14, 2025): Reduced scan frequency from 2 hours to 1 hour for faster opportunity detection (user reduced bot count to ~13)
+- 🚀 **Auto-Start Bots** (Oct 16, 2025): New breakout bots automatically start in RUNNING status (no manual activation needed)
+- 💾 **Balance Sync Enhancement** (Oct 14, 2025): Added `current_holdings` field to Bot model for actual crypto holdings tracking (e.g., 295.26 XTZ)
+- 🎨 **UI Balance Warning Fix** (Oct 14, 2025): Buy signals no longer show misleading "Need X crypto" errors when user has USD
+- 🛠️ **Scan Script Improvements** (Oct 17, 2025): Enhanced error handling with graceful failure messages (no more KeyError crashes)
+- �💰 **Real Capital System**: Uses actual Coinbase USD balance - removed fake $500 allocation, 5-min cache prevents rate limiting
+- 🎯 **USD-Only Filter**: Breakout scanner only creates bots for -USD pairs (excludes USDC/USDT stablecoins)
+- ⏰ **P&L Monitoring**: 10-minute checks for stop loss (-5%), take profit (+10%), time limit (72h) - automatic lifecycle transitions
 - 🎯 **RiskAdjustmentService**: Dynamic position scaling (0.2x-3.0x) based on rolling 50-trade P&L - winners get bigger positions, losers get smaller
-- 🚀 **30+ Bot Trading Network**: Expanded system managing BTC, ETH, SOL, XRP, DOGE, and 25+ additional cryptocurrency pairs
-- 🧠 **AI Intelligence Framework**: 4-phase intelligence system with market regime detection, dynamic position sizing, performance tracking, and adaptive signal weighting
-- 📊 **Signal Performance**: 451,711+ signal predictions generated with 65% accuracy and 139 evaluated outcomes
+- 🚀 **~13 Bot Trading Network**: User-managed portfolio across selected cryptocurrency pairs with intelligent signal aggregation
+- 🧠 **AI Intelligence Framework**: 4-phase intelligence system with market regime detection, dynamic position sizing, performance tracking
+- 📊 **Signal Performance**: 141,000+ signal predictions with adaptive learning and universal optimization
 - 💰 **Intelligent Capital Allocation**: Automatic reallocation from underperformers to top performers (e.g., SOL-USD 1.96x vs BTC-USD 0.30x)
-- ⚡ **Rate Limiting Excellence**: 90-second cache TTL + circuit breaker + exponential backoff achieving stable API performance
-- 🎯 **Optimized Trading**: ±0.05 thresholds (2x more sensitive) driving increased trading frequency and profitability
-- 🌡️ **Market Adaptivity**: CHOPPY regime detection with -0.146 strength and 0.75 confidence enabling adaptive strategies
+- ⚡ **Rate Limiting Excellence**: 97.5% cache hit rate + WebSocket streaming achieving stable API performance with zero rate limits
+- 🎯 **Optimized Trading**: ±0.05 thresholds (2x more sensitive) driving increased trading frequency
+- 🌡️ **Market Adaptivity**: Temperature indicators (🔥HOT/🌡️WARM/❄️COOL/🧊FROZEN) enable adaptive strategies
 - 📈 **Active Trading**: 1,000+ total trades with continuous system activity showing consistent performance
 - 🔄 **Real-Time Monitoring**: Live dashboard with 5-second polling, temperature indicators, and comprehensive bot status
-- 🛡️ **Production Stability**: Comprehensive error handling, system health monitoring, and automated recovery systems
 
 ## Core Features
 
-- 🤖 **30+ Bot Trading Network**: One bot per trading pair with intelligent signal aggregation across major cryptocurrency pairs
+- 🤖 **~13 Bot Trading Network**: User-managed portfolio with intelligent signal aggregation across selected cryptocurrency pairs
+- 🔧 **Multi-Account Support**: Bot deletion correctly aggregates holdings across all Coinbase accounts (includes hold balance)
+- ⏰ **Hourly Breakout Scans**: Automatic market scanning every 1 hour for new trading opportunities
+- 🚀 **Auto-Start Bots**: New breakout bots automatically start trading (no manual activation required)
+- 💰 **Real Capital System**: Uses actual Coinbase USD balance (no fake limits) - 5-min cache for rate limit prevention
+- 🎯 **USD-Only Trading**: Breakout scanner filters to -USD pairs only (excludes USDC/USDT stablecoins)
+- ⏰ **P&L Monitoring**: 10-minute checks for -5% stop loss, +10% take profit, 72h time limits with automatic transitions
 - 🎯 **RiskAdjustmentService**: Dynamic position scaling (0.2x-3.0x) based on performance - automatic capital reallocation from losers to winners
 - 🧠 **AI Intelligence Framework**: 4-phase system with market regime detection, dynamic position sizing, performance tracking, and adaptive weighting
 - ⚡ **Advanced Signal Processing**: RSI, Moving Average, MACD with mathematical precision + ±0.05 optimized thresholds
 - 📊 **Real-Time Dashboard**: React 18 interface with 5-second polling, live portfolio data, and comprehensive bot status
-- 🏦 **Coinbase Integration**: Advanced Trade API with triple-layer rate limiting (90s cache + circuit breaker + backoff)
+- 🏦 **Coinbase Integration**: Advanced Trade API with WebSocket streaming (zero rate limiting) + Redis caching (97.5% hit rate)
 - 🛡️ **Production Safety**: Comprehensive safety limits, emergency controls, bot deletion with automatic liquidation, and automated error recovery
 - 💰 **Intelligent Portfolio Management**: Winners automatically get bigger positions, losers get smaller - hands-free optimization
 - 🌡️ **Bot Temperature System**: Hot 🔥/warm 🌡️/cool ❄️/frozen 🧊 indicators based on signal strength proximity
-- 📈 **Performance Tracking**: Real-time P&L monitoring with 451K+ signal predictions and outcome evaluation
-- ⚡ **Optimized Performance**: 90s market data caching + balance pre-checking + smart signal processing
+- 📈 **Performance Tracking**: Real-time P&L monitoring with 141K+ signal predictions and outcome evaluation
 - 💾 **Unified Architecture**: Single SQLite database at `/trader.db` with dual-table trading pattern
 
 ## Tech Stack
 
 - **Backend**: FastAPI + SQLAlchemy ORM + Celery/Redis + 4-phase AI intelligence framework
 - **Frontend**: React 18 + TypeScript + Vite + TailwindCSS + TanStack Query (5-second polling)
-- **Database**: Single unified SQLite at `/trader.db` with RawTrade table (clean Coinbase data)
-- **Queue**: Redis for background task processing with Celery beat scheduler
+- **Database**: Single unified SQLite at `/trader.db` with RawTrade table (clean Coinbase data) + current_holdings field (Oct 14, 2025)
+- **Queue**: Redis for background task processing with Celery beat scheduler (hourly breakout scans)
 - **API**: Coinbase Advanced Trade API + JWT auth + triple-layer rate limiting (90s cache + circuit breaker)
 - **AI Framework**: Market regime detection + dynamic position sizing + performance tracking + adaptive weighting
 - **Real-time**: Aggressive 5-second polling with 90s backend cache achieving high hit rates
 - **Testing**: 185+ comprehensive tests with signal validation, live API integration, and system stability verification
 - **API Clean-up**: Deprecated /api/v1/trades/ endpoints removed (October 2025) - use /api/v1/raw-trades/ only
+- **Bot Management**: Multi-account liquidation support (Oct 14, 2025) + auto-start for new bots (Oct 16, 2025)
 
-## Active Trading Bots (17 Total)
+## Active Trading Bots (~13 Total)
 
-The system currently manages **17 active trading bots** across major cryptocurrency pairs with AI intelligence:
+The system currently manages **~13 active trading bots** across selected cryptocurrency pairs with AI intelligence:
 
-### Core Pairs
-- **BTC-USD**: Bitcoin Continuous Trader (flagship pair)
-- **ETH-USD**: Ethereum Continuous Trader  
-- **SOL-USD**: Solana Continuous Trader
-- **XRP-USD**: Ripple Continuous Trader
-- **DOGE-USD**: Dogecoin Continuous Trader
+### User-Managed Portfolio
+User has reduced bot count from 30+ to ~13 for focused trading strategy. Exact pairs vary based on market conditions and user preferences.
 
-### Established Pairs
-- **AVNT-USD**: Aventus Trading Bot (high-volume performer)
-- **AERO-USD**: Aerodrome Finance Trading Bot
-- **SUI-USD**: Sui Network Trading Bot
-- **AVAX-USD**: Avalanche Trading Bot
-- **TOSHI-USD**: Toshi Trading Bot
-- **PENGU-USD**: Pengu Trading Bot
-- **ADA-USD**: Cardano Trading Bot (**⭐ top 24hr performer +$41.61**)
-
-### New Pairs (Added Sept 2025)
-- **LINK-USD**: Chainlink Trading Bot
-- **MATIC-USD**: Polygon Trading Bot  
-- **LTC-USD**: Litecoin Trading Bot
-- **DOT-USD**: Polkadot Trading Bot
-- **UNI-USD**: Uniswap Trading Bot
-
-### Bot Features
-- **AI Intelligence**: 4-phase intelligence framework with market regime detection
-- **Optimized Thresholds**: ±0.05 signal sensitivity (2x more responsive than default)
-- **Signal Generation**: 451K+ predictions with 65% accuracy across all pairs
-- **Performance Tracking**: Real-time P&L monitoring with outcome evaluation
+### System Capabilities
+- **Hourly Breakout Scans**: Automatic detection every 1 hour (changed from 2 hours Oct 14, 2025)
+- **Auto-Start**: New bots automatically start trading (Oct 16, 2025)
+- **USD-Only**: Only -USD pairs (excludes USDC/USDT stablecoins)
+- **Real Capital**: Uses actual Coinbase USD balance
+- **Dynamic Scaling**: RiskAdjustmentService adjusts position sizes 0.2x-3.0x based on performance
 - **Temperature System**: 🔥HOT/🌡️WARM/❄️COOL/🧊FROZEN based on signal proximity
 - **Adaptive Position Sizing**: Dynamic sizing based on market regime detection
 - **Real-time Evaluation**: 5-second polling with 90s intelligent caching

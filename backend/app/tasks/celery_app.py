@@ -67,7 +67,7 @@ celery_app.conf.update(
         # Bot Lifecycle Management (October 12, 2025)
         "breakout-scanner": {
             "task": "app.tasks.trading_tasks.scan_for_breakouts",
-            "schedule": 7200.0,  # Every 2 hours - controlled scanning
+            "schedule": 3600.0,  # Every 1 hour - faster opportunity detection
             "kwargs": {
                 "create_bots": True,  # Auto-create enabled
                 "min_confidence": "MEDIUM"  # Only MEDIUM+ opportunities

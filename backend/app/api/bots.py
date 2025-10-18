@@ -228,17 +228,36 @@ def delete_bot(bot_id: int, liquidate: bool = False, db: Session = Depends(get_d
                 product_id = bot.pair
                 base_currency = product_id.split('-')[0]
                 
-                # Find account with holdings
+                # Find ALL accounts with this currency and sum holdings (Coinbase can have multiple accounts per currency)
                 holdings = 0.0
+                account_count = 0
                 for account in accounts:
                     if account.get('currency') == base_currency:
                         available_balance = account.get('available_balance', 0)
+                        hold_balance = account.get('hold', 0)
+                        
                         # Handle both dict format {"value": x} and direct float format
                         if isinstance(available_balance, dict):
-                            holdings = float(available_balance.get('value', 0))
+                            available = float(available_balance.get('value', 0))
                         else:
-                            holdings = float(available_balance)
-                        break
+                            available = float(available_balance)
+                            
+                        # Add hold balance (funds in pending orders)
+                        if isinstance(hold_balance, dict):
+                            hold = float(hold_balance.get('value', 0))
+                        else:
+                            hold = float(hold_balance)
+                        
+                        # Sum across all accounts for this currency
+                        account_total = available + hold
+                        holdings += account_total
+                        account_count += 1
+                        
+                        if account_total > 0:
+                            logger.info(f"💰 {base_currency} account #{account_count}: {available} available + {hold} on hold = {account_total}")
+                
+                if account_count > 0:
+                    logger.info(f"💰 Total {base_currency} across {account_count} account(s): {holdings}")
                 
                 liquidation_result = {
                     "product_id": product_id,

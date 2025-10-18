@@ -7,7 +7,7 @@
 **Required checks before/after any change:**
 ```bash
 ./scripts/status.sh                                                  # System health
-curl -s "http://localhost:8000/api/v1/bots/" | jq 'length'          # Bot count (should be ~41)
+curl -s "http://localhost:8000/api/v1/bots/" | jq 'length'          # Bot count (should be ~13)
 curl -s "http://localhost:8000/api/v1/system-errors/errors" | jq    # Error status (should be [])
 curl -s --max-time 5 "http://localhost:8000/api/v1/bots/1" | jq     # Test API responsiveness
 ```
@@ -17,14 +17,19 @@ curl -s --max-time 5 "http://localhost:8000/api/v1/bots/1" | jq     # Test API r
 ## System Overview
 
 **Production cryptocurrency trading system** managing live funds with:
-- **30+ active trading bots** (one per trading pair)
+- **~13 active trading bots** (user-managed portfolio)
 - **141K+ signal predictions** with adaptive learning
 - **WebSocket price streaming** (zero REST API rate limiting)
-- **Bot deletion with automatic liquidation** (October 2025)
+- **Bot deletion with automatic liquidation** (October 2025) - **Multi-account fix Oct 14, 2025**
 - **Phase 7 Market Data Service** with Redis caching (95%+ hit rate)
 - **RiskAdjustmentService** - Dynamic position scaling 0.2x-3.0x (October 11, 2025)
+- **Real Capital System** - Live Coinbase USD balance integration (October 13, 2025)
+- **USD-Only Trading Filter** - Excludes USDC/USDT pairs (October 13, 2025)
+- **P&L Monitoring System** - 10-minute checks for stop loss/take profit (October 13, 2025)
+- **Breakout Scanner** - Hourly scans (changed from 2 hours Oct 14, 2025)
+- **Auto-Start Bots** - New breakout bots start immediately (Oct 16, 2025)
 
-**Current Status (October 11, 2025)**: ✅ All systems operational, 0 errors, RiskAdjustmentService ACTIVE with dynamic capital reallocation
+**Current Status (October 18, 2025)**: ✅ All systems operational, 0 errors, USD-only filter active, real capital system deployed, hourly breakout scans, auto-start enabled
 
 ## Architecture Quick Reference
 
@@ -255,6 +260,60 @@ signal_instance = create_signal_instance('RSI', {'period': 14, 'buy_threshold': 
 - **RawTrade** - Source of truth (exact Coinbase fills)
 - **Database**: `/trader.db` at project root (NOT `backend/trader.db`)
 - **Always use**: `/api/v1/raw-trades/*` endpoints
+
+### Real Capital System (October 13, 2025)
+**CRITICAL: No Fake Limits - Real Coinbase Balance Only**
+
+- **Before**: Hardcoded $500 allocation (disconnected from reality)
+- **After**: Direct Coinbase USD account balance queries
+- **Implementation**: `backend/app/services/capital_reallocation_service.py`
+
+```python
+# Real capital check (cached 5 minutes)
+from ..services.coinbase_service import coinbase_service
+accounts = coinbase_service.get_accounts()  # Cached, no rate limit impact
+usd_balance = float(account.get('available_balance', 0))
+
+# Returns actual USD available
+return {
+    "usd_balance": usd_balance,
+    "can_create_bots": usd_balance >= 15.0
+}
+```
+
+**Key Points**:
+- ✅ Uses actual Coinbase USD balance ($14.42 as of Oct 13, 2025)
+- ✅ Account data cached 5 minutes (prevents rate limiting)
+- ✅ No hardcoded limits or fake allocations
+- ✅ Supports user's scalping strategy (fast capital turnover)
+- ⚠️ Minimum $15 per bot required by system
+
+### USD-Only Trading Filter (October 13, 2025)
+**CRITICAL: Only -USD pairs, excludes USDC/USDT/etc.**
+
+Location: `backend/app/tasks/trading_tasks.py` in `scan_for_breakouts()`
+
+```python
+# Filter to USD pairs only (exclude USDC, USDT, etc.)
+usd_only_breakouts = [
+    b for b in filtered_breakouts
+    if b.product_id.endswith('-USD')
+]
+
+excluded_count = len(filtered_breakouts) - len(usd_only_breakouts)
+if excluded_count > 0:
+    logger.info(f"Filtered out {excluded_count} non-USD pairs (USDC, USDT, etc.)")
+
+filtered_breakouts = usd_only_breakouts
+```
+
+**Impact**:
+- ✅ Breakout scanner only creates bots for -USD pairs
+- ✅ Filters applied after confidence check
+- ✅ Logs excluded pairs count for monitoring
+- ✅ Works automatically every 2-hour scan
+
+**Example**: Scanner found UMA-USDC (+24% breakout) but filtered it out, only attempting to create ALICE-USD, MAGIC-USD, BAT-USD bots.
 
 ### Frontend Real-Time Pattern
 ```typescript
@@ -665,6 +724,180 @@ DELETE /api/v1/bots/{bot_id}?liquidate=true
 - Complete guide: `/docs/current/BOT_DELETION_WITH_LIQUIDATION.md`
 - Quick reference: `/docs/current/BOT_DELETION_QUICK_REFERENCE.md`
 - Implementation summary: `/docs/current/BOT_DELETION_IMPLEMENTATION_SUMMARY.md`
+
+## 🔧 RECENT SYSTEM UPDATES (October 14-18, 2025)
+
+### **1. Multi-Account Liquidation Fix (October 14, 2025)**
+
+**Problem**: Bot deletion with liquidation only checked first Coinbase account per currency, missing holdings in secondary accounts.
+
+**Discovery**: Coinbase can have multiple accounts for same currency (e.g., 2 XTZ accounts: 0.058 + 295.2 holdings).
+
+**Fix Applied** (`backend/app/api/bots.py` lines 220-248):
+```python
+# Before (BUGGY):
+for account in accounts:
+    if account.get('currency') == base_currency:
+        holdings = float(account.get('available_balance', 0))
+        break  # ❌ Stops after first account
+
+# After (FIXED):
+holdings = 0.0
+account_count = 0
+for account in accounts:
+    if account.get('currency') == base_currency:
+        available = float(account.get('available_balance', 0))
+        hold = float(account.get('hold', 0))  # ✅ Include hold balance
+        holdings += available + hold  # ✅ Sum across ALL accounts
+        account_count += 1
+        logger.info(f"💰 {base_currency} account #{account_count}: {available} + {hold} = {account_total}")
+```
+
+**Known Limitation**: Coinbase API still rejects multi-account liquidations with "INSUFFICIENT_FUND" error. The API cannot automatically consolidate funds across multiple accounts for a single order.
+
+**Workaround**: Users must manually consolidate holdings in Coinbase or sell through Coinbase UI for multi-account situations.
+
+### **2. Breakout Scanner Frequency (October 14, 2025)**
+
+**Change**: Reduced scan interval from 2 hours to 1 hour.
+
+**Location**: `backend/app/tasks/celery_app.py` line 72
+```python
+"breakout-scanner": {
+    "schedule": 3600.0,  # Every 1 hour (was 7200.0)
+    "kwargs": {"create_bots": True, "min_confidence": "MEDIUM"}
+}
+```
+
+**Reason**: User reduced bot count from 30+ to ~13, wanted more frequent opportunity detection.
+
+**Impact**: More responsive to market opportunities, faster bot creation during breakouts.
+
+### **3. Auto-Start for Breakout Bots (October 16, 2025)**
+
+**Problem**: Breakout scanner created bots with `status="STOPPED"` requiring manual activation.
+
+**Fix Applied** (`backend/app/services/bot_creator.py` line 90):
+```python
+# Before:
+status="STOPPED",  # Start stopped, user can activate
+
+# After:
+status="RUNNING",  # Auto-start for breakout opportunities
+```
+
+**Impact**: New breakout bots immediately start trading instead of requiring manual activation.
+
+### **4. Balance Sync Enhancement (October 14, 2025)**
+
+**Added**: `current_holdings` field to Bot model to store actual crypto holdings count.
+
+**Database Migration**:
+```sql
+ALTER TABLE bots ADD COLUMN current_holdings REAL DEFAULT 0.0;
+```
+
+**Update**: Position reconciliation service now updates both:
+- `current_position_size` - USD value of holdings
+- `current_holdings` - Crypto units (e.g., 295.26 XTZ)
+
+**API Endpoint**: `POST /api/v1/position-reconciliation/reconcile`
+
+### **5. UI Balance Warning Fix (October 14, 2025)**
+
+**Problem**: Buy signals showed confusing "Need X crypto" warnings when user had USD.
+
+**Fix Applied** (`frontend/src/components/Dashboard/BotCardSamples.tsx`):
+```typescript
+// Calculate signal direction from score, not trading_intent
+const signalDirection = bot.current_combined_score < -0.05 ? 'buy' 
+  : bot.current_combined_score > 0.05 ? 'sell' 
+  : 'hold';
+
+// Only show error when missing RELEVANT currency
+if (signalDirection === 'buy' && blockingReason.includes('USD')) {
+  return <span>Need ${bot.position_size_usd || 25} USD minimum</span>;
+}
+// Don't show crypto error for buy signals
+return null;
+```
+
+**Impact**: Buy signals no longer show misleading errors about missing crypto holdings.
+
+### **6. Scan Script Error Handling (October 17, 2025)**
+
+**Problem**: `scanforbreakout.py` crashed with `KeyError: 'new_opportunities'` when scan failed.
+
+**Fix Applied** (`backend/scanforbreakout.py`):
+```python
+# Check for error status
+if result.get('status') == 'error':
+    print(f"❌ SCAN FAILED: {result.get('error', 'Unknown error')}")
+else:
+    # Use .get() with defaults for all keys
+    print(f"  Breakouts detected: {result.get('breakouts_detected', 0)}")
+    print(f"  New opportunities: {result.get('new_opportunities', 0)}")
+```
+
+**Impact**: Graceful error handling with clear error messages instead of crashes.
+
+## 🐛 KNOWN ISSUES & LIMITATIONS (Updated October 18, 2025)
+
+### **1. Coinbase Multi-Account Liquidation Limitation**
+
+**Issue**: When a user has multiple Coinbase accounts for the same currency (rare edge case), the liquidation feature can detect total holdings but cannot execute sell orders.
+
+**Symptoms**:
+- Bot deletion correctly aggregates holdings across all accounts
+- Logs show: "Total XTZ across 2 account(s): 295.258"
+- Coinbase API responds: "INSUFFICIENT_FUND - Insufficient balance in source account"
+
+**Root Cause**: Coinbase API cannot automatically pull funds from multiple accounts for a single order.
+
+**Workaround**: 
+```bash
+# Users must either:
+1. Manually consolidate holdings into one account in Coinbase
+2. Manually sell through Coinbase UI/app
+3. Wait for potential future API enhancement from Coinbase
+```
+
+**Detection**: Check logs for multiple account entries for same currency:
+```bash
+tail -50 logs/backend.log | grep "account #"
+```
+
+### **2. Backend Deadlocks Under Load**
+
+**Symptom**: Backend becomes unresponsive to API requests while WebSocket streaming continues to work.
+
+**Indicators**:
+- Health endpoint timeouts: `curl --max-time 3 "http://localhost:8000/health"` fails
+- REST API calls hang indefinitely
+- WebSocket price updates still functioning
+- Process shows in `ps aux` but not responding
+
+**Solution**: Force restart backend
+```bash
+pkill -9 -f "uvicorn app.main:app" && sleep 2
+cd backend && source venv/bin/activate
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 > ../logs/backend.log 2>&1 &
+```
+
+**Investigation Needed**: Root cause unknown, may be related to:
+- Heavy Celery task processing
+- Database lock contention
+- Memory pressure during bulk operations
+- Async/await deadlock in FastAPI
+
+**Frequency**: Observed 2 times during October 14-18 session (rare but recurring).
+
+### **3. Historical Trade Data Corruption**
+
+**Status**: ✅ RESOLVED via dual-table pattern
+- `Trade` table endpoints removed (October 5, 2025)
+- Use `RawTrade` table exclusively via `/api/v1/raw-trades/*`
+- See "Dual-Table Trading Pattern" section for details
 
 ## 🎯 PREVIOUS DEVELOPMENT PHASE: Universal Learning System (October 5, 2025)
 

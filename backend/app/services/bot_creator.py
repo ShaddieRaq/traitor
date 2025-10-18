@@ -84,7 +84,7 @@ def create_breakout_bot(
         name=f"Breakout-{product_id}",
         description=f"Auto-created breakout bot for {product_id} (score={breakout_score:.1f}, signals={', '.join(signals)})",
         pair=product_id,
-        status="STOPPED",  # Start stopped, user can activate
+        status="RUNNING",  # Auto-start for breakout opportunities
         trading_mode="BREAKOUT",  # Mark as breakout bot
         position_size_usd=initial_investment,
         stop_loss_pct=stop_loss_pct,

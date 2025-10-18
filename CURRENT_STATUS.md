@@ -1,257 +1,155 @@
-# System Status - October 12, 2025
+# Current System Status
 
-**Last Updated**: October 12, 2025  
-**System Health**: ✅ Fully Operational  
-**Active Bots**: 30  
-**System Errors**: 0
+**Last Updated**: October 13, 2025 - 18:30 PM  
+**Status**: 🟢 All Systems Operational
 
----
+## 🎯 Today's Major Achievements
 
-## 🎯 Latest Achievement: RiskAdjustmentService Activated (October 11, 2025)
+### 1. Real Capital System Deployed ✅
+**Impact**: System now uses actual Coinbase USD balance instead of fake $500 limit  
+**Status**: $14.42 available (need $15 for next bot)  
+**Docs**: `docs/current/REAL_CAPITAL_SYSTEM.md`
 
-### **What Changed**
-Activated existing RiskAdjustmentService (218 lines) that was built but never integrated. System now dynamically scales position sizes based on bot performance.
+### 2. USD-Only Trading Filter ✅
+**Impact**: Breakout scanner only creates bots for -USD pairs (excludes USDC/USDT)  
+**Status**: 18:03 scan filtered out 3 USDC pairs, kept 4 USD pairs  
+**Docs**: `docs/current/USD_ONLY_FILTER.md`
 
-### **How It Works**
-```python
-risk_multiplier = (signal_strength * 2.0 + confidence * 0.5) * (1.0 + avg_pnl * 10.0)
-# Range: 0.2x (defensive) to 3.0x (aggressive)
-
-# Applied to position sizing:
-final_position = base_size * temperature * signal_strength * progression * risk_multiplier
-```
-
-### **Live Production Results**
-- **SOL-USD**: 1.96x multiplier (high performer → aggressive scaling)
-- **DOGE-USD**: 0.98x multiplier (neutral performer → standard sizing)
-- **XRP-USD**: 0.71x multiplier (moderate performer → cautious sizing)
-- **ETH-USD**: 0.49x multiplier (low performer → defensive scaling)
-- **BTC-USD**: 0.30x multiplier (poor performer → minimal exposure)
-
-### **Impact**
-- ✅ Winners automatically get larger positions
-- ✅ Losers automatically get smaller positions
-- ✅ Capital reallocates dynamically without manual intervention
-- ✅ Zero errors, zero manual interventions required
+### 3. P&L Monitoring Active ✅
+**Impact**: Automatic stop loss (-5%) / take profit (+10%) every 10 minutes  
+**Status**: 23 bots monitored at 18:26, 0 triggers  
+**Docs**: Previous deployment
 
 ---
 
-## 🏗️ Current Architecture
+## Quick Health Check
 
-### **Core Trading System**
-- **Platform**: Coinbase Advanced Trade API (spot trading)
-- **Database**: SQLite at `/trader.db` (project root)
-- **Backend**: FastAPI + SQLAlchemy + Celery/Redis
-- **Frontend**: React 18 + TypeScript + TanStack Query (5s polling)
-- **Real-Time**: WebSocket price streaming + Redis caching
-
-### **Intelligence Framework (4 Layers)**
-1. **Signal Aggregation**: RSI + Moving Average + MACD (weighted combination)
-2. **Temperature System**: Score strength → position amplification (🔥HOT/🌡️WARM/❄️COOL/🧊FROZEN)
-3. **RiskAdjustmentService**: Performance-based position scaling (0.2x-3.0x)
-4. **Adaptive Learning**: 141K+ signal predictions with weight optimization
-
-### **Key Services**
-- **MarketDataService**: Centralized Redis-based caching (95%+ hit rate, 60s TTL)
-- **WebSocket Streaming**: Real-time price feeds (eliminates REST API rate limiting)
-- **BotSignalEvaluator**: Signal aggregation and scoring
-- **TradingService**: Order execution and position management
-- **RiskAdjustmentService**: Dynamic position scaling (ACTIVE)
-
----
-
-## 📊 Trading Performance
-
-### **Active Bots**: 30
-- All bots operational with dynamic risk scaling
-- Signal evaluation running every 5 minutes (Celery Beat)
-- Zero system errors
-
-### **Signal Thresholds**
-- **Buy Threshold**: -0.05 (strong bullish signal)
-- **Sell Threshold**: +0.05 (strong bearish signal)
-- **Temperature Range**: 0°C to 100°C (abs signal score scaling)
-
-### **Position Sizing Formula**
-```python
-intelligent_size = (
-    base_size * 
-    temperature_multiplier * 
-    signal_strength_multiplier * 
-    progression_multiplier * 
-    risk_multiplier  # NEW - Performance-based scaling
-)
-```
-
----
-
-## 🚀 Recent Milestones
-
-### **October 11, 2025 - RiskAdjustmentService Activation**
-- Discovered existing 218-line service that was never integrated
-- Activated across all 30 bots with zero errors
-- System now automatically reallocates capital based on performance
-
-### **October 9, 2025 - Bot Deletion with Liquidation**
-- Complete bot lifecycle management
-- Automatic position liquidation on deletion
-- Optimistic UI updates with sub-second response
-
-### **October 5, 2025 - Universal Learning Deployment**
-- Extended learning system to all 42 bots (from 8 hardcoded)
-- Performance-based signal weight optimization
-- Dynamic detection of learning-enhanced bots in UI
-
-### **September 2025 - Phase 7 Market Data Service**
-- Centralized Redis caching with 95%+ hit rate
-- Batch API calls every 30 seconds (Celery)
-- Minimal rate limiting, intelligent cache invalidation
-
----
-
-## 🎯 Current Focus
-
-### **Active Monitoring (Next 24-48 Hours)**
-- Track portfolio rebalancing impact
-- Measure P&L improvement from dynamic capital allocation
-- Verify risk multipliers adapt correctly to changing performance
-
-### **Deferred Priorities**
-- **Profit Protection**: Database fields exist (`stop_loss_pct`, `take_profit_pct`) but trading logic doesn't use them yet
-- **Perpetual Futures**: INTX API integration analysis complete, awaiting decision to proceed
-- **Market Regime Integration**: TrendDetectionEngine exists but not actively used in trading decisions
-
----
-
-## 📁 Documentation Organization
-
-### **Active Documents** (Project Root)
-- `README.md` - Project overview and quick start
-- `CURRENT_STATUS.md` - This file (system status and recent achievements)
-- `CURRENT_ARCHITECTURE.md` - System architecture and design patterns
-- `RISK_ADJUSTMENT_SERVICE_ACTIVATION_COMPLETE.md` - Latest implementation summary
-- `DOCUMENTATION_INDEX.md` - Navigation guide
-
-### **Reference Documents** (Project Root)
-- `COINBASE_INTX_INTEGRATION_ANALYSIS.md` - Perpetual futures research
-- `PERPETUAL_FUTURES_ADAPTATION_ANALYSIS.md` - Feasibility analysis
-
-### **Archived Documents** (`/docs/archived/`)
-- `phases/` - Completed phase documentation (1, 2, 8, 9)
-- `planning/` - Obsolete planning documents (institutional framework, microservices, etc.)
-- `analysis/` - Historical codebase analysis and cleanup reports
-- `status/` - Old system status snapshots
-- `cleanup/` - Deployment and update completion records
-
-### **Active Documentation** (`/docs/current/`)
-- Bot deletion feature guides
-- Trading implementation details
-- API endpoint documentation
-
----
-
-## 🔧 Development Workflow
-
-### **Essential Scripts**
 ```bash
-./scripts/start.sh              # Start all services
-./scripts/stop.sh               # Stop all services
-./scripts/status.sh             # Check system health
-./scripts/logs.sh               # Monitor logs
-./scripts/test-workflow.sh      # Full validation
-```
-
-### **System Health Checks**
-```bash
-# Verify system operational
+# Run these commands to verify system status
 ./scripts/status.sh
-
-# Check bot count (should be ~30)
-curl -s "http://localhost:8000/api/v1/bots/" | jq 'length'
-
-# Verify zero errors
-curl -s "http://localhost:8000/api/v1/system-errors/errors" | jq 'length'
-
-# Check WebSocket streaming (prevents rate limiting)
-curl -s "http://localhost:8000/api/v1/websocket-prices/status" | jq
+curl -s "http://localhost:8000/api/v1/bots/" | jq 'length'  # Should be 30
+curl -s "http://localhost:8000/api/v1/system-errors/errors" | jq 'length'  # Should be 0
 ```
 
-### **Critical API Endpoints**
+## System Services
+
+```
+✅ Backend (FastAPI): Running on port 8000
+✅ Celery Worker: Running (concurrency: 1)
+✅ Celery Beat: Running (scheduler active)
+✅ Redis: Connected (97.5% cache hit rate)
+✅ WebSocket: Streaming prices
+✅ Database: /trader.db (30 active bots)
+```
+
+## Current Trading State
+
+### Capital
+- **Available**: $14.42 USD
+- **Needed**: $15.00 per bot
+- **Gap**: $0.58 short
+- **Strategy**: Scalping (fast capital turnover)
+
+### Active Bots
+- **Count**: 30 bots
+- **Status**: RUNNING
+- **Pairs**: All USD-quoted (USDC/USDT excluded)
+- **Signals**: Learning-optimized weights
+
+### Breakout Scanner
+- **Frequency**: Every 2 hours
+- **Last scan**: 18:03 PM
+- **Filter**: USD pairs only
+- **Next scan**: 20:03 PM
+
+### Top Opportunities (18:03 scan)
+1. **ALICE-USD**: Score 100, +46% price, +3,634% volume (HIGH)
+2. **MAGIC-USD**: Score 81.1, +21% price, +554% volume (HIGH)
+3. **BAT-USD**: Score 73.5, +23% price, +442% volume (HIGH)
+4. **BAND-USD**: Score 71.6, +16% price (HIGH)
+
+## Scheduled Tasks
+
+```
+- breakout-scanner: Every 2 hours
+- check-pnl-triggers: Every 10 minutes
+- check-closing-bots: Every hour
+- update-trade-statuses: Every 2 minutes
+- cache-stats-logger: Every 1 minute
+- daily-bot-cleanup: Daily at 2 AM
+```
+
+## Recent Changes
+
+### October 13, 2025
+- 18:30: All documentation updated
+- 18:03: Breakout scan (4 USD opportunities found, 3 USDC filtered)
+- 16:03: First scan with USD filter active
+- Afternoon: USD-only filter deployed to production
+- Morning: Real capital system deployed (removed fake $500 limit)
+
+### October 11, 2025
+- RiskAdjustmentService activated (dynamic position scaling 0.2x-3.0x)
+
+### October 9, 2025
+- Bot deletion with liquidation feature
+
+### October 5, 2025
+- Universal learning system deployed (all bots optimized)
+
+## Health Metrics
+
+- **Cache Hit Rate**: 97.5%
+- **System Errors**: 0
+- **Rate Limit Issues**: 0
+- **Active Bots**: 30
+- **Signal Predictions**: 141,000+
+- **WebSocket**: Connected and streaming
+
+## Documentation
+
+### Core Guides
+- **Main Instructions**: `.github/copilot-instructions.md`
+- **Capital System**: `docs/current/REAL_CAPITAL_SYSTEM.md`
+- **USD Filter**: `docs/current/USD_ONLY_FILTER.md`
+- **Today's Status**: `SYSTEM_STATUS_OCTOBER_13_2025.md`
+
+### Monitoring Commands
 ```bash
-# System health
-GET /api/v1/bots/status/enhanced
-GET /api/v1/diagnosis/trading-diagnosis
+# Watch logs
+./scripts/logs.sh
 
-# Trading data (USE raw-trades ONLY)
-GET /api/v1/raw-trades/pnl-by-product
-GET /api/v1/raw-trades/stats
+# Check breakout scans
+grep "Breakout scanner" logs/celery-worker.log | tail -5
 
-# Performance monitoring
-GET /api/v1/cache/stats
-GET /api/v1/market-data/stats
+# Check USD filter
+grep "Filtered out.*non-USD" logs/celery-worker.log | tail -5
 
-# Bot management
-GET /api/v1/bots/
-POST /api/v1/bots/
-DELETE /api/v1/bots/{id}?liquidate=true
+# Check capital
+cd backend && source venv/bin/activate
+python -c "
+from app.services.capital_reallocation_service import CapitalReallocationService
+capital = CapitalReallocationService().get_available_capital()
+print(f'USD: \${capital[\"usd_balance\"]:.2f}')
+"
 ```
 
----
+## Next Expected Events
 
-## 🚨 Critical Constraints
+- **20:03 PM**: Next breakout scan
+- **18:36 PM**: Next P&L check
+- **When**: $0.58+ available → ALICE-USD bot created (score 100)
 
-### **Database**
-- **Path**: `/trader.db` at project root (NOT `backend/trader.db`)
-- **Config**: Absolute path in `DATABASE_URL`
-- **Dual Tables**: Use `RawTrade` (source of truth), NOT `Trade` (corrupted, endpoints removed)
+## Emergency Contacts
 
-### **Trading**
-- **Thresholds**: ±0.05 system-wide (NEVER change - optimized value)
-- **Order Type**: Market orders (some pairs require limit orders)
-- **Minimum Size**: $10+ USD per trade
-- **Balance Check**: Bots skip evaluation when insufficient funds
-
-### **WebSocket Streaming**
-- **MANDATORY**: Must be running to prevent Coinbase API rate limiting
-- **Check Status**: `curl -s "http://localhost:8000/api/v1/websocket-prices/status" | jq`
-- **Start If Needed**: `curl -X POST "http://localhost:8000/api/v1/websocket-prices/start-price-streaming"`
+- **System hangs**: Check WebSocket streaming, restart if needed
+- **Rate limiting**: Verify WebSocket active, check cache stats
+- **No bot creation**: Check capital balance, verify USD filter
 
 ---
 
-## 📚 Key Learnings (October 2025)
-
-### **Architecture Discoveries**
-1. **Database fields ≠ Active logic**: Fields can exist without being used (discovered with profit protection)
-2. **Signal optimization ≠ Risk management**: Learning optimizes weights, RiskAdjustmentService manages capital
-3. **Performance-based scaling works**: Winners get 3x positions, losers get 0.2x automatically
-4. **WebSocket streaming eliminates rate limiting**: 99% of rate limit issues = streaming not running
-
-### **Development Principles**
-1. **Verify before claiming**: Always check actual system state after changes
-2. **Test the UI, not just the API**: Integration matters more than isolated tests
-3. **Transaction order matters**: SQLite foreign keys require delete children → flush → delete parent
-4. **Avoid blocking I/O**: Background tasks for slow operations, not request handlers
-5. **Documentation hygiene**: Archive completed work, keep root clean
-
----
-
-## 🎯 Next Steps
-
-### **Immediate** (This Week)
-- Monitor RiskAdjustmentService impact on portfolio P&L
-- Verify dynamic capital reallocation is working correctly
-- Document performance improvements
-
-### **Short Term** (Next 2-4 Weeks)
-- Decision on profit protection implementation (activate existing fields)
-- Evaluate perpetual futures expansion (INTX integration)
-- Consider market regime integration with position sizing
-
-### **Long Term** (Future)
-- Scale to more trading pairs if capital increases
-- Optimize signal weights based on learning data
-- Explore additional signal types (volume, order flow, etc.)
-
----
-
-**System Status**: ✅ Production-ready, RiskAdjustmentService active, zero errors, 30 bots operational
+**Status**: 🟢 Production Ready  
+**Capital**: $14.42 USD available  
+**Filter**: USD-only active  
+**P&L Monitoring**: Every 10 minutes  
+**Next Bot**: ALICE-USD at score 100 (need $0.58 more)

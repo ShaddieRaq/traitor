@@ -1486,6 +1486,8 @@ class BotSignalEvaluator:
             can_sell = crypto_balance >= min_crypto_threshold
             
             # Determine overall trading capability
+            # FIXED: Only block if BOTH buy AND sell are impossible
+            # Allow trading if either buy OR sell is possible (bot will evaluate which action is needed)
             if not can_buy and not can_sell:
                 return {
                     'can_trade': False,
@@ -1501,9 +1503,12 @@ class BotSignalEvaluator:
                         'min_crypto': min_crypto_threshold
                     }
                 }
+            
+            # FIXED: If either buy OR sell is possible, allow signal evaluation
+            # The bot will determine which action is needed, then validate specific balance
             elif not can_buy:
                 return {
-                    'can_trade': True,
+                    'can_trade': True,  # Allow - might be a sell signal
                     'reason': 'sell_only',
                     'details': f'Can sell {base_currency} but cannot buy (${usd_balance:.2f} < ${min_usd_for_buy})',
                     'balances': {
@@ -1514,7 +1519,7 @@ class BotSignalEvaluator:
                 }
             elif not can_sell:
                 return {
-                    'can_trade': True,
+                    'can_trade': True,  # Allow - might be a buy signal
                     'reason': 'buy_only',
                     'details': f'Can buy with USD but cannot sell {base_currency} ({crypto_balance:.6f} < {min_crypto_threshold})',
                     'balances': {

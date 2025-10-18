@@ -127,12 +127,13 @@ class PositionReconciliationService:
             if abs(adjustment_usd) > 1.0:
                 logger.info(f"Updating bot {bot.id} position from ${tracked_position_usd:.2f} to ${actual_position_usd:.2f}")
                 
-                # Update the bot's position size
+                # Update the bot's position size AND holdings
                 bot.current_position_size = actual_position_usd
+                bot.current_holdings = actual_holdings  # CRITICAL: Also update holdings count
                 self.db.commit()
                 
                 result["updated"] = True
-                result["message"] = f"Updated position from ${tracked_position_usd:.2f} to ${actual_position_usd:.2f}"
+                result["message"] = f"Updated position from ${tracked_position_usd:.2f} to ${actual_position_usd:.2f} ({actual_holdings:.4f} {base_currency})"
             else:
                 result["message"] = f"Position is accurate (difference: ${adjustment_usd:.2f})"
             

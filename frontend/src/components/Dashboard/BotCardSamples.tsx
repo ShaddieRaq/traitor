@@ -290,6 +290,7 @@ export const AdvancedAnalyticsCard: React.FC<{ bot: any, pnlData?: any }> = ({ b
         </div>
 
         {/* Balance Requirements Info - Show ONLY when insufficient balance is blocking trading */}
+        {/* FIXED: Don't show balance warnings when signal doesn't match blocking reason */}
         {(bot.trade_readiness?.status === 'blocked' && bot.trade_readiness?.blocking_reason?.includes('insufficient_balance')) && (
           <div className="mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
             <div className="flex items-center space-x-1 mb-2">
@@ -299,27 +300,46 @@ export const AdvancedAnalyticsCard: React.FC<{ bot: any, pnlData?: any }> = ({ b
               {(() => {
                 // Parse specific amounts from blocking reason if available
                 const blockingReason = bot.trade_readiness?.blocking_reason || '';
+                const signalDirection = bot.current_combined_score < -0.05 ? 'buy' : bot.current_combined_score > 0.05 ? 'sell' : 'hold';
                 
-                if (bot.trading_intent?.next_action === 'buy') {
-                  return <span>Need ${bot.position_size_usd || 25} USD minimum for buy orders</span>;
-                } else if (bot.trading_intent?.next_action === 'sell') {
-                  // Extract required amount from blocking reason like "Insufficient SUI balance: 5.50000000 available, 7.02760443 required ($25.00 USD)"
-                  const requiredMatch = blockingReason.match(/(\d+\.?\d*)\s+required/);
-                  const availableMatch = blockingReason.match(/(\d+\.?\d*)\s+available/);
-                  const tokenName = bot.pair.split('-')[0];
-                  
-                  if (requiredMatch && availableMatch) {
-                    const required = parseFloat(requiredMatch[1]);
-                    const available = parseFloat(availableMatch[1]);
-                    const needed = required - available;
-                    return <span>Need {needed.toFixed(2)} more {tokenName} (have {available.toFixed(2)}, need {required.toFixed(2)})</span>;
-                  } else {
-                    return <span>Insufficient {tokenName} holdings for sell orders</span>;
+                // CRITICAL FIX: Check signal direction vs what's missing
+                // If BUY signal but missing crypto (not USD) -> Don't show error
+                // If SELL signal but missing USD (not crypto) -> Don't show error
+                
+                if (signalDirection === 'buy') {
+                  // Buy signal needs USD, not crypto
+                  if (blockingReason.includes('USD')) {
+                    return <span>Need ${bot.position_size_usd || 25} USD minimum for buy orders</span>;
                   }
-                } else if (blockingReason.includes('USD')) {
-                  return <span>Need ${bot.position_size_usd || 25} USD minimum for buy orders</span>;
+                  // Missing crypto on a buy signal = irrelevant, don't show
+                  return null;
+                } else if (signalDirection === 'sell') {
+                  // Sell signal needs crypto, not USD
+                  if (!blockingReason.includes('USD')) {
+                    // Extract required amount from blocking reason like "Insufficient SUI balance: 5.50000000 available, 7.02760443 required ($25.00 USD)"
+                    const requiredMatch = blockingReason.match(/(\d+\.?\d*)\s+required/);
+                    const availableMatch = blockingReason.match(/(\d+\.?\d*)\s+available/);
+                    const tokenName = bot.pair.split('-')[0];
+                    
+                    if (requiredMatch && availableMatch) {
+                      const required = parseFloat(requiredMatch[1]);
+                      const available = parseFloat(availableMatch[1]);
+                      const needed = required - available;
+                      return <span>Need {needed.toFixed(2)} more {tokenName} (have {available.toFixed(2)}, need {required.toFixed(2)})</span>;
+                    } else {
+                      return <span>Insufficient {tokenName} holdings for sell orders</span>;
+                    }
+                  }
+                  // Missing USD on a sell signal = irrelevant, don't show
+                  return null;
                 } else {
-                  return <span>Insufficient crypto holdings for sell orders</span>;
+                  // Hold signal - show whatever is blocking
+                  if (blockingReason.includes('USD')) {
+                    return <span>Need ${bot.position_size_usd || 25} USD minimum</span>;
+                  } else {
+                    const tokenName = bot.pair.split('-')[0];
+                    return <span>Insufficient {tokenName} holdings</span>;
+                  }
                 }
               })()}
             </div>

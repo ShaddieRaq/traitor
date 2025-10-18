@@ -48,6 +48,7 @@ class Bot(Base):
     # Current state
     current_position_size = Column(Float, default=0.0)
     current_position_entry_price = Column(Float)
+    current_holdings = Column(Float, default=0.0)  # Current crypto holdings (e.g., 199.5 DOGE)
     current_combined_score = Column(Float, default=0.0)
     signal_confirmation_start = Column(DateTime(timezone=True))  # When current signal confirmation started
     last_trade_reason = Column(String(50))  # Reason for last trade (TAKE_PROFIT, STOP_LOSS, SIGNAL_BUY, SIGNAL_SELL, EXISTING_POSITION)
