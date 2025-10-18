@@ -180,8 +180,9 @@ curl "http://localhost:8000/api/v1/cache/stats" | jq  # Cache performance
 - **Signal config**: Only `rsi`, `moving_average`, `macd` keys accepted
 - **Computed fields**: `trading_thresholds` computed via `extract_trading_thresholds()`, not stored in DB
 
-## 🚨 Rate Limiting Troubleshooting
+## 🚨 Critical Troubleshooting
 
+### Rate Limiting Prevention
 **Primary cause: WebSocket not running** - every price request hits REST API when streaming is down.
 
 ```bash
@@ -194,6 +195,27 @@ curl -X POST "http://localhost:8000/api/v1/websocket-prices/start-price-streamin
 # Verify in logs
 grep "💰.*USD:" logs/backend.log | tail -5
 ```
+
+### Database Corruption Recovery
+**Symptom:** "file is not a database" errors - usually caused by corrupted WAL files.
+
+```bash
+# 1. Backup database first
+cp trader.db trader.db.backup.$(date +%Y%m%d_%H%M%S)
+
+# 2. Remove WAL files (solves 90% of corruption issues)
+rm -f trader.db-shm trader.db-wal
+
+# 3. Verify integrity
+sqlite3 trader.db "PRAGMA integrity_check;"
+
+# 4. Test connection
+python -c "from backend.app.core.database import engine; from sqlalchemy import text; \
+conn = engine.connect(); result = conn.execute(text('SELECT COUNT(*) FROM bots')).scalar(); \
+conn.close(); print(f'✅ {result} bots found')"
+```
+
+**Prevention:** Stop backend/celery services cleanly before system shutdown to avoid WAL corruption.
 
 ## 📚 Additional Resources
 
